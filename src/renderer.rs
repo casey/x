@@ -26,7 +26,7 @@ impl<'a> Renderer<'a> {
         compatible_surface: Some(&surface),
       })
       .await
-      .expect("Failed to find an appropriate adapter");
+      .context("failed to find an appropriate adapter")?;
 
     let (device, queue) = adapter
       .request_device(
@@ -38,7 +38,7 @@ impl<'a> Renderer<'a> {
         None,
       )
       .await
-      .expect("Failed to create device");
+      .context("failed to create device")?;
 
     let shader = device.create_shader_module(ShaderModuleDescriptor {
       label: None,
@@ -86,27 +86,29 @@ impl<'a> Renderer<'a> {
     })
   }
 
-  pub fn handle_event(&mut self, event: Event<()>, target: &EventLoopWindowTarget<()>) {
+  pub fn handle_event(&mut self, event: Event<()>, target: &EventLoopWindowTarget<()>) -> Result {
     match event {
       Event::WindowEvent { event, .. } => match event {
         WindowEvent::Resized(size) => self.resize(size),
-        WindowEvent::RedrawRequested => self.redraw(),
+        WindowEvent::RedrawRequested => self.redraw()?,
         WindowEvent::CloseRequested => self.close(target),
         _ => {}
       },
       _ => {}
     }
+
+    Ok(())
   }
 
   fn close(&self, target: &EventLoopWindowTarget<()>) {
     target.exit();
   }
 
-  fn redraw(&self) {
+  fn redraw(&self) -> Result {
     let frame = self
       .surface
       .get_current_texture()
-      .expect("Failed to acquire next swap chain texture");
+      .context("failed to acquire next swap chain texture")?;
 
     let view = frame.texture.create_view(&TextureViewDescriptor::default());
 
@@ -135,6 +137,8 @@ impl<'a> Renderer<'a> {
 
     self.queue.submit(Some(encoder.finish()));
     frame.present();
+
+    Ok(())
   }
 
   fn resize(&mut self, size: PhysicalSize<u32>) {

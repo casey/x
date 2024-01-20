@@ -21,22 +21,8 @@ type Result<T = ()> = anyhow::Result<T>;
 
 mod renderer;
 
-fn run() -> Result<()> {
-  env_logger::init();
-
-  let event_loop = EventLoop::new()?;
-
-  let window = WindowBuilder::new().with_title("x").build(&event_loop)?;
-
-  let mut renderer = pollster::block_on(Renderer::new(&window))?;
-
-  event_loop.run(|event, target| renderer.handle_event(event, target))?;
-
-  Ok(())
-}
-
-fn main() {
-  if let Err(error) = run() {
+fn handle_error(result: Result) {
+  if let Err(error) = result {
     eprintln!("error: {error}");
 
     let backtrace = error.backtrace();
@@ -47,4 +33,22 @@ fn main() {
 
     process::exit(1);
   }
+}
+
+fn run() -> Result<()> {
+  env_logger::init();
+
+  let event_loop = EventLoop::new()?;
+
+  let window = WindowBuilder::new().with_title("x").build(&event_loop)?;
+
+  let mut renderer = pollster::block_on(Renderer::new(&window))?;
+
+  event_loop.run(|event, target| handle_error(renderer.handle_event(event, target)))?;
+
+  Ok(())
+}
+
+fn main() {
+  handle_error(run());
 }
