@@ -18,6 +18,7 @@ impl<'a> Renderer<'a> {
     let instance = Instance::default();
 
     let surface = instance.create_surface(window)?;
+
     let adapter = instance
       .request_adapter(&RequestAdapterOptions {
         power_preference: PowerPreference::default(),
@@ -47,6 +48,7 @@ impl<'a> Renderer<'a> {
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor::default());
 
     let swapchain_capabilities = surface.get_capabilities(&adapter);
+
     let swapchain_format = swapchain_capabilities.formats[0];
 
     let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
@@ -71,6 +73,7 @@ impl<'a> Renderer<'a> {
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
       .context("failed to get default config")?;
+
     surface.configure(&device, &config);
 
     Ok(Renderer {
@@ -84,18 +87,14 @@ impl<'a> Renderer<'a> {
   }
 
   pub fn handle_event(&mut self, event: Event<()>, target: &EventLoopWindowTarget<()>) {
-    {
-      match event {
-        Event::WindowEvent { event, .. } => {
-          match event {
-            WindowEvent::Resized(size) => self.resize(size),
-            WindowEvent::RedrawRequested => self.redraw(),
-            WindowEvent::CloseRequested => self.close(target),
-            _ => {}
-          };
-        }
+    match event {
+      Event::WindowEvent { event, .. } => match event {
+        WindowEvent::Resized(size) => self.resize(size),
+        WindowEvent::RedrawRequested => self.redraw(),
+        WindowEvent::CloseRequested => self.close(target),
         _ => {}
-      }
+      },
+      _ => {}
     }
   }
 
@@ -108,10 +107,13 @@ impl<'a> Renderer<'a> {
       .surface
       .get_current_texture()
       .expect("Failed to acquire next swap chain texture");
+
     let view = frame.texture.create_view(&TextureViewDescriptor::default());
+
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor { label: None });
+
     {
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         label: None,
