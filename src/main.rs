@@ -1,6 +1,7 @@
 use {
   self::renderer::Renderer,
-  std::borrow::Cow,
+  anyhow::Context,
+  std::{backtrace::BacktraceStatus, borrow::Cow, process},
   wgpu::{
     Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, Instance,
     Limits, LoadOp, MultisampleState, Operations, PipelineLayoutDescriptor, PowerPreference,
@@ -16,21 +17,33 @@ use {
   },
 };
 
+type Result<T = ()> = anyhow::Result<T>;
+
 mod renderer;
 
-// todo:
-// - error handling with backtrace and line number
-
-fn main() {
+fn run() -> Result<()> {
   env_logger::init();
 
-  let event_loop = EventLoop::new().unwrap();
+  let event_loop = EventLoop::new()?;
 
-  let window = WindowBuilder::new().build(&event_loop).unwrap();
+  let window = WindowBuilder::new().build(&event_loop)?;
 
-  let mut renderer = pollster::block_on(Renderer::new(&window));
+  let mut renderer = pollster::block_on(Renderer::new(&window))?;
 
-  event_loop
-    .run(|event, target| renderer.handle_event(event, target))
-    .unwrap();
+  event_loop.run(|event, target| renderer.handle_event(event, target))?;
+
+  Ok(())
+}
+
+fn main() {
+  if let Err(error) = run() {
+    eprintln!("error: {error}");
+    let backtrace = error.backtrace();
+
+    if let BacktraceStatus::Captured = backtrace.status() {
+      eprintln!("{}", backtrace);
+    }
+
+    process::exit(1);
+  }
 }

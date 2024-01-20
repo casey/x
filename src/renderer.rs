@@ -10,14 +10,14 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
-  pub async fn new(window: &'a Window) -> Self {
+  pub async fn new(window: &'a Window) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
 
     let instance = Instance::default();
 
-    let surface = instance.create_surface(window).unwrap();
+    let surface = instance.create_surface(window)?;
     let adapter = instance
       .request_adapter(&RequestAdapterOptions {
         power_preference: PowerPreference::default(),
@@ -70,17 +70,17 @@ impl<'a> Renderer<'a> {
 
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
-      .unwrap();
+      .context("failed to get default config")?;
     surface.configure(&device, &config);
 
-    Renderer {
+    Ok(Renderer {
       config,
       device,
       queue,
       render_pipeline,
       surface,
       window,
-    }
+    })
   }
 
   pub fn handle_event(&mut self, event: Event<()>, target: &EventLoopWindowTarget<()>) {
