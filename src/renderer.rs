@@ -3,9 +3,9 @@ use super::*;
 pub struct Renderer<'a> {
   config: SurfaceConfiguration,
   device: Device,
-  surface: Surface<'a>,
-  render_pipeline: RenderPipeline,
   queue: Queue,
+  render_pipeline: RenderPipeline,
+  surface: Surface<'a>,
   window: &'a Window,
 }
 
@@ -119,7 +119,7 @@ impl<'a> Renderer<'a> {
           view: &view,
           resolve_target: None,
           ops: Operations {
-            load: LoadOp::Clear(Color::GREEN),
+            load: LoadOp::Clear(Color::BLACK),
             store: StoreOp::Store,
           },
         })],

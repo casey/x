@@ -26,7 +26,7 @@ fn run() -> Result<()> {
 
   let event_loop = EventLoop::new()?;
 
-  let window = WindowBuilder::new().build(&event_loop)?;
+  let window = WindowBuilder::new().with_title("x").build(&event_loop)?;
 
   let mut renderer = pollster::block_on(Renderer::new(&window))?;
 
@@ -38,6 +38,7 @@ fn run() -> Result<()> {
 fn main() {
   if let Err(error) = run() {
     eprintln!("error: {error}");
+
     let backtrace = error.backtrace();
 
     if let BacktraceStatus::Captured = backtrace.status() {
