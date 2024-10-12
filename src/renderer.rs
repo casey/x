@@ -108,7 +108,7 @@ impl Renderer {
           view: &view,
           resolve_target: None,
           ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
+            load: LoadOp::Clear(Color::GREEN),
             store: StoreOp::Store,
           },
         })],
