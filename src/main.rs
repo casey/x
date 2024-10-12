@@ -1,5 +1,5 @@
 use {
-  self::renderer::Renderer,
+  self::{app::App, renderer::Renderer},
   anyhow::Context,
   std::{backtrace::BacktraceStatus, borrow::Cow, process, sync::Arc},
   wgpu::{
@@ -21,79 +21,8 @@ use {
 
 type Result<T = ()> = anyhow::Result<T>;
 
+mod app;
 mod renderer;
-
-fn report(result: Result) {
-  if let Err(error) = result {
-    eprintln!("error: {error}");
-
-    let backtrace = error.backtrace();
-
-    if let BacktraceStatus::Captured = backtrace.status() {
-      eprintln!("{}", backtrace);
-    }
-
-    process::exit(1);
-  }
-}
-
-#[derive(Default)]
-struct App {
-  frame: u64,
-  window: Option<Arc<Window>>,
-  renderer: Option<Renderer>,
-}
-
-impl App {
-  fn window(&self) -> &Window {
-    self.window.as_ref().unwrap()
-  }
-}
-
-impl ApplicationHandler for App {
-  fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-    if self.window.is_none() {
-      eprintln!("Initializing window…");
-
-      // todo:
-      // - error handling?
-      self.window = Some(Arc::new(
-        event_loop
-          .create_window(WindowAttributes::default().with_title("x"))
-          .unwrap(),
-      ));
-
-      assert!(self.renderer.is_none());
-
-      // todo:
-      // - this use of async is probably fucked
-      self.renderer =
-        Some(pollster::block_on(Renderer::new(self.window.as_ref().unwrap().clone())).unwrap());
-
-      eprintln!("Done initializing window…");
-    }
-  }
-
-  fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-    match event {
-      WindowEvent::RedrawRequested => {
-        self.frame += 1;
-        self.renderer.as_ref().unwrap().redraw().unwrap();
-        eprintln!("redraw {}", self.frame);
-        self.window().request_redraw();
-      }
-      WindowEvent::CloseRequested => {
-        event_loop.exit();
-      }
-      WindowEvent::Resized(size) => {
-        self.renderer.as_mut().unwrap().resize(size);
-        self.window().request_redraw();
-      }
-      _ => {}
-    }
-    eprintln!("window_event");
-  }
-}
 
 fn run() -> Result<()> {
   env_logger::init();
@@ -104,9 +33,23 @@ fn run() -> Result<()> {
 
   event_loop.run_app(&mut app)?;
 
+  if let Some(err) = app.error() {
+    return Err(err);
+  }
+
   Ok(())
 }
 
 fn main() {
-  report(run());
+  if let Err(error) = run() {
+    eprintln!("error: {error}");
+
+    let backtrace = error.backtrace();
+
+    if let BacktraceStatus::Captured = backtrace.status() {
+      eprintln!("{}", backtrace);
+    }
+
+    process::exit(1);
+  }
 }

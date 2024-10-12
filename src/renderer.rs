@@ -3,10 +3,10 @@ use super::*;
 pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
+  frame: u64,
   queue: Queue,
   render_pipeline: RenderPipeline,
   surface: Surface<'static>,
-  // window: &'a Window,
 }
 
 impl Renderer {
@@ -83,13 +83,16 @@ impl Renderer {
     Ok(Renderer {
       config,
       device,
+      frame: 0,
       queue,
       render_pipeline,
       surface,
     })
   }
 
-  pub(crate) fn redraw(&self) -> Result {
+  pub(crate) fn render(&mut self) -> Result {
+    eprintln!("rendering frame {}", self.frame);
+
     let frame = self
       .surface
       .get_current_texture()
@@ -123,6 +126,8 @@ impl Renderer {
     self.queue.submit(Some(encoder.finish()));
 
     frame.present();
+
+    self.frame += 1;
 
     Ok(())
   }
