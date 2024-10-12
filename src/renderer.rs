@@ -34,6 +34,7 @@ impl<'a> Renderer<'a> {
           label: None,
           required_features: Features::empty(),
           required_limits: Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
+          memory_hints: MemoryHints::Performance,
         },
         None,
       )
@@ -52,22 +53,25 @@ impl<'a> Renderer<'a> {
     let swapchain_format = swapchain_capabilities.formats[0];
 
     let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-      label: None,
-      layout: Some(&pipeline_layout),
-      vertex: VertexState {
-        module: &shader,
-        entry_point: "vertex",
-        buffers: &[],
-      },
+      cache: None,
+      depth_stencil: None,
       fragment: Some(FragmentState {
-        module: &shader,
+        compilation_options: PipelineCompilationOptions::default(),
         entry_point: "fragment",
+        module: &shader,
         targets: &[Some(swapchain_format.into())],
       }),
-      primitive: PrimitiveState::default(),
-      depth_stencil: None,
+      label: None,
+      layout: Some(&pipeline_layout),
       multisample: MultisampleState::default(),
       multiview: None,
+      primitive: PrimitiveState::default(),
+      vertex: VertexState {
+        buffers: &[],
+        compilation_options: PipelineCompilationOptions::default(),
+        entry_point: "vertex",
+        module: &shader,
+      },
     });
 
     let config = surface

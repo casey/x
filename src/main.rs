@@ -4,10 +4,11 @@ use {
   std::{backtrace::BacktraceStatus, borrow::Cow, process},
   wgpu::{
     Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, Instance,
-    Limits, LoadOp, MultisampleState, Operations, PipelineLayoutDescriptor, PowerPreference,
-    PrimitiveState, Queue, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
-    RenderPipelineDescriptor, RequestAdapterOptions, ShaderModuleDescriptor, ShaderSource, StoreOp,
-    Surface, SurfaceConfiguration, TextureViewDescriptor, VertexState,
+    Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
+    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions,
+    ShaderModuleDescriptor, ShaderSource, StoreOp, Surface, SurfaceConfiguration,
+    TextureViewDescriptor, VertexState,
   },
   winit::{
     dpi::PhysicalSize,
