@@ -1,7 +1,7 @@
 use {
   self::renderer::Renderer,
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, borrow::Cow, process},
+  std::{backtrace::BacktraceStatus, borrow::Cow, process, sync::Arc},
   wgpu::{
     Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, Instance,
     Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
@@ -13,7 +13,7 @@ use {
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{Event, WindowEvent},
+    event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowAttributes, WindowId},
   },
@@ -40,7 +40,7 @@ fn report(result: Result) {
 #[derive(Default)]
 struct App {
   frame: u64,
-  window: Option<Window>,
+  window: Option<Arc<Window>>,
   renderer: Option<Renderer>,
 }
 
@@ -57,17 +57,18 @@ impl ApplicationHandler for App {
 
       // todo:
       // - error handling?
-      self.window = Some(
+      self.window = Some(Arc::new(
         event_loop
           .create_window(WindowAttributes::default().with_title("x"))
           .unwrap(),
-      );
+      ));
 
       assert!(self.renderer.is_none());
 
       // todo:
       // - this use of async is probably fucked
-      self.renderer = Some(pollster::block_on(Renderer::new(self.window())).unwrap());
+      self.renderer =
+        Some(pollster::block_on(Renderer::new(self.window.as_ref().unwrap().clone())).unwrap());
 
       eprintln!("Done initializing window…");
     }
@@ -77,13 +78,17 @@ impl ApplicationHandler for App {
     match event {
       WindowEvent::RedrawRequested => {
         self.frame += 1;
+        self.renderer.as_ref().unwrap().redraw().unwrap();
         eprintln!("redraw {}", self.frame);
         self.window().request_redraw();
       }
       WindowEvent::CloseRequested => {
         event_loop.exit();
       }
-      //   WindowEvent::Resized(size) => self.resize(size),
+      WindowEvent::Resized(size) => {
+        self.renderer.as_mut().unwrap().resize(size);
+        self.window().request_redraw();
+      }
       _ => {}
     }
     eprintln!("window_event");
@@ -98,11 +103,6 @@ fn run() -> Result<()> {
   let mut app = App::default();
 
   event_loop.run_app(&mut app)?;
-
-  // event_loop.run(|event, target| {
-  //   report(renderer.handle_event(event, target));
-  //   window.request_redraw();
-  // })?;
 
   Ok(())
 }

@@ -5,12 +5,12 @@ pub struct Renderer {
   device: Device,
   queue: Queue,
   render_pipeline: RenderPipeline,
-  // surface: Surface<'a>,
+  surface: Surface<'static>,
   // window: &'a Window,
 }
 
 impl Renderer {
-  pub async fn new(window: &Window) -> Result<Self> {
+  pub async fn new(window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -57,7 +57,7 @@ impl Renderer {
       depth_stencil: None,
       fragment: Some(FragmentState {
         compilation_options: PipelineCompilationOptions::default(),
-        entry_point: "fragment",
+        entry_point: Some("fragment"),
         module: &shader,
         targets: &[Some(swapchain_format.into())],
       }),
@@ -69,7 +69,7 @@ impl Renderer {
       vertex: VertexState {
         buffers: &[],
         compilation_options: PipelineCompilationOptions::default(),
-        entry_point: "vertex",
+        entry_point: Some("vertex"),
         module: &shader,
       },
     });
@@ -85,69 +85,51 @@ impl Renderer {
       device,
       queue,
       render_pipeline,
+      surface,
     })
   }
 
-  pub fn handle_event(&mut self, event: Event<()>, target: &ActiveEventLoop) -> Result {
-    match event {
-      Event::WindowEvent { event, .. } => match event {
-        // WindowEvent::Resized(size) => self.resize(size),
-        // WindowEvent::RedrawRequested => self.redraw()?,
-        WindowEvent::CloseRequested => self.close(target),
-        _ => {}
-      },
-      _ => {}
+  pub(crate) fn redraw(&self) -> Result {
+    let frame = self
+      .surface
+      .get_current_texture()
+      .context("failed to acquire next swap chain texture")?;
+
+    let view = frame.texture.create_view(&TextureViewDescriptor::default());
+
+    let mut encoder = self
+      .device
+      .create_command_encoder(&CommandEncoderDescriptor::default());
+
+    {
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        label: None,
+        color_attachments: &[Some(RenderPassColorAttachment {
+          view: &view,
+          resolve_target: None,
+          ops: Operations {
+            load: LoadOp::Clear(Color::BLACK),
+            store: StoreOp::Store,
+          },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+      });
+      pass.set_pipeline(&self.render_pipeline);
+      pass.draw(0..3, 0..1);
     }
+
+    self.queue.submit(Some(encoder.finish()));
+
+    frame.present();
 
     Ok(())
   }
 
-  fn close(&self, target: &ActiveEventLoop) {
-    target.exit();
+  pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
+    self.config.width = size.width.max(1);
+    self.config.height = size.height.max(1);
+    self.surface.configure(&self.device, &self.config);
   }
-
-  // fn redraw(&self) -> Result {
-  //   let frame = self
-  //     .surface
-  //     .get_current_texture()
-  //     .context("failed to acquire next swap chain texture")?;
-
-  //   let view = frame.texture.create_view(&TextureViewDescriptor::default());
-
-  //   let mut encoder = self
-  //     .device
-  //     .create_command_encoder(&CommandEncoderDescriptor::default());
-
-  //   {
-  //     let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-  //       label: None,
-  //       color_attachments: &[Some(RenderPassColorAttachment {
-  //         view: &view,
-  //         resolve_target: None,
-  //         ops: Operations {
-  //           load: LoadOp::Clear(Color::BLACK),
-  //           store: StoreOp::Store,
-  //         },
-  //       })],
-  //       depth_stencil_attachment: None,
-  //       timestamp_writes: None,
-  //       occlusion_query_set: None,
-  //     });
-  //     pass.set_pipeline(&self.render_pipeline);
-  //     pass.draw(0..3, 0..1);
-  //   }
-
-  //   self.queue.submit(Some(encoder.finish()));
-
-  //   frame.present();
-
-  //   Ok(())
-  // }
-
-  // fn resize(&mut self, size: PhysicalSize<u32>) {
-  //   self.config.width = size.width.max(1);
-  //   self.config.height = size.height.max(1);
-  //   self.surface.configure(&self.device, &self.config);
-  //   self.window.request_redraw();
-  // }
 }
