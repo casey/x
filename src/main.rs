@@ -1,14 +1,14 @@
 use {
   self::{app::App, renderer::Renderer},
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, borrow::Cow, process, sync::Arc},
+  std::{backtrace::BacktraceStatus, process, sync::Arc},
   wgpu::{
-    Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, Instance,
-    Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
-    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions,
-    ShaderModuleDescriptor, ShaderSource, StoreOp, Surface, SurfaceConfiguration,
-    TextureViewDescriptor, VertexState,
+    include_wgsl, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features,
+    FragmentState, Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, TextureViewDescriptor,
+    VertexState,
   },
   winit::{
     application::ApplicationHandler,

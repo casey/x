@@ -41,10 +41,7 @@ impl Renderer {
       .await
       .context("failed to create device")?;
 
-    let shader = device.create_shader_module(ShaderModuleDescriptor {
-      label: None,
-      source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
-    });
+    let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor::default());
 
