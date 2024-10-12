@@ -1,7 +1,7 @@
 use {
-  self::renderer::Renderer,
+  self::{app::App, renderer::Renderer},
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, borrow::Cow, process},
+  std::{backtrace::BacktraceStatus, borrow::Cow, process, sync::Arc},
   wgpu::{
     Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, Instance,
     Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
@@ -11,19 +11,37 @@ use {
     TextureViewDescriptor, VertexState,
   },
   winit::{
+    application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{Event, WindowEvent},
-    event_loop::{EventLoop, EventLoopWindowTarget},
-    window::{Window, WindowBuilder},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop},
+    window::{Window, WindowAttributes, WindowId},
   },
 };
 
 type Result<T = ()> = anyhow::Result<T>;
 
+mod app;
 mod renderer;
 
-fn handle_error(result: Result) {
-  if let Err(error) = result {
+fn run() -> Result<()> {
+  env_logger::init();
+
+  let event_loop = EventLoop::new()?;
+
+  let mut app = App::default();
+
+  event_loop.run_app(&mut app)?;
+
+  if let Some(err) = app.error() {
+    return Err(err);
+  }
+
+  Ok(())
+}
+
+fn main() {
+  if let Err(error) = run() {
     eprintln!("error: {error}");
 
     let backtrace = error.backtrace();
@@ -34,22 +52,4 @@ fn handle_error(result: Result) {
 
     process::exit(1);
   }
-}
-
-fn run() -> Result<()> {
-  env_logger::init();
-
-  let event_loop = EventLoop::new()?;
-
-  let window = WindowBuilder::new().with_title("x").build(&event_loop)?;
-
-  let mut renderer = pollster::block_on(Renderer::new(&window))?;
-
-  event_loop.run(|event, target| handle_error(renderer.handle_event(event, target)))?;
-
-  Ok(())
-}
-
-fn main() {
-  handle_error(run());
 }

@@ -1,16 +1,16 @@
 use super::*;
 
-pub struct Renderer<'a> {
+pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
+  frame: u64,
   queue: Queue,
   render_pipeline: RenderPipeline,
-  surface: Surface<'a>,
-  window: &'a Window,
+  surface: Surface<'static>,
 }
 
-impl<'a> Renderer<'a> {
-  pub async fn new(window: &'a Window) -> Result<Self> {
+impl Renderer {
+  pub async fn new(window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -57,7 +57,7 @@ impl<'a> Renderer<'a> {
       depth_stencil: None,
       fragment: Some(FragmentState {
         compilation_options: PipelineCompilationOptions::default(),
-        entry_point: "fragment",
+        entry_point: Some("fragment"),
         module: &shader,
         targets: &[Some(swapchain_format.into())],
       }),
@@ -69,7 +69,7 @@ impl<'a> Renderer<'a> {
       vertex: VertexState {
         buffers: &[],
         compilation_options: PipelineCompilationOptions::default(),
-        entry_point: "vertex",
+        entry_point: Some("vertex"),
         module: &shader,
       },
     });
@@ -83,32 +83,16 @@ impl<'a> Renderer<'a> {
     Ok(Renderer {
       config,
       device,
+      frame: 0,
       queue,
       render_pipeline,
       surface,
-      window,
     })
   }
 
-  pub fn handle_event(&mut self, event: Event<()>, target: &EventLoopWindowTarget<()>) -> Result {
-    match event {
-      Event::WindowEvent { event, .. } => match event {
-        WindowEvent::Resized(size) => self.resize(size),
-        WindowEvent::RedrawRequested => self.redraw()?,
-        WindowEvent::CloseRequested => self.close(target),
-        _ => {}
-      },
-      _ => {}
-    }
+  pub(crate) fn render(&mut self) -> Result {
+    eprintln!("rendering frame {}", self.frame);
 
-    Ok(())
-  }
-
-  fn close(&self, target: &EventLoopWindowTarget<()>) {
-    target.exit();
-  }
-
-  fn redraw(&self) -> Result {
     let frame = self
       .surface
       .get_current_texture()
@@ -118,7 +102,7 @@ impl<'a> Renderer<'a> {
 
     let mut encoder = self
       .device
-      .create_command_encoder(&CommandEncoderDescriptor { label: None });
+      .create_command_encoder(&CommandEncoderDescriptor::default());
 
     {
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -140,15 +124,17 @@ impl<'a> Renderer<'a> {
     }
 
     self.queue.submit(Some(encoder.finish()));
+
     frame.present();
+
+    self.frame += 1;
 
     Ok(())
   }
 
-  fn resize(&mut self, size: PhysicalSize<u32>) {
+  pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
     self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
-    self.window.request_redraw();
   }
 }
