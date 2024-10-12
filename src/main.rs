@@ -11,10 +11,11 @@ use {
     TextureViewDescriptor, VertexState,
   },
   winit::{
+    application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
-    event_loop::{EventLoop, EventLoopWindowTarget},
-    window::{Window, WindowBuilder},
+    event_loop::{ActiveEventLoop, EventLoop},
+    window::{Window, WindowAttributes, WindowId},
   },
 };
 
@@ -22,7 +23,7 @@ type Result<T = ()> = anyhow::Result<T>;
 
 mod renderer;
 
-fn handle_error(result: Result) {
+fn report(result: Result) {
   if let Err(error) = result {
     eprintln!("error: {error}");
 
@@ -36,20 +37,76 @@ fn handle_error(result: Result) {
   }
 }
 
+#[derive(Default)]
+struct App {
+  frame: u64,
+  window: Option<Window>,
+  renderer: Option<Renderer>,
+}
+
+impl App {
+  fn window(&self) -> &Window {
+    self.window.as_ref().unwrap()
+  }
+}
+
+impl ApplicationHandler for App {
+  fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+    if self.window.is_none() {
+      eprintln!("Initializing window…");
+
+      // todo:
+      // - error handling?
+      self.window = Some(
+        event_loop
+          .create_window(WindowAttributes::default().with_title("x"))
+          .unwrap(),
+      );
+
+      assert!(self.renderer.is_none());
+
+      // todo:
+      // - this use of async is probably fucked
+      self.renderer = Some(pollster::block_on(Renderer::new(self.window())).unwrap());
+
+      eprintln!("Done initializing window…");
+    }
+  }
+
+  fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+    match event {
+      WindowEvent::RedrawRequested => {
+        self.frame += 1;
+        eprintln!("redraw {}", self.frame);
+        self.window().request_redraw();
+      }
+      WindowEvent::CloseRequested => {
+        event_loop.exit();
+      }
+      //   WindowEvent::Resized(size) => self.resize(size),
+      _ => {}
+    }
+    eprintln!("window_event");
+  }
+}
+
 fn run() -> Result<()> {
   env_logger::init();
 
   let event_loop = EventLoop::new()?;
 
-  let window = WindowBuilder::new().with_title("x").build(&event_loop)?;
+  let mut app = App::default();
 
-  let mut renderer = pollster::block_on(Renderer::new(&window))?;
+  event_loop.run_app(&mut app)?;
 
-  event_loop.run(|event, target| handle_error(renderer.handle_event(event, target)))?;
+  // event_loop.run(|event, target| {
+  //   report(renderer.handle_event(event, target));
+  //   window.request_redraw();
+  // })?;
 
   Ok(())
 }
 
 fn main() {
-  handle_error(run());
+  report(run());
 }

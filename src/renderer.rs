@@ -1,16 +1,16 @@
 use super::*;
 
-pub struct Renderer<'a> {
+pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
   queue: Queue,
   render_pipeline: RenderPipeline,
-  surface: Surface<'a>,
-  window: &'a Window,
+  // surface: Surface<'a>,
+  // window: &'a Window,
 }
 
-impl<'a> Renderer<'a> {
-  pub async fn new(window: &'a Window) -> Result<Self> {
+impl Renderer {
+  pub async fn new(window: &Window) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -85,16 +85,14 @@ impl<'a> Renderer<'a> {
       device,
       queue,
       render_pipeline,
-      surface,
-      window,
     })
   }
 
-  pub fn handle_event(&mut self, event: Event<()>, target: &EventLoopWindowTarget<()>) -> Result {
+  pub fn handle_event(&mut self, event: Event<()>, target: &ActiveEventLoop) -> Result {
     match event {
       Event::WindowEvent { event, .. } => match event {
-        WindowEvent::Resized(size) => self.resize(size),
-        WindowEvent::RedrawRequested => self.redraw()?,
+        // WindowEvent::Resized(size) => self.resize(size),
+        // WindowEvent::RedrawRequested => self.redraw()?,
         WindowEvent::CloseRequested => self.close(target),
         _ => {}
       },
@@ -104,51 +102,52 @@ impl<'a> Renderer<'a> {
     Ok(())
   }
 
-  fn close(&self, target: &EventLoopWindowTarget<()>) {
+  fn close(&self, target: &ActiveEventLoop) {
     target.exit();
   }
 
-  fn redraw(&self) -> Result {
-    let frame = self
-      .surface
-      .get_current_texture()
-      .context("failed to acquire next swap chain texture")?;
+  // fn redraw(&self) -> Result {
+  //   let frame = self
+  //     .surface
+  //     .get_current_texture()
+  //     .context("failed to acquire next swap chain texture")?;
 
-    let view = frame.texture.create_view(&TextureViewDescriptor::default());
+  //   let view = frame.texture.create_view(&TextureViewDescriptor::default());
 
-    let mut encoder = self
-      .device
-      .create_command_encoder(&CommandEncoderDescriptor { label: None });
+  //   let mut encoder = self
+  //     .device
+  //     .create_command_encoder(&CommandEncoderDescriptor::default());
 
-    {
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        label: None,
-        color_attachments: &[Some(RenderPassColorAttachment {
-          view: &view,
-          resolve_target: None,
-          ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
-            store: StoreOp::Store,
-          },
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-      });
-      pass.set_pipeline(&self.render_pipeline);
-      pass.draw(0..3, 0..1);
-    }
+  //   {
+  //     let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+  //       label: None,
+  //       color_attachments: &[Some(RenderPassColorAttachment {
+  //         view: &view,
+  //         resolve_target: None,
+  //         ops: Operations {
+  //           load: LoadOp::Clear(Color::BLACK),
+  //           store: StoreOp::Store,
+  //         },
+  //       })],
+  //       depth_stencil_attachment: None,
+  //       timestamp_writes: None,
+  //       occlusion_query_set: None,
+  //     });
+  //     pass.set_pipeline(&self.render_pipeline);
+  //     pass.draw(0..3, 0..1);
+  //   }
 
-    self.queue.submit(Some(encoder.finish()));
-    frame.present();
+  //   self.queue.submit(Some(encoder.finish()));
 
-    Ok(())
-  }
+  //   frame.present();
 
-  fn resize(&mut self, size: PhysicalSize<u32>) {
-    self.config.width = size.width.max(1);
-    self.config.height = size.height.max(1);
-    self.surface.configure(&self.device, &self.config);
-    self.window.request_redraw();
-  }
+  //   Ok(())
+  // }
+
+  // fn resize(&mut self, size: PhysicalSize<u32>) {
+  //   self.config.width = size.width.max(1);
+  //   self.config.height = size.height.max(1);
+  //   self.surface.configure(&self.device, &self.config);
+  //   self.window.request_redraw();
+  // }
 }
