@@ -221,13 +221,6 @@ impl Renderer {
   }
 
   fn save_screenshot(&self, buffer: Buffer) {
-    // todo:
-    // timestamp
-    // number
-    // date
-    // hash
-    // branch
-
     let join_handle = std::thread::spawn(move || {
       let buffer_slice = buffer.slice(..);
       let (tx, rx) = std::sync::mpsc::channel();
@@ -243,7 +236,16 @@ impl Renderer {
 
       buffer.unmap();
 
-      screenshot.write("screenshot.png".into())?;
+      let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+      let path = dirs::home_dir()
+        .unwrap()
+        .join(format!("Dropbox/x/{timestamp}.png"));
+
+      screenshot.write(&path)?;
 
       Ok(())
     });

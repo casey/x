@@ -16,7 +16,7 @@ impl Image {
     }
   }
 
-  pub(crate) fn write(&self, path: &Utf8Path) -> Result {
+  pub(crate) fn write(&self, path: &Path) -> Result {
     let mut file = File::create(path)?;
     let mut encoder = png::Encoder::new(&mut file, self.width, self.height);
     encoder.set_color(png::ColorType::Rgba);
