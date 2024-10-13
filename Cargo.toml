@@ -7,6 +7,8 @@ version = "0.0.0"
 [dependencies]
 anyhow = { version = "1.0.79", features = ["backtrace"] }
 env_logger = "0.11.0"
+flume = "0.11.0"
+png = "0.17.14"
 pollster = "0.3.0"
 wgpu = { git = "https://github.com/gfx-rs/wgpu.git" }
 winit = "0.30.5"

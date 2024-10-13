@@ -6,6 +6,22 @@ use super::*;
 // - set up github CI
 // - ping pong rendering
 
+pub fn output_image_native(image_data: Vec<u8>, texture_dims: (usize, usize), path: String) {
+  let mut png_data = Vec::<u8>::with_capacity(image_data.len());
+  let mut encoder = png::Encoder::new(
+    std::io::Cursor::new(&mut png_data),
+    texture_dims.0 as u32,
+    texture_dims.1 as u32,
+  );
+  encoder.set_color(png::ColorType::Rgba);
+  let mut png_writer = encoder.write_header().unwrap();
+  png_writer.write_image_data(&image_data[..]).unwrap();
+  png_writer.finish().unwrap();
+
+  let mut file = std::fs::File::create(&path).unwrap();
+  file.write_all(&png_data[..]).unwrap();
+}
+
 pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
@@ -160,12 +176,12 @@ impl Renderer {
       wgpu::ImageCopyTexture {
         texture: &self.texture,
         mip_level: 0,
-        origin: wgpu::Origin3d::ZERO,
-        aspect: wgpu::TextureAspect::All,
+        origin: Origin3d::ZERO,
+        aspect: TextureAspect::All,
       },
       wgpu::ImageCopyBuffer {
         buffer: &buffer,
-        layout: wgpu::ImageDataLayout {
+        layout: ImageDataLayout {
           offset: 0,
           // todo:
           // - this needs to be a multiple of 256?
@@ -203,6 +219,28 @@ impl Renderer {
     }
 
     self.queue.submit(Some(encoder.finish()));
+
+    let buffer_slice = buffer.slice(..);
+    let (sender, receiver) = flume::bounded(1);
+    buffer_slice.map_async(wgpu::MapMode::Read, move |r| sender.send(r).unwrap());
+    self.device.poll(wgpu::Maintain::wait()).panic_on_timeout();
+
+    pollster::block_on(receiver.recv_async()).unwrap().unwrap();
+
+    {
+      let view = buffer_slice.get_mapped_range();
+      data.extend_from_slice(&view[..]);
+    }
+    buffer.unmap();
+
+    output_image_native(
+      data.to_vec(),
+      (
+        self.config.width.try_into().unwrap(),
+        self.config.height.try_into().unwrap(),
+      ),
+      "screenshot.png".into(),
+    );
 
     frame.present();
 
