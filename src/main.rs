@@ -1,20 +1,20 @@
 use {
-  self::{app::App, renderer::Renderer},
+  self::{app::App, event::Event, image::Image, renderer::Renderer},
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, borrow::Cow, process, sync::Arc},
-  wgpu::{
-    Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, FragmentState, Instance,
-    Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
-    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions,
-    ShaderModuleDescriptor, ShaderSource, StoreOp, Surface, SurfaceConfiguration,
-    TextureViewDescriptor, VertexState,
+  std::{
+    backtrace::BacktraceStatus,
+    fs::File,
+    path::Path,
+    process,
+    sync::Arc,
+    thread::JoinHandle,
+    time::{SystemTime, UNIX_EPOCH},
   },
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     window::{Window, WindowAttributes, WindowId},
   },
 };
@@ -22,14 +22,16 @@ use {
 type Result<T = ()> = anyhow::Result<T>;
 
 mod app;
+mod event;
+mod image;
 mod renderer;
 
 fn run() -> Result<()> {
   env_logger::init();
 
-  let event_loop = EventLoop::new()?;
+  let event_loop = EventLoop::with_user_event().build()?;
 
-  let mut app = App::default();
+  let mut app = App::new(&event_loop);
 
   event_loop.run_app(&mut app)?;
 
