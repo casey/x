@@ -1,7 +1,7 @@
 use {
   super::*,
   wgpu::{
-    include_wgsl, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Device,
+    include_wgsl, Buffer, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Device,
     DeviceDescriptor, Extent3d, Features, FragmentState, ImageCopyBuffer, ImageCopyTexture,
     ImageDataLayout, Instance, Limits, LoadOp, Maintain, MapMode, MemoryHints, MultisampleState,
     Operations, Origin3d, PipelineCompilationOptions, PowerPreference, PrimitiveState, Queue,
@@ -10,28 +10,6 @@ use {
     TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor, VertexState,
   },
 };
-
-// todo:
-// - render to texture
-// - save screenshot
-// - set up github CI
-// - ping pong rendering
-
-pub fn output_image_native(image_data: Vec<u8>, texture_dims: (usize, usize), path: String) {
-  let mut png_data = Vec::<u8>::with_capacity(image_data.len());
-  let mut encoder = png::Encoder::new(
-    std::io::Cursor::new(&mut png_data),
-    texture_dims.0 as u32,
-    texture_dims.1 as u32,
-  );
-  encoder.set_color(png::ColorType::Rgba);
-  let mut png_writer = encoder.write_header().unwrap();
-  png_writer.write_image_data(&image_data[..]).unwrap();
-  png_writer.finish().unwrap();
-
-  let mut file = std::fs::File::create(&path).unwrap();
-  file.write_all(&png_data[..]).unwrap();
-}
 
 pub struct Renderer {
   config: SurfaceConfiguration,
@@ -145,65 +123,61 @@ impl Renderer {
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
 
-    // todo: get rid of 4
-    let mut data = Vec::<u8>::with_capacity(
-      (self.config.width * self.config.height * 4)
-        .try_into()
-        .unwrap(),
-    );
-
-    let buffer = self.device.create_buffer(&BufferDescriptor {
-      label: None,
-      size: data.capacity().try_into().unwrap(),
-      usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
-      mapped_at_creation: false,
-    });
-
-    // render to texture
-    {
-      let view = self.texture.create_view(&TextureViewDescriptor::default());
-
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+    let buffer = if self.frame == 0 {
+      let buffer = self.device.create_buffer(&BufferDescriptor {
         label: None,
-        color_attachments: &[Some(RenderPassColorAttachment {
-          view: &view,
-          resolve_target: None,
-          ops: Operations {
-            load: LoadOp::Clear(Color::GREEN),
-            store: StoreOp::Store,
-          },
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
+        size: self.subpixels().into(),
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
       });
-      pass.set_pipeline(&self.render_pipeline);
-      pass.draw(0..3, 0..1);
-    }
 
-    encoder.copy_texture_to_buffer(
-      ImageCopyTexture {
-        texture: &self.texture,
-        mip_level: 0,
-        origin: Origin3d::ZERO,
-        aspect: TextureAspect::All,
-      },
-      ImageCopyBuffer {
-        buffer: &buffer,
-        layout: ImageDataLayout {
-          offset: 0,
-          // todo:
-          // - this needs to be a multiple of 256?
-          bytes_per_row: Some((self.config.width * 4).try_into().unwrap()),
-          rows_per_image: Some(self.config.height),
+      {
+        let view = self.texture.create_view(&TextureViewDescriptor::default());
+
+        let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+          label: None,
+          color_attachments: &[Some(RenderPassColorAttachment {
+            view: &view,
+            resolve_target: None,
+            ops: Operations {
+              load: LoadOp::Clear(Color::BLACK),
+              store: StoreOp::Store,
+            },
+          })],
+          depth_stencil_attachment: None,
+          timestamp_writes: None,
+          occlusion_query_set: None,
+        });
+        pass.set_pipeline(&self.render_pipeline);
+        pass.draw(0..3, 0..1);
+      }
+
+      encoder.copy_texture_to_buffer(
+        ImageCopyTexture {
+          texture: &self.texture,
+          mip_level: 0,
+          origin: Origin3d::ZERO,
+          aspect: TextureAspect::All,
         },
-      },
-      Extent3d {
-        width: self.config.width,
-        height: self.config.height,
-        depth_or_array_layers: 1,
-      },
-    );
+        ImageCopyBuffer {
+          buffer: &buffer,
+          layout: ImageDataLayout {
+            offset: 0,
+            bytes_per_row: Some((self.config.width * 4).try_into().unwrap()),
+            rows_per_image: Some(self.config.height),
+          },
+        },
+        Extent3d {
+          width: self.config.width,
+          height: self.config.height,
+          depth_or_array_layers: 1,
+        },
+      );
+
+      Some(buffer)
+    } else {
+      None
+    };
 
     // render to frame
     {
@@ -215,7 +189,7 @@ impl Renderer {
           view: &view,
           resolve_target: None,
           ops: Operations {
-            load: LoadOp::Clear(Color::GREEN),
+            load: LoadOp::Clear(Color::BLACK),
             store: StoreOp::Store,
           },
         })],
@@ -229,27 +203,9 @@ impl Renderer {
 
     self.queue.submit(Some(encoder.finish()));
 
-    let buffer_slice = buffer.slice(..);
-    let (sender, receiver) = flume::bounded(1);
-    buffer_slice.map_async(MapMode::Read, move |r| sender.send(r).unwrap());
-    self.device.poll(Maintain::wait()).panic_on_timeout();
-
-    pollster::block_on(receiver.recv_async()).unwrap().unwrap();
-
-    {
-      let view = buffer_slice.get_mapped_range();
-      data.extend_from_slice(&view[..]);
+    if let Some(buffer) = buffer {
+      self.save_screenshot(self.config.width, self.config.height, buffer);
     }
-    buffer.unmap();
-
-    output_image_native(
-      data.to_vec(),
-      (
-        self.config.width.try_into().unwrap(),
-        self.config.height.try_into().unwrap(),
-      ),
-      "screenshot.png".into(),
-    );
 
     frame.present();
 
@@ -262,5 +218,35 @@ impl Renderer {
     self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
+  }
+
+  fn pixels(&self) -> u32 {
+    self.config.width.checked_mul(self.config.height).unwrap()
+  }
+
+  fn subpixels(&self) -> u32 {
+    self.pixels().checked_mul(4).unwrap()
+  }
+
+  fn save_screenshot(&self, width: u32, height: u32, buffer: Buffer) {
+    std::thread::spawn(move || {
+      let buffer_slice = buffer.slice(..);
+      let (tx, rx) = std::sync::mpsc::channel();
+      buffer_slice.map_async(MapMode::Read, move |r| tx.send(r).unwrap());
+
+      rx.recv().unwrap().unwrap();
+
+      let screenshot = Image::new(
+        width,
+        height,
+        buffer_slice.get_mapped_range().as_ref().into(),
+      );
+
+      buffer.unmap();
+
+      screenshot.write("screenshot.png".into()).unwrap();
+    });
+
+    self.device.poll(Maintain::wait()).panic_on_timeout();
   }
 }

@@ -1,7 +1,8 @@
 use {
-  self::{app::App, renderer::Renderer},
+  self::{app::App, image::Image, renderer::Renderer},
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, io::Write, process, sync::Arc},
+  camino::Utf8Path,
+  std::{backtrace::BacktraceStatus, fs::File, process, sync::Arc},
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -14,6 +15,7 @@ use {
 type Result<T = ()> = anyhow::Result<T>;
 
 mod app;
+mod image;
 mod renderer;
 
 fn run() -> Result<()> {
