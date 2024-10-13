@@ -33,6 +33,25 @@ impl App {
 }
 
 impl ApplicationHandler<Event> for App {
+  fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+    for handle in self.threads.drain(..) {
+      let result = match handle.join() {
+        Ok(result) => result,
+        Err(_) => {
+          eprintln!("failed to wait for background thread");
+          continue;
+        }
+      };
+
+      match result {
+        Ok(()) => {}
+        Err(err) => {
+          self.error.get_or_insert(err);
+        }
+      };
+    }
+  }
+
   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
     if self.window.is_none() {
       assert!(self.renderer.is_none());
@@ -61,6 +80,12 @@ impl ApplicationHandler<Event> for App {
     }
   }
 
+  fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: Event) {
+    match event {
+      Event::Thread(handle) => self.threads.push(handle),
+    }
+  }
+
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
     match event {
       WindowEvent::RedrawRequested => {
@@ -79,31 +104,6 @@ impl ApplicationHandler<Event> for App {
         self.window().request_redraw();
       }
       _ => {}
-    }
-  }
-
-  fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: Event) {
-    match event {
-      Event::Thread(handle) => self.threads.push(handle),
-    }
-  }
-
-  fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-    for handle in self.threads.drain(..) {
-      let result = match handle.join() {
-        Ok(result) => result,
-        Err(_) => {
-          eprintln!("failed to wait for background thread");
-          continue;
-        }
-      };
-
-      match result {
-        Ok(()) => {}
-        Err(err) => {
-          self.error.get_or_insert(err);
-        }
-      };
     }
   }
 }
