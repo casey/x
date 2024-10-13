@@ -1,5 +1,11 @@
 use super::*;
 
+// todo:
+// - render to texture
+// - save screenshot
+// - set up github CI
+// - ping pong rendering
+
 pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
@@ -7,6 +13,7 @@ pub struct Renderer {
   queue: Queue,
   render_pipeline: RenderPipeline,
   surface: Surface<'static>,
+  texture: Texture,
 }
 
 impl Renderer {
@@ -33,7 +40,7 @@ impl Renderer {
         &DeviceDescriptor {
           label: None,
           required_features: Features::empty(),
-          required_limits: Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
+          required_limits: Limits::default(),
           memory_hints: MemoryHints::Performance,
         },
         None,
@@ -43,11 +50,22 @@ impl Renderer {
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
-    let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor::default());
+    let texture_format = surface.get_capabilities(&adapter).formats[0];
 
-    let swapchain_capabilities = surface.get_capabilities(&adapter);
-
-    let swapchain_format = swapchain_capabilities.formats[0];
+    let texture = device.create_texture(&TextureDescriptor {
+      label: None,
+      size: Extent3d {
+        width: size.width,
+        height: size.height,
+        depth_or_array_layers: 1,
+      },
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: TextureDimension::D2,
+      format: texture_format,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+      view_formats: &[texture_format],
+    });
 
     let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
       cache: None,
@@ -56,10 +74,10 @@ impl Renderer {
         compilation_options: PipelineCompilationOptions::default(),
         entry_point: Some("fragment"),
         module: &shader,
-        targets: &[Some(swapchain_format.into())],
+        targets: &[Some(surface.get_capabilities(&adapter).formats[0].into())],
       }),
       label: None,
-      layout: Some(&pipeline_layout),
+      layout: None,
       multisample: MultisampleState::default(),
       multiview: None,
       primitive: PrimitiveState::default(),
@@ -84,6 +102,7 @@ impl Renderer {
       queue,
       render_pipeline,
       surface,
+      texture,
     })
   }
 
@@ -95,13 +114,76 @@ impl Renderer {
       .get_current_texture()
       .context("failed to acquire next swap chain texture")?;
 
-    let view = frame.texture.create_view(&TextureViewDescriptor::default());
-
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
 
+    // todo: get rid of 4
+    let mut data = Vec::<u8>::with_capacity(
+      (self.config.width * self.config.height * 4)
+        .try_into()
+        .unwrap(),
+    );
+
+    let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+      label: None,
+      size: data.capacity().try_into().unwrap(),
+      usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+      mapped_at_creation: false,
+    });
+
+    // render to texture
     {
+      let view = self
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
+
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        label: None,
+        color_attachments: &[Some(RenderPassColorAttachment {
+          view: &view,
+          resolve_target: None,
+          ops: Operations {
+            load: LoadOp::Clear(Color::GREEN),
+            store: StoreOp::Store,
+          },
+        })],
+        depth_stencil_attachment: None,
+        timestamp_writes: None,
+        occlusion_query_set: None,
+      });
+      pass.set_pipeline(&self.render_pipeline);
+      pass.draw(0..3, 0..1);
+    }
+
+    encoder.copy_texture_to_buffer(
+      wgpu::ImageCopyTexture {
+        texture: &self.texture,
+        mip_level: 0,
+        origin: wgpu::Origin3d::ZERO,
+        aspect: wgpu::TextureAspect::All,
+      },
+      wgpu::ImageCopyBuffer {
+        buffer: &buffer,
+        layout: wgpu::ImageDataLayout {
+          offset: 0,
+          // todo:
+          // - this needs to be a multiple of 256?
+          bytes_per_row: Some((self.config.width * 4).try_into().unwrap()),
+          rows_per_image: Some(self.config.height),
+        },
+      },
+      wgpu::Extent3d {
+        width: self.config.width,
+        height: self.config.height,
+        depth_or_array_layers: 1,
+      },
+    );
+
+    // render to frame
+    {
+      let view = frame.texture.create_view(&TextureViewDescriptor::default());
+
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         label: None,
         color_attachments: &[Some(RenderPassColorAttachment {

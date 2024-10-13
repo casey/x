@@ -3,12 +3,12 @@ use {
   anyhow::Context,
   std::{backtrace::BacktraceStatus, process, sync::Arc},
   wgpu::{
-    include_wgsl, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features,
+    include_wgsl, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features,
     FragmentState, Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, TextureViewDescriptor,
-    VertexState,
+    PipelineCompilationOptions, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, StoreOp,
+    Surface, SurfaceConfiguration, Texture, TextureDescriptor, TextureDimension, TextureUsages,
+    TextureViewDescriptor, VertexState,
   },
   winit::{
     application::ApplicationHandler,
