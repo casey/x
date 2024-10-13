@@ -41,8 +41,6 @@ impl Renderer {
       .await
       .context("failed to find an appropriate adapter")?;
 
-    let texture_format = surface.get_capabilities(&adapter).formats[0];
-
     let (device, queue) = adapter
       .request_device(
         &DeviceDescriptor {
@@ -57,6 +55,8 @@ impl Renderer {
       .context("failed to create device")?;
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+
+    let texture_format = surface.get_capabilities(&adapter).formats[0];
 
     let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
       cache: None,
