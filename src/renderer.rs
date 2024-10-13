@@ -6,7 +6,7 @@ use {
     ImageDataLayout, Instance, Limits, LoadOp, Maintain, MapMode, MemoryHints, MultisampleState,
     Operations, Origin3d, PipelineCompilationOptions, PowerPreference, PrimitiveState, Queue,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, TextureAspect,
+    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, Texture, TextureAspect,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
     VertexState,
   },
@@ -22,6 +22,7 @@ pub struct Renderer {
   queue: Queue,
   render_pipeline: RenderPipeline,
   surface: Surface<'static>,
+  texture: Texture,
   texture_format: TextureFormat,
 }
 
@@ -89,6 +90,8 @@ impl Renderer {
 
     surface.configure(&device, &config);
 
+    let texture = Self::create_texture(&device, &config, texture_format);
+
     Ok(Renderer {
       config,
       device,
@@ -97,6 +100,7 @@ impl Renderer {
       queue,
       render_pipeline,
       surface,
+      texture,
       texture_format,
     })
   }
@@ -181,6 +185,11 @@ impl Renderer {
       None
     };
 
+    // todo:
+    // - begin with empty textures a and b
+    // - for each filter, render
+    // - copy last texture to screen
+
     {
       let view = frame.texture.create_view(&TextureViewDescriptor::default());
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -218,6 +227,28 @@ impl Renderer {
     self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
+    self.texture = Self::create_texture(&self.device, &self.config, self.texture_format);
+  }
+
+  fn create_texture(
+    device: &Device,
+    config: &SurfaceConfiguration,
+    texture_format: TextureFormat,
+  ) -> Texture {
+    device.create_texture(&TextureDescriptor {
+      label: None,
+      size: Extent3d {
+        width: config.width,
+        height: config.height,
+        depth_or_array_layers: 1,
+      },
+      mip_level_count: 1,
+      sample_count: 1,
+      dimension: TextureDimension::D2,
+      format: texture_format,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+      view_formats: &[texture_format],
+    })
   }
 
   fn save_screenshot(&self, buffer: Buffer) {
