@@ -34,9 +34,7 @@ jobs:
       run: cargo fmt --all -- --check
 
     - name: Check for Forbidden Words
-      run: |
-        sudo apt-get install ripgrep
-        ./bin/forbid
+      run: bin/forbid
 
     - name: Test
       run: cargo test --workspace
