@@ -9,10 +9,10 @@ pub(crate) struct App {
 }
 
 impl App {
-  pub(crate) fn new(proxy: EventLoopProxy<Event>) -> Self {
+  pub(crate) fn new(event_loop: &EventLoop<Event>) -> Self {
     Self {
       error: None,
-      proxy,
+      proxy: event_loop.create_proxy(),
       renderer: None,
       threads: Vec::new(),
       window: None,

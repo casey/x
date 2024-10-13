@@ -24,7 +24,7 @@ fn run() -> Result<()> {
 
   let event_loop = EventLoop::with_user_event().build()?;
 
-  let mut app = App::new(event_loop.create_proxy());
+  let mut app = App::new(&event_loop);
 
   event_loop.run_app(&mut app)?;
 
