@@ -134,7 +134,6 @@ impl Renderer {
 
       {
         let view = texture.create_view(&TextureViewDescriptor::default());
-
         let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
           label: None,
           color_attachments: &[Some(RenderPassColorAttachment {
