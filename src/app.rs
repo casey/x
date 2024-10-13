@@ -38,7 +38,7 @@ impl ApplicationHandler for App {
       let renderer = match pollster::block_on(Renderer::new(window.clone())) {
         Ok(renderer) => renderer,
         Err(err) => {
-          self.error = Some(err.into());
+          self.error = Some(err);
           event_loop.exit();
           return;
         }

@@ -163,7 +163,7 @@ impl Renderer {
           buffer: &buffer,
           layout: ImageDataLayout {
             offset: 0,
-            bytes_per_row: Some((self.config.width * 4).try_into().unwrap()),
+            bytes_per_row: Some(self.config.width * 4),
             rows_per_image: Some(self.config.height),
           },
         },

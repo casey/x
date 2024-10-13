@@ -1,4 +1,4 @@
-watch +args='test':
+watch +args='ltest':
   cargo watch --clear --exec '{{args}}'
 
 outdated:
@@ -9,6 +9,8 @@ unused:
 
 ci:
   ./bin/forbid
-  cargo clippy --workspace --all-targets -- --deny warnings
+  cargo lclippy --workspace --all-targets -- --deny warnings
   cargo fmt --all -- --check
-  cargo test --workspace
+  cargo ltest --workspace
+
+clippy: (watch 'lclippy --all-targets -- --deny warnings')
