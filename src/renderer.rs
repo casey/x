@@ -6,8 +6,9 @@ use {
     ImageDataLayout, Instance, Limits, LoadOp, Maintain, MapMode, MemoryHints, MultisampleState,
     Operations, Origin3d, PipelineCompilationOptions, PowerPreference, PrimitiveState, Queue,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, Texture, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor, VertexState,
+    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+    VertexState,
   },
 };
 
@@ -18,7 +19,7 @@ pub struct Renderer {
   queue: Queue,
   render_pipeline: RenderPipeline,
   surface: Surface<'static>,
-  texture: Texture,
+  texture_format: TextureFormat,
 }
 
 impl Renderer {
@@ -40,6 +41,8 @@ impl Renderer {
       .await
       .context("failed to find an appropriate adapter")?;
 
+    let texture_format = surface.get_capabilities(&adapter).formats[0];
+
     let (device, queue) = adapter
       .request_device(
         &DeviceDescriptor {
@@ -54,23 +57,6 @@ impl Renderer {
       .context("failed to create device")?;
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
-
-    let texture_format = surface.get_capabilities(&adapter).formats[0];
-
-    let texture = device.create_texture(&TextureDescriptor {
-      label: None,
-      size: Extent3d {
-        width: size.width,
-        height: size.height,
-        depth_or_array_layers: 1,
-      },
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: TextureDimension::D2,
-      format: texture_format,
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
-      view_formats: &[texture_format],
-    });
 
     let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
       cache: None,
@@ -107,7 +93,7 @@ impl Renderer {
       queue,
       render_pipeline,
       surface,
-      texture,
+      texture_format,
     })
   }
 
@@ -131,8 +117,23 @@ impl Renderer {
         mapped_at_creation: false,
       });
 
+      let texture = self.device.create_texture(&TextureDescriptor {
+        label: None,
+        size: Extent3d {
+          width: self.config.width,
+          height: self.config.height,
+          depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: TextureDimension::D2,
+        format: self.texture_format,
+        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+        view_formats: &[self.texture_format],
+      });
+
       {
-        let view = self.texture.create_view(&TextureViewDescriptor::default());
+        let view = texture.create_view(&TextureViewDescriptor::default());
 
         let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
           label: None,
@@ -154,7 +155,7 @@ impl Renderer {
 
       encoder.copy_texture_to_buffer(
         ImageCopyTexture {
-          texture: &self.texture,
+          texture: &texture,
           mip_level: 0,
           origin: Origin3d::ZERO,
           aspect: TextureAspect::All,
