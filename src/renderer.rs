@@ -12,10 +12,13 @@ use {
   },
 };
 
+const SCREENSHOT_RESOLUTION: u32 = 4096;
+
 pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
   frame: u64,
+  proxy: EventLoopProxy<Event>,
   queue: Queue,
   render_pipeline: RenderPipeline,
   surface: Surface<'static>,
@@ -23,7 +26,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  pub async fn new(window: Arc<Window>) -> Result<Self> {
+  pub async fn new(window: Arc<Window>, proxy: EventLoopProxy<Event>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -90,6 +93,7 @@ impl Renderer {
       config,
       device,
       frame: 0,
+      proxy,
       queue,
       render_pipeline,
       surface,
@@ -98,8 +102,6 @@ impl Renderer {
   }
 
   pub(crate) fn render(&mut self) -> Result {
-    eprintln!("rendering frame {}", self.frame);
-
     let frame = self
       .surface
       .get_current_texture()
@@ -112,7 +114,7 @@ impl Renderer {
     let screenshot_buffer = if self.frame == 0 {
       let buffer = self.device.create_buffer(&BufferDescriptor {
         label: None,
-        size: self.subpixels().into(),
+        size: (SCREENSHOT_RESOLUTION * SCREENSHOT_RESOLUTION * 4).into(),
         usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
         mapped_at_creation: false,
       });
@@ -120,8 +122,8 @@ impl Renderer {
       let texture = self.device.create_texture(&TextureDescriptor {
         label: None,
         size: Extent3d {
-          width: self.config.width,
-          height: self.config.height,
+          width: SCREENSHOT_RESOLUTION,
+          height: SCREENSHOT_RESOLUTION,
           depth_or_array_layers: 1,
         },
         mip_level_count: 1,
@@ -163,13 +165,13 @@ impl Renderer {
           buffer: &buffer,
           layout: ImageDataLayout {
             offset: 0,
-            bytes_per_row: Some(self.config.width * 4),
-            rows_per_image: Some(self.config.height),
+            bytes_per_row: Some(SCREENSHOT_RESOLUTION * 4),
+            rows_per_image: Some(SCREENSHOT_RESOLUTION),
           },
         },
         Extent3d {
-          width: self.config.width,
-          height: self.config.height,
+          width: SCREENSHOT_RESOLUTION,
+          height: SCREENSHOT_RESOLUTION,
           depth_or_array_layers: 1,
         },
       );
@@ -202,7 +204,7 @@ impl Renderer {
     self.queue.submit(Some(encoder.finish()));
 
     if let Some(buffer) = screenshot_buffer {
-      self.save_screenshot(self.config.width, self.config.height, buffer);
+      self.save_screenshot(buffer);
     }
 
     frame.present();
@@ -218,32 +220,35 @@ impl Renderer {
     self.surface.configure(&self.device, &self.config);
   }
 
-  fn pixels(&self) -> u32 {
-    self.config.width.checked_mul(self.config.height).unwrap()
-  }
+  fn save_screenshot(&self, buffer: Buffer) {
+    // todo:
+    // timestamp
+    // number
+    // date
+    // hash
+    // branch
 
-  fn subpixels(&self) -> u32 {
-    self.pixels().checked_mul(4).unwrap()
-  }
-
-  fn save_screenshot(&self, width: u32, height: u32, buffer: Buffer) {
-    std::thread::spawn(move || {
+    let join_handle = std::thread::spawn(move || {
       let buffer_slice = buffer.slice(..);
       let (tx, rx) = std::sync::mpsc::channel();
       buffer_slice.map_async(MapMode::Read, move |r| tx.send(r).unwrap());
 
-      rx.recv().unwrap().unwrap();
+      rx.recv().unwrap()?;
 
       let screenshot = Image::new(
-        width,
-        height,
+        SCREENSHOT_RESOLUTION,
+        SCREENSHOT_RESOLUTION,
         buffer_slice.get_mapped_range().as_ref().into(),
       );
 
       buffer.unmap();
 
-      screenshot.write("screenshot.png".into()).unwrap();
+      screenshot.write("screenshot.png".into())?;
+
+      Ok(())
     });
+
+    self.proxy.send_event(Event::Thread(join_handle)).unwrap();
 
     self.device.poll(Maintain::wait()).panic_on_timeout();
   }

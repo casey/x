@@ -17,12 +17,13 @@ impl Image {
   }
 
   pub(crate) fn write(&self, path: &Utf8Path) -> Result {
-    let file = File::create(path)?;
-    let mut encoder = png::Encoder::new(file, self.width, self.height);
+    let mut file = File::create(path)?;
+    let mut encoder = png::Encoder::new(&mut file, self.width, self.height);
     encoder.set_color(png::ColorType::Rgba);
     let mut writer = encoder.write_header()?;
     writer.write_image_data(&self.data)?;
     writer.finish()?;
+    file.sync_all()?;
     Ok(())
   }
 }

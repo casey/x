@@ -1,13 +1,24 @@
 use super::*;
 
-#[derive(Default)]
 pub(crate) struct App {
   error: Option<anyhow::Error>,
+  proxy: EventLoopProxy<Event>,
   renderer: Option<Renderer>,
+  threads: Vec<JoinHandle<Result>>,
   window: Option<Arc<Window>>,
 }
 
 impl App {
+  pub(crate) fn new(proxy: EventLoopProxy<Event>) -> Self {
+    Self {
+      error: None,
+      proxy,
+      renderer: None,
+      threads: Vec::new(),
+      window: None,
+    }
+  }
+
   fn window(&self) -> &Window {
     self.window.as_ref().unwrap()
   }
@@ -21,7 +32,7 @@ impl App {
   }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<Event> for App {
   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
     if self.window.is_none() {
       assert!(self.renderer.is_none());
@@ -35,7 +46,7 @@ impl ApplicationHandler for App {
         }
       };
 
-      let renderer = match pollster::block_on(Renderer::new(window.clone())) {
+      let renderer = match pollster::block_on(Renderer::new(window.clone(), self.proxy.clone())) {
         Ok(renderer) => renderer,
         Err(err) => {
           self.error = Some(err);
@@ -68,6 +79,31 @@ impl ApplicationHandler for App {
         self.window().request_redraw();
       }
       _ => {}
+    }
+  }
+
+  fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: Event) {
+    match event {
+      Event::Thread(handle) => self.threads.push(handle),
+    }
+  }
+
+  fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+    for handle in self.threads.drain(..) {
+      let result = match handle.join() {
+        Ok(result) => result,
+        Err(_) => {
+          eprintln!("failed to wait for background thread");
+          continue;
+        }
+      };
+
+      match result {
+        Ok(()) => {}
+        Err(err) => {
+          self.error.get_or_insert(err);
+        }
+      };
     }
   }
 }
