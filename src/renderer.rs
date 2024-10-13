@@ -65,7 +65,7 @@ impl Renderer {
         compilation_options: PipelineCompilationOptions::default(),
         entry_point: Some("fragment"),
         module: &shader,
-        targets: &[Some(surface.get_capabilities(&adapter).formats[0].into())],
+        targets: &[Some(texture_format.into())],
       }),
       label: None,
       layout: None,
