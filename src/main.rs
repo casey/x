@@ -2,14 +2,6 @@ use {
   self::{app::App, renderer::Renderer},
   anyhow::Context,
   std::{backtrace::BacktraceStatus, io::Write, process, sync::Arc},
-  wgpu::{
-    include_wgsl, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features,
-    FragmentState, ImageDataLayout, Instance, Limits, LoadOp, MemoryHints, MultisampleState,
-    Operations, Origin3d, PipelineCompilationOptions, PowerPreference, PrimitiveState, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, Texture, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor, VertexState,
-  },
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,

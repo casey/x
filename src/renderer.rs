@@ -1,4 +1,15 @@
-use super::*;
+use {
+  super::*,
+  wgpu::{
+    include_wgsl, BufferDescriptor, BufferUsages, Color, CommandEncoderDescriptor, Device,
+    DeviceDescriptor, Extent3d, Features, FragmentState, ImageCopyBuffer, ImageCopyTexture,
+    ImageDataLayout, Instance, Limits, LoadOp, Maintain, MapMode, MemoryHints, MultisampleState,
+    Operations, Origin3d, PipelineCompilationOptions, PowerPreference, PrimitiveState, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, StoreOp, Surface, SurfaceConfiguration, Texture, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureUsages, TextureViewDescriptor, VertexState,
+  },
+};
 
 // todo:
 // - render to texture
@@ -141,18 +152,16 @@ impl Renderer {
         .unwrap(),
     );
 
-    let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+    let buffer = self.device.create_buffer(&BufferDescriptor {
       label: None,
       size: data.capacity().try_into().unwrap(),
-      usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+      usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
       mapped_at_creation: false,
     });
 
     // render to texture
     {
-      let view = self
-        .texture
-        .create_view(&wgpu::TextureViewDescriptor::default());
+      let view = self.texture.create_view(&TextureViewDescriptor::default());
 
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         label: None,
@@ -173,13 +182,13 @@ impl Renderer {
     }
 
     encoder.copy_texture_to_buffer(
-      wgpu::ImageCopyTexture {
+      ImageCopyTexture {
         texture: &self.texture,
         mip_level: 0,
         origin: Origin3d::ZERO,
         aspect: TextureAspect::All,
       },
-      wgpu::ImageCopyBuffer {
+      ImageCopyBuffer {
         buffer: &buffer,
         layout: ImageDataLayout {
           offset: 0,
@@ -189,7 +198,7 @@ impl Renderer {
           rows_per_image: Some(self.config.height),
         },
       },
-      wgpu::Extent3d {
+      Extent3d {
         width: self.config.width,
         height: self.config.height,
         depth_or_array_layers: 1,
@@ -222,8 +231,8 @@ impl Renderer {
 
     let buffer_slice = buffer.slice(..);
     let (sender, receiver) = flume::bounded(1);
-    buffer_slice.map_async(wgpu::MapMode::Read, move |r| sender.send(r).unwrap());
-    self.device.poll(wgpu::Maintain::wait()).panic_on_timeout();
+    buffer_slice.map_async(MapMode::Read, move |r| sender.send(r).unwrap());
+    self.device.poll(Maintain::wait()).panic_on_timeout();
 
     pollster::block_on(receiver.recv_async()).unwrap().unwrap();
 
