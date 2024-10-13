@@ -109,7 +109,7 @@ impl Renderer {
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
 
-    let buffer = if self.frame == 0 {
+    let screenshot_buffer = if self.frame == 0 {
       let buffer = self.device.create_buffer(&BufferDescriptor {
         label: None,
         size: self.subpixels().into(),
@@ -201,7 +201,7 @@ impl Renderer {
 
     self.queue.submit(Some(encoder.finish()));
 
-    if let Some(buffer) = buffer {
+    if let Some(buffer) = screenshot_buffer {
       self.save_screenshot(self.config.width, self.config.height, buffer);
     }
 
