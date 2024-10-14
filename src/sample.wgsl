@@ -1,3 +1,4 @@
+// todo: put uniforms first?
 @group(0)
 @binding(0)
 var t: texture_2d<f32>;

@@ -46,19 +46,31 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  fn target(&self) -> Target {
+  fn target(&self, screenshot: bool) -> Target {
     let texture = self.device.create_texture(&TextureDescriptor {
       label: None,
       size: Extent3d {
-        width: self.config.width,
-        height: self.config.height,
+        width: if screenshot {
+          SCREENSHOT_RESOLUTION
+        } else {
+          self.config.width
+        },
+        height: if screenshot {
+          SCREENSHOT_RESOLUTION
+        } else {
+          self.config.height
+        },
         depth_or_array_layers: 1,
       },
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureDimension::D2,
       format: self.texture_format,
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      usage: if screenshot {
+        TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC
+      } else {
+        TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING
+      },
       view_formats: &[self.texture_format],
     });
 
@@ -84,7 +96,7 @@ impl Renderer {
           }),
         },
       ],
-      label: Some("sample bind group"),
+      label: Some("target bind group"),
     });
 
     Target {
@@ -272,8 +284,8 @@ impl Renderer {
       targets: Vec::with_capacity(2),
     };
 
-    renderer.targets.push(renderer.target());
-    renderer.targets.push(renderer.target());
+    renderer.targets.push(renderer.target(false));
+    renderer.targets.push(renderer.target(false));
 
     Ok(renderer)
   }
@@ -292,6 +304,8 @@ impl Renderer {
     let filters = vec![(), ()];
 
     let mut output = 0;
+
+    let screenshot_targets = [self.target(true), self.target(true)];
 
     for (i, _filter) in filters.into_iter().enumerate() {
       let source = i % 2;
@@ -526,8 +540,8 @@ impl Renderer {
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
     self.texture = Self::create_texture(&self.device, &self.config, self.texture_format);
-    self.targets[0] = self.target();
-    self.targets[1] = self.target();
+    self.targets[0] = self.target(false);
+    self.targets[1] = self.target(false);
   }
 
   fn create_texture(
