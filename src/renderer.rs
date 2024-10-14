@@ -11,7 +11,7 @@ use {
     RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
     SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
     Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexState,
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
   },
 };
 
@@ -19,69 +19,78 @@ use {
 // - get screenshots back
 // - i think i need to always clear the first source, or use an empty texture
 
+const SAMPLE_UNIFORM_BUFFER_SIZE: u64 = 8;
 const SCREENSHOT_RESOLUTION: u32 = 4096;
-const SAMPLE_UNIFORM_BUFFER_SIZE: u64 = 4;
+
+#[repr(u32)]
+enum Field {
+  All,
+  X,
+}
+
+struct Uniforms {
+  field: u32,
+  resolution: f32,
+}
+
+impl Uniforms {
+  fn data(&self) -> Vec<u8> {
+    let mut data = Vec::new();
+    data.extend(&self.field.to_le_bytes());
+    data.extend(&self.resolution.to_le_bytes());
+    data
+  }
+}
 
 struct Target {
   bind_group: BindGroup,
+  #[allow(unused)]
   texture: Texture,
+  texture_view: TextureView,
 }
 
 pub struct Renderer {
+  bind_group_layout: BindGroupLayout,
   config: SurfaceConfiguration,
   device: Device,
   frame: u64,
   proxy: EventLoopProxy<Event>,
   queue: Queue,
   render_pipeline: RenderPipeline,
-  sample_group: BindGroup,
-  sample_pipeline: RenderPipeline,
-  sample_uniform_buffer: Buffer,
-  sample_bind_group_layout: BindGroupLayout,
-  surface: Surface<'static>,
-  texture: Texture,
   sampler: Sampler,
+  surface: Surface<'static>,
   targets: Vec<Target>,
   texture_format: TextureFormat,
+  uniform_buffer: Buffer,
 }
 
 impl Renderer {
-  fn target(&self, screenshot: bool) -> Target {
+  fn target(&self) -> Target {
     let texture = self.device.create_texture(&TextureDescriptor {
       label: None,
       size: Extent3d {
-        width: if screenshot {
-          SCREENSHOT_RESOLUTION
-        } else {
-          self.config.width
-        },
-        height: if screenshot {
-          SCREENSHOT_RESOLUTION
-        } else {
-          self.config.height
-        },
+        width: self.config.width,
+        height: self.config.height,
         depth_or_array_layers: 1,
       },
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureDimension::D2,
       format: self.texture_format,
-      usage: if screenshot {
-        TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC
-      } else {
-        TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING
-      },
+      usage: TextureUsages::RENDER_ATTACHMENT
+        | TextureUsages::TEXTURE_BINDING
+        | TextureUsages::COPY_DST,
       view_formats: &[self.texture_format],
     });
 
-    let view = texture.create_view(&TextureViewDescriptor::default());
+    let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
     let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-      layout: &self.sample_bind_group_layout,
+      layout: &self.bind_group_layout,
       entries: &[
         BindGroupEntry {
           binding: 0,
-          resource: BindingResource::TextureView(&view),
+          resource: BindingResource::TextureView(&texture_view),
         },
         BindGroupEntry {
           binding: 1,
@@ -90,7 +99,7 @@ impl Renderer {
         BindGroupEntry {
           binding: 2,
           resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.sample_uniform_buffer,
+            buffer: &self.uniform_buffer,
             offset: 0,
             size: None,
           }),
@@ -102,6 +111,7 @@ impl Renderer {
     Target {
       bind_group,
       texture,
+      texture_view,
     }
   }
 
@@ -139,30 +149,6 @@ impl Renderer {
     let texture_format = surface.get_capabilities(&adapter).formats[0];
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
-
-    let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-      cache: None,
-      depth_stencil: None,
-      fragment: Some(FragmentState {
-        compilation_options: PipelineCompilationOptions::default(),
-        entry_point: Some("fragment"),
-        module: &shader,
-        targets: &[Some(texture_format.into())],
-      }),
-      label: Some("render pipeline"),
-      layout: None,
-      multisample: MultisampleState::default(),
-      multiview: None,
-      primitive: PrimitiveState::default(),
-      vertex: VertexState {
-        buffers: &[],
-        compilation_options: PipelineCompilationOptions::default(),
-        entry_point: Some("vertex"),
-        module: &shader,
-      },
-    });
-
-    let sample = device.create_shader_module(include_wgsl!("sample.wgsl"));
 
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
@@ -204,26 +190,26 @@ impl Renderer {
 
     let sampler = device.create_sampler(&SamplerDescriptor::default());
 
-    let sample_uniform_buffer = device.create_buffer(&BufferDescriptor {
+    let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: Some("sample uniform buffer"),
+      mapped_at_creation: false,
       size: SAMPLE_UNIFORM_BUFFER_SIZE,
       usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
-      mapped_at_creation: false,
     });
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-      label: Some("sample pipeline layout"),
       bind_group_layouts: &[&bind_group_layout],
+      label: Some("sample pipeline layout"),
       push_constant_ranges: &[],
     });
 
-    let sample_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+    let render_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
       cache: None,
       depth_stencil: None,
       fragment: Some(FragmentState {
         compilation_options: PipelineCompilationOptions::default(),
         entry_point: Some("fragment"),
-        module: &sample,
+        module: &shader,
         targets: &[Some(texture_format.into())],
       }),
       label: Some("sample pipeline"),
@@ -235,143 +221,129 @@ impl Renderer {
         buffers: &[],
         compilation_options: PipelineCompilationOptions::default(),
         entry_point: Some("vertex"),
-        module: &sample,
+        module: &shader,
       },
     });
 
-    let texture = Self::create_texture(&device, &config, texture_format);
-
-    let view = texture.create_view(&TextureViewDescriptor::default());
-
-    let sample_group = device.create_bind_group(&BindGroupDescriptor {
-      layout: &bind_group_layout,
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::TextureView(&view),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::Sampler(&sampler),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &sample_uniform_buffer,
-            offset: 0,
-            size: None,
-          }),
-        },
-      ],
-      label: Some("sample bind group"),
-    });
-
     let mut renderer = Renderer {
+      bind_group_layout,
       config,
       device,
       frame: 0,
       proxy,
       queue,
       render_pipeline,
-      sample_group,
-      sample_pipeline,
-      sample_uniform_buffer,
-      sample_bind_group_layout: bind_group_layout,
       sampler,
       surface,
-      texture,
-      texture_format,
       targets: Vec::with_capacity(2),
+      texture_format,
+      uniform_buffer,
     };
 
-    renderer.targets.push(renderer.target(false));
-    renderer.targets.push(renderer.target(false));
+    renderer.targets.push(renderer.target());
+    renderer.targets.push(renderer.target());
 
     Ok(renderer)
   }
 
-  pub(crate) fn render_two(&mut self) -> Result {
+  pub(crate) fn render(&mut self) -> Result {
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
-
-    let resolution = self.config.width.max(self.config.height) as f32;
-
-    self
-      .queue
-      .write_buffer(&self.sample_uniform_buffer, 0, &resolution.to_le_bytes());
-
-    let filters = vec![(), ()];
-
-    let mut output = 0;
-
-    let screenshot_targets = [self.target(true), self.target(true)];
-
-    for (i, _filter) in filters.into_iter().enumerate() {
-      let source = i % 2;
-      let destination = (i + 1) % 2;
-
-      let view = self.targets[destination]
-        .texture
-        .create_view(&TextureViewDescriptor {
-          format: Some(self.texture_format),
-          ..TextureViewDescriptor::default()
-        });
-
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        label: Some(&format!("filter {i} render pass")),
-        color_attachments: &[Some(RenderPassColorAttachment {
-          view: &view,
-          resolve_target: None,
-          ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
-            store: StoreOp::Store,
-          },
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-      });
-
-      pass.set_bind_group(0, Some(&self.targets[source].bind_group), &[]);
-      pass.set_pipeline(&self.sample_pipeline);
-      pass.draw(0..3, 0..1);
-
-      output = destination;
-    }
 
     let frame = self
       .surface
       .get_current_texture()
       .context("failed to acquire next swap chain texture")?;
 
+    self.queue.write_texture(
+      ImageCopyTexture {
+        texture: &self.targets[0].texture,
+        mip_level: 0,
+        origin: Origin3d::ZERO,
+        aspect: TextureAspect::All,
+      },
+      &vec![
+        0x00;
+        (self.config.width * self.config.height * 4)
+          .try_into()
+          .unwrap()
+      ],
+      ImageDataLayout {
+        offset: 0,
+        bytes_per_row: Some(self.config.width * 4),
+        rows_per_image: Some(self.config.height),
+      },
+      Extent3d {
+        width: self.config.width,
+        height: self.config.height,
+        depth_or_array_layers: 1,
+      },
+    );
+
     {
-      let view = frame.texture.create_view(&TextureViewDescriptor {
-        format: Some(self.texture_format),
-        ..TextureViewDescriptor::default()
-      });
+      let uniforms = Uniforms {
+        resolution: self.config.width.max(self.config.height) as f32,
+        field: Field::X as u32,
+      };
+
+      self
+        .queue
+        .write_buffer(&self.uniform_buffer, 0, &uniforms.data());
 
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        label: Some("final render pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
-          view: &view,
-          resolve_target: None,
           ops: Operations {
             load: LoadOp::Clear(Color::BLACK),
             store: StoreOp::Store,
           },
+          resolve_target: None,
+          view: &self.targets[1].texture_view,
         })],
         depth_stencil_attachment: None,
-        timestamp_writes: None,
+        label: Some(&format!("filter render pass")),
         occlusion_query_set: None,
+        timestamp_writes: None,
       });
 
-      pass.set_bind_group(0, Some(&self.targets[output].bind_group), &[]);
-      pass.set_pipeline(&self.sample_pipeline);
+      pass.set_bind_group(0, Some(&self.targets[0].bind_group), &[]);
+      pass.set_pipeline(&self.render_pipeline);
       pass.draw(0..3, 0..1);
     }
 
-    self.queue.submit(Some(encoder.finish()));
+    {
+      let uniforms = Uniforms {
+        resolution: self.config.width.max(self.config.height) as f32,
+        field: Field::All as u32,
+      };
+
+      self
+        .queue
+        .write_buffer(&self.uniform_buffer, 0, &uniforms.data());
+
+      let view = frame.texture.create_view(&TextureViewDescriptor::default());
+
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        color_attachments: &[Some(RenderPassColorAttachment {
+          ops: Operations {
+            load: LoadOp::Clear(Color::BLACK),
+            store: StoreOp::Store,
+          },
+          resolve_target: None,
+          view: &view,
+        })],
+        depth_stencil_attachment: None,
+        label: Some("final render pass"),
+        occlusion_query_set: None,
+        timestamp_writes: None,
+      });
+
+      pass.set_bind_group(0, Some(&self.targets[1].bind_group), &[]);
+      pass.set_pipeline(&self.render_pipeline);
+      pass.draw(0..3, 0..1);
+    }
+
+    self.queue.submit([encoder.finish()]);
 
     frame.present();
 
@@ -381,7 +353,7 @@ impl Renderer {
   }
 
   #[allow(unused)]
-  pub(crate) fn render(&mut self) -> Result {
+  pub(crate) fn render_old(&mut self) -> Result {
     let frame = self
       .surface
       .get_current_texture()
@@ -470,58 +442,6 @@ impl Renderer {
     // - texture should be size of screen
     // - can calculate coordinates in vertex shader or fragment shader
 
-    {
-      let view = self.texture.create_view(&TextureViewDescriptor::default());
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        label: None,
-        color_attachments: &[Some(RenderPassColorAttachment {
-          view: &view,
-          resolve_target: None,
-          ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
-            store: StoreOp::Store,
-          },
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-      });
-      pass.set_pipeline(&self.render_pipeline);
-      pass.draw(0..3, 0..1);
-    }
-
-    {
-      let resolution = self.config.width.max(self.config.height) as f32;
-
-      self
-        .queue
-        .write_buffer(&self.sample_uniform_buffer, 0, &resolution.to_le_bytes());
-
-      let view = frame.texture.create_view(&TextureViewDescriptor {
-        format: Some(self.texture_format),
-        ..TextureViewDescriptor::default()
-      });
-
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        label: Some("sample render pass"),
-        color_attachments: &[Some(RenderPassColorAttachment {
-          view: &view,
-          resolve_target: None,
-          ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
-            store: StoreOp::Store,
-          },
-        })],
-        depth_stencil_attachment: None,
-        timestamp_writes: None,
-        occlusion_query_set: None,
-      });
-
-      pass.set_pipeline(&self.sample_pipeline);
-      pass.set_bind_group(0, Some(&self.sample_group), &[]);
-      pass.draw(0..3, 0..1);
-    }
-
     self.queue.submit(Some(encoder.finish()));
 
     if let Some(buffer) = screenshot_buffer {
@@ -539,30 +459,8 @@ impl Renderer {
     self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
-    self.texture = Self::create_texture(&self.device, &self.config, self.texture_format);
-    self.targets[0] = self.target(false);
-    self.targets[1] = self.target(false);
-  }
-
-  fn create_texture(
-    device: &Device,
-    config: &SurfaceConfiguration,
-    texture_format: TextureFormat,
-  ) -> Texture {
-    device.create_texture(&TextureDescriptor {
-      label: None,
-      size: Extent3d {
-        width: config.width,
-        height: config.height,
-        depth_or_array_layers: 1,
-      },
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: TextureDimension::D2,
-      format: texture_format,
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      view_formats: &[texture_format],
-    })
+    self.targets[0] = self.target();
+    self.targets[1] = self.target();
   }
 
   fn save_screenshot(&self, buffer: Buffer) {

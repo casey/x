@@ -96,7 +96,7 @@ impl ApplicationHandler<Event> for App {
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
     match event {
       WindowEvent::RedrawRequested => {
-        if let Err(err) = self.renderer().render_two() {
+        if let Err(err) = self.renderer().render() {
           self.error = Some(err);
           event_loop.exit();
           return;
