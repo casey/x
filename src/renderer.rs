@@ -17,6 +17,7 @@ use {
 
 // todo:
 // - get screenshots back
+// - i think i need to always clear the first source, or use an empty texture
 
 const SCREENSHOT_RESOLUTION: u32 = 4096;
 const SAMPLE_UNIFORM_BUFFER_SIZE: u64 = 4;
@@ -288,7 +289,7 @@ impl Renderer {
       .queue
       .write_buffer(&self.sample_uniform_buffer, 0, &resolution.to_le_bytes());
 
-    let filters = vec![(), (), (), ()];
+    let filters = vec![(), ()];
 
     let mut output = 0;
 
@@ -365,6 +366,7 @@ impl Renderer {
     Ok(())
   }
 
+  #[allow(unused)]
   pub(crate) fn render(&mut self) -> Result {
     let frame = self
       .surface
