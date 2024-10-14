@@ -56,7 +56,14 @@ impl ApplicationHandler<Event> for App {
     if self.window.is_none() {
       assert!(self.renderer.is_none());
 
-      let window = match event_loop.create_window(WindowAttributes::default().with_title("x")) {
+      let window = match event_loop.create_window(
+        WindowAttributes::default()
+          .with_inner_size(PhysicalSize {
+            width: 1024,
+            height: 1024,
+          })
+          .with_title("x"),
+      ) {
         Ok(window) => Arc::new(window),
         Err(err) => {
           self.error = Some(err.into());
@@ -89,7 +96,7 @@ impl ApplicationHandler<Event> for App {
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
     match event {
       WindowEvent::RedrawRequested => {
-        if let Err(err) = self.renderer().render() {
+        if let Err(err) = self.renderer().render_two() {
           self.error = Some(err);
           event_loop.exit();
           return;
