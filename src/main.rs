@@ -1,5 +1,8 @@
 use {
-  self::{app::App, event::Event, image::Image, renderer::Renderer},
+  self::{
+    app::App, event::Event, field::Field, filter::Filter, image::Image, renderer::Renderer,
+    shared::Shared, slice_ext::SliceExt,
+  },
   anyhow::Context,
   std::{
     backtrace::BacktraceStatus,
@@ -23,8 +26,12 @@ type Result<T = ()> = anyhow::Result<T>;
 
 mod app;
 mod event;
+mod field;
+mod filter;
 mod image;
 mod renderer;
+mod shared;
+mod slice_ext;
 
 fn run() -> Result<()> {
   env_logger::init();

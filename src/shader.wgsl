@@ -12,7 +12,8 @@ var s: sampler;
 var<uniform> uniforms: Uniforms;
 
 const FIELD_ALL: u32 = 0;
-const FIELD_X: u32 = 1;
+const FIELD_NONE: u32 = 1;
+const FIELD_X: u32 = 2;
 
 struct Uniforms {
   field: u32,
@@ -27,6 +28,10 @@ const VERTICES = array(
 
 fn field_all(uv: vec2<f32>) -> bool {
   return true;
+}
+
+fn field_none(uv: vec2<f32>) -> bool {
+  return false;
 }
 
 fn field_x(uv: vec2<f32>) -> bool {
@@ -56,6 +61,9 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
   switch uniforms.field {
     case FIELD_ALL {
       on = field_all(uv);
+    }
+    case FIELD_NONE {
+      on = field_none(uv);
     }
     case FIELD_X {
       on = field_x(uv);

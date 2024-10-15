@@ -17,34 +17,17 @@ use {
 
 // todo:
 // - get screenshots back
-// - i think i need to always clear the first source, or use an empty texture
 
-const SAMPLE_UNIFORM_BUFFER_SIZE: u64 = 8;
+const UNIFORM_BUFFER_SIZE: u64 = 8;
 const SCREENSHOT_RESOLUTION: u32 = 4096;
 
-#[repr(u32)]
-enum Field {
-  All,
-  X,
-}
-
 struct Uniforms {
-  field: u32,
+  field: Field,
   resolution: f32,
-}
-
-impl Uniforms {
-  fn data(&self) -> Vec<u8> {
-    let mut data = Vec::new();
-    data.extend(&self.field.to_le_bytes());
-    data.extend(&self.resolution.to_le_bytes());
-    data
-  }
 }
 
 struct Target {
   bind_group: BindGroup,
-  #[allow(unused)]
   texture: Texture,
   texture_view: TextureView,
 }
@@ -62,6 +45,7 @@ pub struct Renderer {
   targets: Vec<Target>,
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
+  uniform_buffer_stride: u64,
 }
 
 impl Renderer {
@@ -101,7 +85,7 @@ impl Renderer {
           resource: BindingResource::Buffer(BufferBinding {
             buffer: &self.uniform_buffer,
             offset: 0,
-            size: None,
+            size: Some(UNIFORM_BUFFER_SIZE.try_into().unwrap()),
           }),
         },
       ],
@@ -178,8 +162,8 @@ impl Renderer {
           binding: 2,
           count: None,
           ty: BindingType::Buffer {
-            has_dynamic_offset: false,
-            min_binding_size: Some(SAMPLE_UNIFORM_BUFFER_SIZE.try_into().unwrap()),
+            has_dynamic_offset: true,
+            min_binding_size: Some(UNIFORM_BUFFER_SIZE.try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -193,7 +177,7 @@ impl Renderer {
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: Some("sample uniform buffer"),
       mapped_at_creation: false,
-      size: SAMPLE_UNIFORM_BUFFER_SIZE,
+      size: 1024,
       usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
     });
 
@@ -225,6 +209,14 @@ impl Renderer {
       },
     });
 
+    let min_uniform_buffer_offset_alignment =
+      u64::from(device.limits().min_uniform_buffer_offset_alignment);
+
+    let data = UNIFORM_BUFFER_SIZE;
+    let alignment = min_uniform_buffer_offset_alignment;
+    let padding = (alignment - data % alignment) % alignment;
+    let uniform_buffer_stride = data + padding;
+
     let mut renderer = Renderer {
       bind_group_layout,
       config,
@@ -238,6 +230,7 @@ impl Renderer {
       targets: Vec::with_capacity(2),
       texture_format,
       uniform_buffer,
+      uniform_buffer_stride,
     };
 
     renderer.targets.push(renderer.target());
@@ -246,7 +239,46 @@ impl Renderer {
     Ok(renderer)
   }
 
+  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
+    if uniforms.is_empty() {
+      return;
+    }
+
+    let size = self.uniform_buffer_stride * u64::try_from(uniforms.len()).unwrap();
+    let mut buffer = self
+      .queue
+      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
+      .unwrap();
+
+    for (uniform, dst) in uniforms
+      .iter()
+      .zip(buffer.chunks_mut(self.uniform_buffer_stride.try_into().unwrap()))
+    {
+      let Uniforms { field, resolution } = uniform;
+      dst.write(&field.value()).write(&resolution.value());
+    }
+  }
+
   pub(crate) fn render(&mut self) -> Result {
+    let resolution = self.config.width.max(self.config.height) as f32;
+
+    let filters = [
+      Filter { field: Field::All },
+      Filter { field: Field::All },
+      Filter { field: Field::X },
+    ];
+
+    let mut uniforms = Vec::new();
+
+    for filter in &filters {
+      uniforms.push(Uniforms {
+        field: filter.field,
+        resolution,
+      });
+    }
+
+    self.write_uniform_buffer(&uniforms);
+
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
@@ -256,6 +288,7 @@ impl Renderer {
       .get_current_texture()
       .context("failed to acquire next swap chain texture")?;
 
+    // todo: replace with an empty source texture
     self.queue.write_texture(
       ImageCopyTexture {
         texture: &self.targets[0].texture,
@@ -281,15 +314,17 @@ impl Renderer {
       },
     );
 
-    {
-      let uniforms = Uniforms {
-        resolution: self.config.width.max(self.config.height) as f32,
-        field: Field::X as u32,
-      };
+    let mut source = 0;
+    let mut destination = 1;
 
-      self
-        .queue
-        .write_buffer(&self.uniform_buffer, 0, &uniforms.data());
+    for i in 0..uniforms.len() {
+      let last = i == uniforms.len() - 1;
+
+      let view = if last {
+        &frame.texture.create_view(&TextureViewDescriptor::default())
+      } else {
+        &self.targets[destination].texture_view
+      };
 
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         color_attachments: &[Some(RenderPassColorAttachment {
@@ -298,7 +333,7 @@ impl Renderer {
             store: StoreOp::Store,
           },
           resolve_target: None,
-          view: &self.targets[1].texture_view,
+          view,
         })],
         depth_stencil_attachment: None,
         label: Some(&format!("filter render pass")),
@@ -306,41 +341,17 @@ impl Renderer {
         timestamp_writes: None,
       });
 
-      pass.set_bind_group(0, Some(&self.targets[0].bind_group), &[]);
+      pass.set_bind_group(
+        0,
+        Some(&self.targets[source].bind_group),
+        &[(usize::try_from(self.uniform_buffer_stride).unwrap() * i)
+          .try_into()
+          .unwrap()],
+      );
       pass.set_pipeline(&self.render_pipeline);
       pass.draw(0..3, 0..1);
-    }
 
-    {
-      let uniforms = Uniforms {
-        resolution: self.config.width.max(self.config.height) as f32,
-        field: Field::All as u32,
-      };
-
-      self
-        .queue
-        .write_buffer(&self.uniform_buffer, 0, &uniforms.data());
-
-      let view = frame.texture.create_view(&TextureViewDescriptor::default());
-
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        color_attachments: &[Some(RenderPassColorAttachment {
-          ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
-            store: StoreOp::Store,
-          },
-          resolve_target: None,
-          view: &view,
-        })],
-        depth_stencil_attachment: None,
-        label: Some("final render pass"),
-        occlusion_query_set: None,
-        timestamp_writes: None,
-      });
-
-      pass.set_bind_group(0, Some(&self.targets[1].bind_group), &[]);
-      pass.set_pipeline(&self.render_pipeline);
-      pass.draw(0..3, 0..1);
+      (source, destination) = (destination, source);
     }
 
     self.queue.submit([encoder.finish()]);
