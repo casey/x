@@ -174,7 +174,7 @@ impl Renderer {
 
     let min_uniform_buffer_offset_alignment = device.limits().min_uniform_buffer_offset_alignment;
 
-    let data = u32::from(UNIFORM_BUFFER_SIZE);
+    let data = UNIFORM_BUFFER_SIZE;
     let alignment = min_uniform_buffer_offset_alignment;
     let padding = (alignment - data % alignment) % alignment;
     let uniform_buffer_stride = data + padding;
