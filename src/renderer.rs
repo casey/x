@@ -10,7 +10,7 @@ use {
     PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
     RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
     SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
-    Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
     TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
   },
 };
@@ -18,7 +18,13 @@ use {
 // todo:
 // - get screenshots back
 
-const UNIFORM_BUFFER_SIZE: u64 = 8;
+macro_rules! label {
+  () => {
+    Some(concat!(file!(), ":", line!(), ":", column!()))
+  };
+}
+
+const UNIFORM_BUFFER_SIZE: u32 = 8;
 const SCREENSHOT_RESOLUTION: u32 = 4096;
 
 struct Uniforms {
@@ -28,7 +34,6 @@ struct Uniforms {
 
 struct Target {
   bind_group: BindGroup,
-  texture: Texture,
   texture_view: TextureView,
 }
 
@@ -45,13 +50,13 @@ pub struct Renderer {
   targets: Vec<Target>,
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
-  uniform_buffer_stride: u64,
+  uniform_buffer_stride: u32,
 }
 
 impl Renderer {
   fn target(&self) -> Target {
     let texture = self.device.create_texture(&TextureDescriptor {
-      label: None,
+      label: label!(),
       size: Extent3d {
         width: self.config.width,
         height: self.config.height,
@@ -85,16 +90,15 @@ impl Renderer {
           resource: BindingResource::Buffer(BufferBinding {
             buffer: &self.uniform_buffer,
             offset: 0,
-            size: Some(UNIFORM_BUFFER_SIZE.try_into().unwrap()),
+            size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
           }),
         },
       ],
-      label: Some("target bind group"),
+      label: label!(),
     });
 
     Target {
       bind_group,
-      texture,
       texture_view,
     }
   }
@@ -120,7 +124,7 @@ impl Renderer {
     let (device, queue) = adapter
       .request_device(
         &DeviceDescriptor {
-          label: Some("device"),
+          label: label!(),
           required_features: Features::empty(),
           required_limits: Limits::default(),
           memory_hints: MemoryHints::Performance,
@@ -163,27 +167,34 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(UNIFORM_BUFFER_SIZE.try_into().unwrap()),
+            min_binding_size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
         },
       ],
-      label: Some("sample bind group layout"),
+      label: label!(),
     });
 
     let sampler = device.create_sampler(&SamplerDescriptor::default());
 
+    let min_uniform_buffer_offset_alignment = device.limits().min_uniform_buffer_offset_alignment;
+
+    let data = u32::from(UNIFORM_BUFFER_SIZE);
+    let alignment = min_uniform_buffer_offset_alignment;
+    let padding = (alignment - data % alignment) % alignment;
+    let uniform_buffer_stride = data + padding;
+
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
-      label: Some("sample uniform buffer"),
+      label: label!(),
       mapped_at_creation: false,
-      size: 1024,
+      size: device.limits().max_buffer_size,
       usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
     });
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
       bind_group_layouts: &[&bind_group_layout],
-      label: Some("sample pipeline layout"),
+      label: label!(),
       push_constant_ranges: &[],
     });
 
@@ -196,7 +207,7 @@ impl Renderer {
         module: &shader,
         targets: &[Some(texture_format.into())],
       }),
-      label: Some("sample pipeline"),
+      label: label!(),
       layout: Some(&pipeline_layout),
       multisample: MultisampleState::default(),
       multiview: None,
@@ -208,14 +219,6 @@ impl Renderer {
         module: &shader,
       },
     });
-
-    let min_uniform_buffer_offset_alignment =
-      u64::from(device.limits().min_uniform_buffer_offset_alignment);
-
-    let data = UNIFORM_BUFFER_SIZE;
-    let alignment = min_uniform_buffer_offset_alignment;
-    let padding = (alignment - data % alignment) % alignment;
-    let uniform_buffer_stride = data + padding;
 
     let mut renderer = Renderer {
       bind_group_layout,
@@ -235,6 +238,7 @@ impl Renderer {
 
     renderer.targets.push(renderer.target());
     renderer.targets.push(renderer.target());
+    renderer.targets.push(renderer.target());
 
     Ok(renderer)
   }
@@ -244,7 +248,7 @@ impl Renderer {
       return;
     }
 
-    let size = self.uniform_buffer_stride * u64::try_from(uniforms.len()).unwrap();
+    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
     let mut buffer = self
       .queue
       .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
@@ -288,42 +292,20 @@ impl Renderer {
       .get_current_texture()
       .context("failed to acquire next swap chain texture")?;
 
-    // todo: replace with an empty source texture
-    self.queue.write_texture(
-      ImageCopyTexture {
-        texture: &self.targets[0].texture,
-        mip_level: 0,
-        origin: Origin3d::ZERO,
-        aspect: TextureAspect::All,
-      },
-      &vec![
-        0x00;
-        (self.config.width * self.config.height * 4)
-          .try_into()
-          .unwrap()
-      ],
-      ImageDataLayout {
-        offset: 0,
-        bytes_per_row: Some(self.config.width * 4),
-        rows_per_image: Some(self.config.height),
-      },
-      Extent3d {
-        width: self.config.width,
-        height: self.config.height,
-        depth_or_array_layers: 1,
-      },
-    );
-
     let mut source = 0;
     let mut destination = 1;
 
     for i in 0..uniforms.len() {
-      let last = i == uniforms.len() - 1;
-
-      let view = if last {
+      let view = if i == uniforms.len() - 1 {
         &frame.texture.create_view(&TextureViewDescriptor::default())
       } else {
         &self.targets[destination].texture_view
+      };
+
+      let source_target = if i == 0 {
+        &self.targets[2]
+      } else {
+        &self.targets[source]
       };
 
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -336,17 +318,15 @@ impl Renderer {
           view,
         })],
         depth_stencil_attachment: None,
-        label: Some(&format!("filter render pass")),
+        label: label!(),
         occlusion_query_set: None,
         timestamp_writes: None,
       });
 
       pass.set_bind_group(
         0,
-        Some(&self.targets[source].bind_group),
-        &[(usize::try_from(self.uniform_buffer_stride).unwrap() * i)
-          .try_into()
-          .unwrap()],
+        Some(&source_target.bind_group),
+        &[self.uniform_buffer_stride * u32::try_from(i).unwrap()],
       );
       pass.set_pipeline(&self.render_pipeline);
       pass.draw(0..3, 0..1);
@@ -376,14 +356,14 @@ impl Renderer {
 
     let screenshot_buffer = if self.frame == 0 {
       let buffer = self.device.create_buffer(&BufferDescriptor {
-        label: None,
+        label: label!(),
         size: (SCREENSHOT_RESOLUTION * SCREENSHOT_RESOLUTION * 4).into(),
         usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
         mapped_at_creation: false,
       });
 
       let texture = self.device.create_texture(&TextureDescriptor {
-        label: None,
+        label: label!(),
         size: Extent3d {
           width: SCREENSHOT_RESOLUTION,
           height: SCREENSHOT_RESOLUTION,
@@ -400,7 +380,7 @@ impl Renderer {
       {
         let view = texture.create_view(&TextureViewDescriptor::default());
         let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-          label: None,
+          label: label!(),
           color_attachments: &[Some(RenderPassColorAttachment {
             view: &view,
             resolve_target: None,
@@ -472,6 +452,7 @@ impl Renderer {
     self.surface.configure(&self.device, &self.config);
     self.targets[0] = self.target();
     self.targets[1] = self.target();
+    self.targets[2] = self.target();
   }
 
   fn save_screenshot(&self, buffer: Buffer) {

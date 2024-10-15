@@ -62,6 +62,10 @@ impl ApplicationHandler<Event> for App {
             width: 1024,
             height: 1024,
           })
+          .with_min_inner_size(PhysicalSize {
+            width: 256,
+            height: 256,
+          })
           .with_title("x"),
       ) {
         Ok(window) => Arc::new(window),
