@@ -22,6 +22,12 @@ use {
   },
 };
 
+macro_rules! label {
+  () => {
+    Some(concat!(file!(), ":", line!(), ":", column!()))
+  };
+}
+
 type Result<T = ()> = anyhow::Result<T>;
 
 mod app;

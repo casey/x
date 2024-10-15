@@ -18,12 +18,6 @@ use {
 // todo:
 // - get screenshots back
 
-macro_rules! label {
-  () => {
-    Some(concat!(file!(), ":", line!(), ":", column!()))
-  };
-}
-
 const UNIFORM_BUFFER_SIZE: u32 = 8;
 const SCREENSHOT_RESOLUTION: u32 = 4096;
 
