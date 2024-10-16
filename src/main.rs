@@ -1,39 +1,58 @@
 use {
-  self::{app::App, event::Event, image::Image, renderer::Renderer},
+  self::{
+    app::App, field::Field, filter::Filter, renderer::Renderer, shared::Shared,
+    slice_ext::SliceExt, target::Target, uniforms::Uniforms,
+  },
   anyhow::Context,
-  std::{
-    backtrace::BacktraceStatus,
-    fs::File,
-    path::Path,
-    process,
-    sync::Arc,
-    thread::JoinHandle,
-    time::{SystemTime, UNIX_EPOCH},
+  std::{backtrace::BacktraceStatus, process, sync::Arc},
+  wgpu::{
+    include_wgsl, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
+    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
+    Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
+    Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat,
+    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+    VertexState,
   },
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
+    event::{ElementState, WindowEvent},
+    event_loop::{ActiveEventLoop, EventLoop},
+    keyboard::Key,
     window::{Window, WindowAttributes, WindowId},
   },
 };
 
+macro_rules! label {
+  () => {
+    Some(concat!(file!(), ":", line!(), ":", column!()))
+  };
+}
+
 type Result<T = ()> = anyhow::Result<T>;
 
+const UNIFORM_BUFFER_SIZE: u32 = 8;
+
 mod app;
-mod event;
-mod image;
+mod field;
+mod filter;
 mod renderer;
+mod shared;
+mod slice_ext;
+mod target;
+mod uniforms;
 
 fn run() -> Result<()> {
   env_logger::init();
 
-  let event_loop = EventLoop::with_user_event().build()?;
+  let mut app = App::default();
 
-  let mut app = App::new(&event_loop);
-
-  event_loop.run_app(&mut app)?;
+  EventLoop::with_user_event().build()?.run_app(&mut app)?;
 
   if let Some(err) = app.error() {
     return Err(err);
