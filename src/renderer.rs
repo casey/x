@@ -1,17 +1,5 @@
 use super::*;
 
-const UNIFORM_BUFFER_SIZE: u32 = 8;
-
-struct Uniforms {
-  field: Field,
-  resolution: f32,
-}
-
-struct Target {
-  bind_group: BindGroup,
-  texture_view: TextureView,
-}
-
 pub struct Renderer {
   bind_group_layout: BindGroupLayout,
   config: SurfaceConfiguration,
@@ -29,62 +17,6 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  fn target(
-    bind_group_layout: &BindGroupLayout,
-    config: &SurfaceConfiguration,
-    device: &Device,
-    sampler: &Sampler,
-    texture_format: TextureFormat,
-    uniform_buffer: &Buffer,
-  ) -> Target {
-    let texture = device.create_texture(&TextureDescriptor {
-      label: label!(),
-      size: Extent3d {
-        width: config.width,
-        height: config.height,
-        depth_or_array_layers: 1,
-      },
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: TextureDimension::D2,
-      format: texture_format,
-      usage: TextureUsages::RENDER_ATTACHMENT
-        | TextureUsages::TEXTURE_BINDING
-        | TextureUsages::COPY_DST,
-      view_formats: &[texture_format],
-    });
-
-    let texture_view = texture.create_view(&TextureViewDescriptor::default());
-
-    let bind_group = device.create_bind_group(&BindGroupDescriptor {
-      layout: bind_group_layout,
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
-          }),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(&texture_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::Sampler(sampler),
-        },
-      ],
-      label: label!(),
-    });
-
-    Target {
-      bind_group,
-      texture_view,
-    }
-  }
-
   pub async fn new(window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
@@ -199,7 +131,7 @@ impl Renderer {
       },
     });
 
-    let initial_target = Self::target(
+    let initial_target = Target::new(
       &bind_group_layout,
       &config,
       &device,
@@ -209,7 +141,7 @@ impl Renderer {
     );
 
     let targets = [
-      Self::target(
+      Target::new(
         &bind_group_layout,
         &config,
         &device,
@@ -217,7 +149,7 @@ impl Renderer {
         texture_format,
         &uniform_buffer,
       ),
-      Self::target(
+      Target::new(
         &bind_group_layout,
         &config,
         &device,
@@ -349,7 +281,7 @@ impl Renderer {
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
     for target in self.targets.iter_mut() {
-      *target = Self::target(
+      *target = Target::new(
         &self.bind_group_layout,
         &self.config,
         &self.device,

@@ -1,6 +1,7 @@
 use {
   self::{
-    app::App, field::Field, filter::Filter, renderer::Renderer, shared::Shared, slice_ext::SliceExt,
+    app::App, field::Field, filter::Filter, renderer::Renderer, shared::Shared,
+    slice_ext::SliceExt, target::Target, uniforms::Uniforms,
   },
   anyhow::Context,
   std::{backtrace::BacktraceStatus, process, sync::Arc, thread::JoinHandle},
@@ -35,12 +36,16 @@ macro_rules! label {
 
 type Result<T = ()> = anyhow::Result<T>;
 
+const UNIFORM_BUFFER_SIZE: u32 = 8;
+
 mod app;
 mod field;
 mod filter;
 mod renderer;
 mod shared;
 mod slice_ext;
+mod target;
+mod uniforms;
 
 fn run() -> Result<()> {
   env_logger::init();
