@@ -1,19 +1,4 @@
-use {
-  super::*,
-  wgpu::{
-    include_wgsl, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
-    Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
-    Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
-    VertexState,
-  },
-};
+use super::*;
 
 const UNIFORM_BUFFER_SIZE: u32 = 8;
 
