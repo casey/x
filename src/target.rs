@@ -13,7 +13,7 @@ impl Target {
     sampler: &Sampler,
     texture_format: TextureFormat,
     uniform_buffer: &Buffer,
-  ) -> Target {
+  ) -> Self {
     let texture = device.create_texture(&TextureDescriptor {
       label: label!(),
       size: Extent3d {
@@ -56,7 +56,7 @@ impl Target {
       label: label!(),
     });
 
-    Target {
+    Self {
       bind_group,
       texture_view,
     }
