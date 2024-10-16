@@ -67,8 +67,8 @@ impl ApplicationHandler for App {
       WindowEvent::CloseRequested => {
         event_loop.exit();
       }
-      WindowEvent::KeyboardInput { event, .. } => match event.logical_key {
-        Key::Character(c) => {
+      WindowEvent::KeyboardInput { event, .. } => {
+        if let Key::Character(c) = event.logical_key {
           if event.state == ElementState::Pressed {
             if c == "x" {
               self.filters.push(Filter { field: Field::X });
@@ -77,8 +77,7 @@ impl ApplicationHandler for App {
             }
           }
         }
-        _ => {}
-      },
+      }
       WindowEvent::RedrawRequested => {
         if let Err(err) = self.renderer.as_mut().unwrap().render(&self.filters) {
           self.error = Some(err);
