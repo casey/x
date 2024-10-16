@@ -279,18 +279,18 @@ impl Renderer {
     }
   }
 
-  pub(crate) fn render(&mut self) -> Result {
-    let resolution = self.config.width.max(self.config.height) as f32;
+  pub(crate) fn render(&mut self, filters: &[Filter]) -> Result {
+    let filters = if filters.is_empty() {
+      &[Filter { field: Field::None }]
+    } else {
+      filters
+    };
 
-    let filters = [
-      Filter { field: Field::All },
-      Filter { field: Field::All },
-      Filter { field: Field::X },
-    ];
+    let resolution = self.config.width.max(self.config.height) as f32;
 
     let mut uniforms = Vec::new();
 
-    for filter in &filters {
+    for filter in filters {
       uniforms.push(Uniforms {
         field: filter.field,
         resolution,

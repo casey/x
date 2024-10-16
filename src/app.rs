@@ -3,6 +3,7 @@ use super::*;
 #[derive(Default)]
 pub(crate) struct App {
   error: Option<anyhow::Error>,
+  filters: Vec<Filter>,
   renderer: Option<Renderer>,
   threads: Vec<JoinHandle<Result>>,
   window: Option<Arc<Window>>,
@@ -83,16 +84,28 @@ impl ApplicationHandler for App {
 
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
     match event {
+      WindowEvent::CloseRequested => {
+        event_loop.exit();
+      }
+      WindowEvent::KeyboardInput { event, .. } => match event.logical_key {
+        Key::Character(c) => {
+          if event.state == ElementState::Pressed {
+            if c == "x" {
+              self.filters.push(Filter { field: Field::X });
+            } else if c == "a" {
+              self.filters.push(Filter { field: Field::All });
+            }
+          }
+        }
+        _ => {}
+      },
       WindowEvent::RedrawRequested => {
-        if let Err(err) = self.renderer().render() {
+        if let Err(err) = self.renderer.as_mut().unwrap().render(&self.filters) {
           self.error = Some(err);
           event_loop.exit();
           return;
         }
         self.window().request_redraw();
-      }
-      WindowEvent::CloseRequested => {
-        event_loop.exit();
       }
       WindowEvent::Resized(size) => {
         self.renderer().resize(size);

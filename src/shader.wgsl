@@ -39,10 +39,6 @@ fn field_x(uv: vec2<f32>) -> bool {
   return min(abs((1.0 - uv.x) - uv.y), abs(uv.x - uv.y)) < 0.1;
 }
 
-fn quadrant(position: vec2<f32>) -> vec2<f32> {
-  return (position + 1.0) / 2.0;
-}
-
 fn invert(color: vec4<f32>) -> vec4<f32> {
   return vec4((color.xyx - 1) * -1, 1.0);
 }

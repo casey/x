@@ -7,8 +7,9 @@ use {
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::WindowEvent,
+    event::{ElementState, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
+    keyboard::Key,
     window::{Window, WindowAttributes, WindowId},
   },
 };
