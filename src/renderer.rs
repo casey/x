@@ -36,40 +36,48 @@ pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
   frame: u64,
+  initial_target: Target,
   proxy: EventLoopProxy<Event>,
   queue: Queue,
   render_pipeline: RenderPipeline,
   sampler: Sampler,
   surface: Surface<'static>,
-  targets: Vec<Target>,
+  targets: [Target; 2],
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
   uniform_buffer_stride: u32,
 }
 
 impl Renderer {
-  fn target(&self) -> Target {
-    let texture = self.device.create_texture(&TextureDescriptor {
+  fn target(
+    bind_group_layout: &BindGroupLayout,
+    config: &SurfaceConfiguration,
+    device: &Device,
+    sampler: &Sampler,
+    texture_format: TextureFormat,
+    uniform_buffer: &Buffer,
+  ) -> Target {
+    let texture = device.create_texture(&TextureDescriptor {
       label: label!(),
       size: Extent3d {
-        width: self.config.width,
-        height: self.config.height,
+        width: config.width,
+        height: config.height,
         depth_or_array_layers: 1,
       },
       mip_level_count: 1,
       sample_count: 1,
       dimension: TextureDimension::D2,
-      format: self.texture_format,
+      format: texture_format,
       usage: TextureUsages::RENDER_ATTACHMENT
         | TextureUsages::TEXTURE_BINDING
         | TextureUsages::COPY_DST,
-      view_formats: &[self.texture_format],
+      view_formats: &[texture_format],
     });
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
-    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-      layout: &self.bind_group_layout,
+    let bind_group = device.create_bind_group(&BindGroupDescriptor {
+      layout: bind_group_layout,
       entries: &[
         BindGroupEntry {
           binding: 0,
@@ -77,12 +85,12 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: 1,
-          resource: BindingResource::Sampler(&self.sampler),
+          resource: BindingResource::Sampler(&sampler),
         },
         BindGroupEntry {
           binding: 2,
           resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
+            buffer: uniform_buffer,
             offset: 0,
             size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
           }),
@@ -214,27 +222,50 @@ impl Renderer {
       },
     });
 
-    let mut renderer = Renderer {
+    let initial_target = Self::target(
+      &bind_group_layout,
+      &config,
+      &device,
+      &sampler,
+      texture_format,
+      &uniform_buffer,
+    );
+
+    let targets = [
+      Self::target(
+        &bind_group_layout,
+        &config,
+        &device,
+        &sampler,
+        texture_format,
+        &uniform_buffer,
+      ),
+      Self::target(
+        &bind_group_layout,
+        &config,
+        &device,
+        &sampler,
+        texture_format,
+        &uniform_buffer,
+      ),
+    ];
+
+    Ok(Renderer {
       bind_group_layout,
       config,
       device,
       frame: 0,
+      initial_target,
       proxy,
       queue,
       render_pipeline,
       sampler,
       surface,
-      targets: Vec::with_capacity(2),
+      targets,
       texture_format,
       uniform_buffer,
       uniform_buffer_stride,
-    };
-
-    renderer.targets.push(renderer.target());
-    renderer.targets.push(renderer.target());
-    renderer.targets.push(renderer.target());
-
-    Ok(renderer)
+    })
   }
 
   fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
@@ -297,7 +328,7 @@ impl Renderer {
       };
 
       let source_target = if i == 0 {
-        &self.targets[2]
+        &self.initial_target
       } else {
         &self.targets[source]
       };
@@ -418,15 +449,6 @@ impl Renderer {
       None
     };
 
-    // todo:
-    // - begin with empty textures a and b
-    // - for each filter, render
-    // - copy last texture to screen
-    //
-    // - how to calculate texture coordinates?
-    // - texture should be size of screen
-    // - can calculate coordinates in vertex shader or fragment shader
-
     self.queue.submit(Some(encoder.finish()));
 
     if let Some(buffer) = screenshot_buffer {
@@ -444,9 +466,16 @@ impl Renderer {
     self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
-    self.targets[0] = self.target();
-    self.targets[1] = self.target();
-    self.targets[2] = self.target();
+    for target in self.targets.iter_mut() {
+      *target = Self::target(
+        &self.bind_group_layout,
+        &self.config,
+        &self.device,
+        &self.sampler,
+        self.texture_format,
+        &self.uniform_buffer,
+      );
+    }
   }
 
   fn save_screenshot(&self, buffer: Buffer) {
