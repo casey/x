@@ -4,7 +4,7 @@ use {
     slice_ext::SliceExt, target::Target, uniforms::Uniforms,
   },
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, process, sync::Arc, thread::JoinHandle},
+  std::{backtrace::BacktraceStatus, process, sync::Arc},
   wgpu::{
     include_wgsl, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
