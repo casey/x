@@ -1,15 +1,14 @@
-// todo: put uniforms first?
 @group(0)
 @binding(0)
-var t: texture_2d<f32>;
+var<uniform> uniforms: Uniforms;
 
 @group(0)
 @binding(1)
-var s: sampler;
+var source: texture_2d<f32>;
 
 @group(0)
 @binding(2)
-var<uniform> uniforms: Uniforms;
+var source_sampler: sampler;
 
 const FIELD_ALL: u32 = 0;
 const FIELD_NONE: u32 = 1;
@@ -56,7 +55,7 @@ const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
 @fragment
 fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
   let uv = position.xy / uniforms.resolution;
-  let input = textureSample(t, s, uv);
+  let input = textureSample(source, source_sampler, uv);
   var on: bool;
   switch uniforms.field {
     case FIELD_ALL {

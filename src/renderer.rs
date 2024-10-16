@@ -81,19 +81,19 @@ impl Renderer {
       entries: &[
         BindGroupEntry {
           binding: 0,
-          resource: BindingResource::TextureView(&texture_view),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::Sampler(&sampler),
-        },
-        BindGroupEntry {
-          binding: 2,
           resource: BindingResource::Buffer(BufferBinding {
             buffer: uniform_buffer,
             offset: 0,
             size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
           }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(&texture_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::Sampler(&sampler),
         },
       ],
       label: label!(),
@@ -151,6 +151,16 @@ impl Renderer {
         BindGroupLayoutEntry {
           binding: 0,
           count: None,
+          ty: BindingType::Buffer {
+            has_dynamic_offset: true,
+            min_binding_size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
+            ty: BufferBindingType::Uniform,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: 1,
+          count: None,
           ty: BindingType::Texture {
             multisampled: false,
             sample_type: TextureSampleType::Float { filterable: true },
@@ -159,19 +169,9 @@ impl Renderer {
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 1,
-          count: None,
-          ty: BindingType::Sampler(SamplerBindingType::Filtering),
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
           binding: 2,
           count: None,
-          ty: BindingType::Buffer {
-            has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
-            ty: BufferBindingType::Uniform,
-          },
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
           visibility: ShaderStages::FRAGMENT,
         },
       ],
