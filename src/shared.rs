@@ -8,6 +8,7 @@ pub(crate) trait Shared {
 
 impl Shared for Field {
   type Value = [u8; 4];
+
   fn value(&self) -> Self::Value {
     (*self as u32).to_le_bytes()
   }
