@@ -175,12 +175,9 @@ impl Renderer {
 
     let sampler = device.create_sampler(&SamplerDescriptor::default());
 
-    let min_uniform_buffer_offset_alignment = device.limits().min_uniform_buffer_offset_alignment;
-
-    let data = UNIFORM_BUFFER_SIZE;
-    let alignment = min_uniform_buffer_offset_alignment;
-    let padding = (alignment - data % alignment) % alignment;
-    let uniform_buffer_stride = data + padding;
+    let alignment = device.limits().min_uniform_buffer_offset_alignment;
+    let padding = (alignment - UNIFORM_BUFFER_SIZE % alignment) % alignment;
+    let uniform_buffer_stride = UNIFORM_BUFFER_SIZE + padding;
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
