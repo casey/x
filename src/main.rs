@@ -1,23 +1,14 @@
 use {
   self::{
-    app::App, event::Event, field::Field, filter::Filter, image::Image, renderer::Renderer,
-    shared::Shared, slice_ext::SliceExt,
+    app::App, field::Field, filter::Filter, renderer::Renderer, shared::Shared, slice_ext::SliceExt,
   },
   anyhow::Context,
-  std::{
-    backtrace::BacktraceStatus,
-    fs::File,
-    path::Path,
-    process,
-    sync::Arc,
-    thread::JoinHandle,
-    time::{SystemTime, UNIX_EPOCH},
-  },
+  std::{backtrace::BacktraceStatus, process, sync::Arc, thread::JoinHandle},
   winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
+    event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowAttributes, WindowId},
   },
 };
@@ -31,10 +22,8 @@ macro_rules! label {
 type Result<T = ()> = anyhow::Result<T>;
 
 mod app;
-mod event;
 mod field;
 mod filter;
-mod image;
 mod renderer;
 mod shared;
 mod slice_ext;
@@ -42,11 +31,9 @@ mod slice_ext;
 fn run() -> Result<()> {
   env_logger::init();
 
-  let event_loop = EventLoop::with_user_event().build()?;
+  let mut app = App::default();
 
-  let mut app = App::new(&event_loop);
-
-  event_loop.run_app(&mut app)?;
+  EventLoop::with_user_event().build()?.run_app(&mut app)?;
 
   if let Some(err) = app.error() {
     return Err(err);
