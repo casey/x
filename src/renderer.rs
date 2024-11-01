@@ -222,6 +222,8 @@ impl Renderer {
       filters
     };
 
+    eprintln!("{}", filters.len());
+
     let resolution = self.config.width.max(self.config.height) as f32;
 
     let mut uniforms = Vec::new();
