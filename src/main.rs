@@ -1,10 +1,18 @@
 use {
   self::{
-    app::App, field::Field, filter::Filter, renderer::Renderer, shared::Shared,
-    slice_ext::SliceExt, target::Target, uniforms::Uniforms,
+    app::App, field::Field, filter::Filter, frame::Frame, renderer::Renderer, shared::Shared,
+    slice_ext::SliceExt, tally::Tally, target::Target, uniforms::Uniforms,
   },
   anyhow::Context,
-  std::{backtrace::BacktraceStatus, collections::VecDeque, process, sync::Arc, time::Instant},
+  log::info,
+  std::{
+    backtrace::BacktraceStatus,
+    collections::VecDeque,
+    fmt::{self, Display, Formatter},
+    process,
+    sync::Arc,
+    time::Instant,
+  },
   wgpu::{
     include_wgsl, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
@@ -41,9 +49,11 @@ const UNIFORM_BUFFER_SIZE: u32 = 8;
 mod app;
 mod field;
 mod filter;
+mod frame;
 mod renderer;
 mod shared;
 mod slice_ext;
+mod tally;
 mod target;
 mod uniforms;
 

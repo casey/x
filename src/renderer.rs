@@ -207,22 +207,18 @@ impl Renderer {
 
     self.frame_times.push_back(now);
 
-    if self.frame_times.len() >= 2 {
+    let fps = if self.frame_times.len() >= 2 {
       let elapsed = *self.frame_times.back().unwrap() - *self.frame_times.front().unwrap();
-
-      let elapsed = elapsed.as_millis() as f64 / self.frame_times.len() as f64;
-
-      // todo: log?
-      eprintln!("{:.0}", 1000.0 / elapsed);
-    }
+      Some((elapsed.as_millis() as f64 / self.frame_times.len() as f64 / 1000.0) as u64)
+    } else {
+      None
+    };
 
     let filters = if filters.is_empty() {
       &[Filter { field: Field::None }]
     } else {
       filters
     };
-
-    eprintln!("{}", filters.len());
 
     let resolution = self.config.width.max(self.config.height) as f32;
 
@@ -291,6 +287,15 @@ impl Renderer {
     self.queue.submit([encoder.finish()]);
 
     frame.present();
+
+    info!(
+      "{}",
+      Frame {
+        number: self.frame,
+        fps,
+        filters: filters.len()
+      }
+    );
 
     self.frame += 1;
 
