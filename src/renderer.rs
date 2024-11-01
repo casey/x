@@ -5,6 +5,7 @@ pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
   frame: u64,
+  frame_times: VecDeque<Instant>,
   initial_target: Target,
   queue: Queue,
   render_pipeline: RenderPipeline,
@@ -161,6 +162,7 @@ impl Renderer {
 
     Ok(Renderer {
       bind_group_layout,
+      frame_times: VecDeque::with_capacity(100),
       config,
       device,
       frame: 0,
@@ -197,6 +199,21 @@ impl Renderer {
   }
 
   pub(crate) fn render(&mut self, filters: &[Filter]) -> Result {
+    if self.frame_times.len() == self.frame_times.capacity() {
+      self.frame_times.pop_front();
+    }
+
+    let now = Instant::now();
+
+    self.frame_times.push_back(now);
+
+    let fps = if self.frame_times.len() >= 2 {
+      let elapsed = *self.frame_times.back().unwrap() - *self.frame_times.front().unwrap();
+      Some((elapsed.as_millis() as f64 / self.frame_times.len() as f64 / 1000.0) as u64)
+    } else {
+      None
+    };
+
     let filters = if filters.is_empty() {
       &[Filter { field: Field::None }]
     } else {
@@ -270,6 +287,15 @@ impl Renderer {
     self.queue.submit([encoder.finish()]);
 
     frame.present();
+
+    info!(
+      "{}",
+      Frame {
+        number: self.frame,
+        fps,
+        filters: filters.len()
+      }
+    );
 
     self.frame += 1;
 
