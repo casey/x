@@ -70,10 +70,13 @@ impl ApplicationHandler for App {
       WindowEvent::KeyboardInput { event, .. } => {
         if let Key::Character(c) = event.logical_key {
           if event.state == ElementState::Pressed {
-            if c == "x" {
-              self.filters.push(Filter { field: Field::X });
-            } else if c == "a" {
-              self.filters.push(Filter { field: Field::All });
+            match c.as_str() {
+              "a" => self.filters.push(Filter { field: Field::All }),
+              "c" => self.filters.push(Filter {
+                field: Field::Circle,
+              }),
+              "x" => self.filters.push(Filter { field: Field::X }),
+              _ => {}
             }
           }
         }

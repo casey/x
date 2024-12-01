@@ -1,6 +1,12 @@
 watch +args='ltest':
   cargo watch --clear --exec '{{args}}'
 
+run:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cargo build
+  ./target/debug/x 2> >(grep -Ev 'IMKClient|IMKInputSession' >&2)
+
 ci:
   ./bin/forbid
   cargo lclippy --workspace --all-targets -- --deny warnings

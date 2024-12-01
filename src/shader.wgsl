@@ -13,8 +13,9 @@ var source_sampler: sampler;
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
 
 const FIELD_ALL: u32 = 0;
-const FIELD_NONE: u32 = 1;
-const FIELD_X: u32 = 2;
+const FIELD_CIRCLE: u32 = 1;
+const FIELD_NONE: u32 = 2;
+const FIELD_X: u32 = 3;
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
@@ -27,41 +28,49 @@ struct Uniforms {
   resolution: f32,
 }
 
-fn field_all(uv: vec2<f32>) -> bool {
+fn field_all(p: vec2f) -> bool {
   return true;
 }
 
-fn field_none(uv: vec2<f32>) -> bool {
+fn field_circle(p: vec2f) -> bool {
+  return length(p) < 1;
+}
+
+fn field_none(p: vec2f) -> bool {
   return false;
 }
 
-fn field_x(uv: vec2<f32>) -> bool {
-  return min(abs((1.0 - uv.x) - uv.y), abs(uv.x - uv.y)) < 0.1;
+fn field_x(p: vec2f) -> bool {
+  return abs(abs(p.x) - abs(p.y)) < 0.2;
 }
 
-fn invert(color: vec4<f32>) -> vec4<f32> {
-  return vec4((color.xyx - 1) * -1, 1.0);
+fn invert(color: vec4f) -> vec4f {
+  return vec4((color.xyx - 1) * -1, 1);
 }
 
 @vertex
-fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
   return VERTICES[i];
 }
 
 @fragment
-fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   let uv = position.xy / uniforms.resolution;
   let input = textureSample(source, source_sampler, uv);
+  let centered = uv * 2 - 1;;
   var on: bool;
   switch uniforms.field {
     case FIELD_ALL {
-      on = field_all(uv);
+      on = field_all(centered);
+    }
+    case FIELD_CIRCLE {
+      on = field_circle(centered);
     }
     case FIELD_NONE {
-      on = field_none(uv);
+      on = field_none(centered);
     }
     case FIELD_X {
-      on = field_x(uv);
+      on = field_x(centered);
     }
     default {
       return ERROR_COLOR;
