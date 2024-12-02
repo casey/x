@@ -7,9 +7,12 @@ pub struct Renderer {
   frame: u64,
   frame_times: VecDeque<Instant>,
   initial_target: Target,
+  options: Options,
   queue: Queue,
   render_pipeline: RenderPipeline,
+  resolution: u32,
   sampler: Sampler,
+  size: PhysicalSize<u32>,
   surface: Surface<'static>,
   targets: [Target; 2],
   texture_format: TextureFormat,
@@ -18,7 +21,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  pub async fn new(window: Arc<Window>) -> Result<Self> {
+  pub async fn new(options: Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -66,7 +69,7 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
+            min_binding_size: Some(u64::from(Uniforms::BUFFER_SIZE).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -94,8 +97,8 @@ impl Renderer {
     let sampler = device.create_sampler(&SamplerDescriptor::default());
 
     let alignment = device.limits().min_uniform_buffer_offset_alignment;
-    let padding = (alignment - UNIFORM_BUFFER_SIZE % alignment) % alignment;
-    let uniform_buffer_stride = UNIFORM_BUFFER_SIZE + padding;
+    let padding = (alignment - Uniforms::BUFFER_SIZE % alignment) % alignment;
+    let uniform_buffer_stride = Uniforms::BUFFER_SIZE + padding;
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
@@ -132,44 +135,36 @@ impl Renderer {
       },
     });
 
-    let initial_target = Target::new(
-      &bind_group_layout,
-      &config,
-      &device,
-      &sampler,
-      texture_format,
-      &uniform_buffer,
-    );
+    let resolution = options.resolution(size);
 
-    let targets = [
+    let target = || {
       Target::new(
         &bind_group_layout,
-        &config,
         &device,
+        resolution,
         &sampler,
         texture_format,
         &uniform_buffer,
-      ),
-      Target::new(
-        &bind_group_layout,
-        &config,
-        &device,
-        &sampler,
-        texture_format,
-        &uniform_buffer,
-      ),
-    ];
+      )
+    };
+
+    let initial_target = target();
+
+    let targets = [target(), target()];
 
     Ok(Renderer {
       bind_group_layout,
-      frame_times: VecDeque::with_capacity(100),
       config,
       device,
       frame: 0,
+      frame_times: VecDeque::with_capacity(100),
       initial_target,
+      options,
       queue,
       render_pipeline,
+      resolution,
       sampler,
+      size,
       surface,
       targets,
       texture_format,
@@ -209,27 +204,24 @@ impl Renderer {
 
     let fps = if self.frame_times.len() >= 2 {
       let elapsed = *self.frame_times.back().unwrap() - *self.frame_times.front().unwrap();
-      Some((elapsed.as_millis() as f64 / self.frame_times.len() as f64 / 1000.0) as u64)
+      Some(1000.0 / (elapsed.as_millis() as f64 / self.frame_times.len() as f64))
     } else {
       None
     };
-
-    let filters = if filters.is_empty() {
-      &[Filter { field: Field::None }]
-    } else {
-      filters
-    };
-
-    let resolution = self.config.width.max(self.config.height) as f32;
 
     let mut uniforms = Vec::new();
 
     for filter in filters {
       uniforms.push(Uniforms {
         field: filter.field,
-        resolution,
+        resolution: self.resolution as f32,
       });
     }
+
+    uniforms.push(Uniforms {
+      field: Field::None,
+      resolution: self.size.height.max(self.size.width) as f32,
+    });
 
     self.write_uniform_buffer(&uniforms);
 
@@ -303,14 +295,16 @@ impl Renderer {
   }
 
   pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
-    self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
+    self.config.width = size.width.max(1);
+    self.resolution = self.options.resolution(size);
+    self.size = size;
     self.surface.configure(&self.device, &self.config);
     for target in self.targets.iter_mut() {
       *target = Target::new(
         &self.bind_group_layout,
-        &self.config,
         &self.device,
+        self.resolution,
         &self.sampler,
         self.texture_format,
         &self.uniform_buffer,

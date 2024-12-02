@@ -1,9 +1,10 @@
 use {
   self::{
-    app::App, field::Field, filter::Filter, frame::Frame, renderer::Renderer, shared::Shared,
-    slice_ext::SliceExt, tally::Tally, target::Target, uniforms::Uniforms,
+    app::App, field::Field, filter::Filter, frame::Frame, options::Options, renderer::Renderer,
+    shared::Shared, slice_ext::SliceExt, tally::Tally, target::Target, uniforms::Uniforms,
   },
   anyhow::Context,
+  clap::Parser,
   log::info,
   std::{
     backtrace::BacktraceStatus,
@@ -44,12 +45,11 @@ macro_rules! label {
 
 type Result<T = ()> = anyhow::Result<T>;
 
-const UNIFORM_BUFFER_SIZE: u32 = 8;
-
 mod app;
 mod field;
 mod filter;
 mod frame;
+mod options;
 mod renderer;
 mod shared;
 mod slice_ext;
@@ -60,7 +60,9 @@ mod uniforms;
 fn run() -> Result<()> {
   env_logger::init();
 
-  let mut app = App::default();
+  let options = Options::parse();
+
+  let mut app = App::new(options);
 
   EventLoop::with_user_event().build()?.run_app(&mut app)?;
 

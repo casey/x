@@ -1,7 +1,7 @@
 use super::*;
 
 pub(crate) struct Frame {
-  pub(crate) fps: Option<u64>,
+  pub(crate) fps: Option<f64>,
   pub(crate) number: u64,
   pub(crate) filters: usize,
 }
@@ -16,7 +16,7 @@ impl Display for Frame {
     )?;
 
     if let Some(fps) = self.fps {
-      write!(f, " · {fps} fps")?;
+      write!(f, " · {fps:.0} fps")?;
     }
 
     Ok(())
