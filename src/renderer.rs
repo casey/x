@@ -10,7 +10,9 @@ pub struct Renderer {
   options: Options,
   queue: Queue,
   render_pipeline: RenderPipeline,
+  resolution: u32,
   sampler: Sampler,
+  size: PhysicalSize<u32>,
   surface: Surface<'static>,
   targets: [Target; 2],
   texture_format: TextureFormat,
@@ -67,7 +69,7 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
+            min_binding_size: Some(u64::from(Uniforms::BUFFER_SIZE).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -95,8 +97,8 @@ impl Renderer {
     let sampler = device.create_sampler(&SamplerDescriptor::default());
 
     let alignment = device.limits().min_uniform_buffer_offset_alignment;
-    let padding = (alignment - UNIFORM_BUFFER_SIZE % alignment) % alignment;
-    let uniform_buffer_stride = UNIFORM_BUFFER_SIZE + padding;
+    let padding = (alignment - Uniforms::BUFFER_SIZE % alignment) % alignment;
+    let uniform_buffer_stride = Uniforms::BUFFER_SIZE + padding;
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
@@ -160,7 +162,9 @@ impl Renderer {
       options,
       queue,
       render_pipeline,
+      resolution,
       sampler,
+      size,
       surface,
       targets,
       texture_format,
@@ -205,22 +209,19 @@ impl Renderer {
       None
     };
 
-    let filters = if filters.is_empty() {
-      &[Filter { field: Field::None }]
-    } else {
-      filters
-    };
-
-    let resolution = self.config.width.max(self.config.height) as f32;
-
     let mut uniforms = Vec::new();
 
     for filter in filters {
       uniforms.push(Uniforms {
         field: filter.field,
-        resolution,
+        resolution: self.resolution as f32,
       });
     }
+
+    uniforms.push(Uniforms {
+      field: Field::None,
+      resolution: self.size.height.max(self.size.width) as f32,
+    });
 
     self.write_uniform_buffer(&uniforms);
 
@@ -294,15 +295,16 @@ impl Renderer {
   }
 
   pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
-    self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
+    self.config.width = size.width.max(1);
+    self.resolution = self.options.resolution(size);
+    self.size = size;
     self.surface.configure(&self.device, &self.config);
-    let resolution = self.options.resolution(size);
     for target in self.targets.iter_mut() {
       *target = Target::new(
         &self.bind_group_layout,
         &self.device,
-        resolution,
+        self.resolution,
         &self.sampler,
         self.texture_format,
         &self.uniform_buffer,

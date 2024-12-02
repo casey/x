@@ -41,7 +41,7 @@ impl Target {
           resource: BindingResource::Buffer(BufferBinding {
             buffer: uniform_buffer,
             offset: 0,
-            size: Some(u64::from(UNIFORM_BUFFER_SIZE).try_into().unwrap()),
+            size: Some(u64::from(Uniforms::BUFFER_SIZE).try_into().unwrap()),
           }),
         },
         BindGroupEntry {

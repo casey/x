@@ -45,8 +45,6 @@ macro_rules! label {
 
 type Result<T = ()> = anyhow::Result<T>;
 
-const UNIFORM_BUFFER_SIZE: u32 = 8;
-
 mod app;
 mod field;
 mod filter;
