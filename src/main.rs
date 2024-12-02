@@ -32,7 +32,7 @@ use {
     dpi::PhysicalSize,
     event::{ElementState, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
-    keyboard::Key,
+    keyboard::{Key, NamedKey},
     window::{Window, WindowAttributes, WindowId},
   },
 };
