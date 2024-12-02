@@ -8,8 +8,8 @@ pub(crate) struct Target {
 impl Target {
   pub(crate) fn new(
     bind_group_layout: &BindGroupLayout,
-    config: &SurfaceConfiguration,
     device: &Device,
+    resolution: u32,
     sampler: &Sampler,
     texture_format: TextureFormat,
     uniform_buffer: &Buffer,
@@ -17,8 +17,8 @@ impl Target {
     let texture = device.create_texture(&TextureDescriptor {
       label: label!(),
       size: Extent3d {
-        width: config.width,
-        height: config.height,
+        width: resolution,
+        height: resolution,
         depth_or_array_layers: 1,
       },
       mip_level_count: 1,

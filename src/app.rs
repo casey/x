@@ -1,14 +1,24 @@
 use super::*;
 
-#[derive(Default)]
 pub(crate) struct App {
   error: Option<anyhow::Error>,
   filters: Vec<Filter>,
+  options: Options,
   renderer: Option<Renderer>,
   window: Option<Arc<Window>>,
 }
 
 impl App {
+  pub(crate) fn new(options: Options) -> Self {
+    Self {
+      error: None,
+      filters: Vec::new(),
+      options,
+      renderer: None,
+      window: None,
+    }
+  }
+
   fn window(&self) -> &Window {
     self.window.as_ref().unwrap()
   }
@@ -47,7 +57,7 @@ impl ApplicationHandler for App {
         }
       };
 
-      let renderer = match pollster::block_on(Renderer::new(window.clone())) {
+      let renderer = match pollster::block_on(Renderer::new(self.options.clone(), window.clone())) {
         Ok(renderer) => renderer,
         Err(err) => {
           self.error = Some(err);

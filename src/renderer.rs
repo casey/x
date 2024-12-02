@@ -7,6 +7,7 @@ pub struct Renderer {
   frame: u64,
   frame_times: VecDeque<Instant>,
   initial_target: Target,
+  options: Options,
   queue: Queue,
   render_pipeline: RenderPipeline,
   sampler: Sampler,
@@ -18,7 +19,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  pub async fn new(window: Arc<Window>) -> Result<Self> {
+  pub async fn new(options: Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
@@ -132,41 +133,31 @@ impl Renderer {
       },
     });
 
-    let initial_target = Target::new(
-      &bind_group_layout,
-      &config,
-      &device,
-      &sampler,
-      texture_format,
-      &uniform_buffer,
-    );
+    let resolution = options.resolution(size);
 
-    let targets = [
+    let target = || {
       Target::new(
         &bind_group_layout,
-        &config,
         &device,
+        resolution,
         &sampler,
         texture_format,
         &uniform_buffer,
-      ),
-      Target::new(
-        &bind_group_layout,
-        &config,
-        &device,
-        &sampler,
-        texture_format,
-        &uniform_buffer,
-      ),
-    ];
+      )
+    };
+
+    let initial_target = target();
+
+    let targets = [target(), target()];
 
     Ok(Renderer {
       bind_group_layout,
-      frame_times: VecDeque::with_capacity(100),
       config,
       device,
       frame: 0,
+      frame_times: VecDeque::with_capacity(100),
       initial_target,
+      options,
       queue,
       render_pipeline,
       sampler,
@@ -209,7 +200,7 @@ impl Renderer {
 
     let fps = if self.frame_times.len() >= 2 {
       let elapsed = *self.frame_times.back().unwrap() - *self.frame_times.front().unwrap();
-      Some((elapsed.as_millis() as f64 / self.frame_times.len() as f64 / 1000.0) as u64)
+      Some(1000.0 / (elapsed.as_millis() as f64 / self.frame_times.len() as f64))
     } else {
       None
     };
@@ -306,11 +297,12 @@ impl Renderer {
     self.config.width = size.width.max(1);
     self.config.height = size.height.max(1);
     self.surface.configure(&self.device, &self.config);
+    let resolution = self.options.resolution(size);
     for target in self.targets.iter_mut() {
       *target = Target::new(
         &self.bind_group_layout,
-        &self.config,
         &self.device,
+        resolution,
         &self.sampler,
         self.texture_format,
         &self.uniform_buffer,
