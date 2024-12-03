@@ -90,12 +90,9 @@ impl ApplicationHandler for App {
             }
           }
         }
-        Key::Named(named) => match named {
-          NamedKey::Backspace => {
-            self.filters.pop();
-          }
-          _ => {}
-        },
+        Key::Named(NamedKey::Backspace) => {
+          self.filters.pop();
+        }
         _ => {}
       },
       WindowEvent::RedrawRequested => {
