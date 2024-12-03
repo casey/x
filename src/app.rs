@@ -77,8 +77,8 @@ impl ApplicationHandler for App {
       WindowEvent::CloseRequested => {
         event_loop.exit();
       }
-      WindowEvent::KeyboardInput { event, .. } => {
-        if let Key::Character(c) = event.logical_key {
+      WindowEvent::KeyboardInput { event, .. } => match event.logical_key {
+        Key::Character(c) => {
           if event.state == ElementState::Pressed {
             match c.as_str() {
               "a" => self.filters.push(Filter { field: Field::All }),
@@ -90,7 +90,11 @@ impl ApplicationHandler for App {
             }
           }
         }
-      }
+        Key::Named(NamedKey::Backspace) => {
+          self.filters.pop();
+        }
+        _ => {}
+      },
       WindowEvent::RedrawRequested => {
         if let Err(err) = self.renderer.as_mut().unwrap().render(&self.filters) {
           self.error = Some(err);
