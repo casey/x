@@ -1,7 +1,7 @@
 use {
   self::{
     app::App, field::Field, filter::Filter, frame::Frame, options::Options, renderer::Renderer,
-    shared::Shared, slice_ext::SliceExt, tally::Tally, target::Target, uniforms::Uniforms,
+    shared::Shared, tally::Tally, target::Target, uniforms::Uniforms, vec2f::Vec2f,
   },
   anyhow::Context,
   clap::Parser,
@@ -15,7 +15,7 @@ use {
     time::Instant,
   },
   wgpu::{
-    include_wgsl, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    include_wgsl, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
     BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color,
     CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
@@ -43,8 +43,6 @@ macro_rules! label {
   };
 }
 
-type Result<T = ()> = anyhow::Result<T>;
-
 mod app;
 mod field;
 mod filter;
@@ -52,10 +50,16 @@ mod frame;
 mod options;
 mod renderer;
 mod shared;
-mod slice_ext;
 mod tally;
 mod target;
 mod uniforms;
+mod vec2f;
+
+type Result<T = ()> = anyhow::Result<T>;
+
+fn default<T: Default>() -> T {
+  T::default()
+}
 
 fn run() -> Result<()> {
   env_logger::init();

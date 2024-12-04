@@ -23,10 +23,6 @@ impl App {
     self.window.as_ref().unwrap()
   }
 
-  fn renderer(&mut self) -> &mut Renderer {
-    self.renderer.as_mut().unwrap()
-  }
-
   pub(crate) fn error(self) -> Option<anyhow::Error> {
     self.error
   }
@@ -77,26 +73,35 @@ impl ApplicationHandler for App {
       WindowEvent::CloseRequested => {
         event_loop.exit();
       }
-      WindowEvent::KeyboardInput { event, .. } => match event.logical_key {
-        Key::Character(c) => {
-          if event.state == ElementState::Pressed {
-            match c.as_str() {
-              "a" => self.filters.push(Filter { field: Field::All }),
-              "c" => self.filters.push(Filter {
-                field: Field::Circle,
-              }),
-              "x" => self.filters.push(Filter { field: Field::X }),
-              _ => {}
+      WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
+        match event.logical_key {
+          Key::Character(c) => match c.as_str() {
+            "a" => self.filters.push(Filter { field: Field::All }),
+            "c" => self.filters.push(Filter {
+              field: Field::Circle,
+            }),
+            "f" => {
+              self.options.fit = !self.options.fit;
             }
+            "r" => {
+              self.options.repeat = !self.options.repeat;
+            }
+            "x" => self.filters.push(Filter { field: Field::X }),
+            _ => {}
+          },
+          Key::Named(NamedKey::Backspace) => {
+            self.filters.pop();
           }
+          _ => {}
         }
-        Key::Named(NamedKey::Backspace) => {
-          self.filters.pop();
-        }
-        _ => {}
-      },
+      }
       WindowEvent::RedrawRequested => {
-        if let Err(err) = self.renderer.as_mut().unwrap().render(&self.filters) {
+        if let Err(err) = self
+          .renderer
+          .as_mut()
+          .unwrap()
+          .render(&self.options, &self.filters)
+        {
           self.error = Some(err);
           event_loop.exit();
           return;
@@ -104,7 +109,7 @@ impl ApplicationHandler for App {
         self.window().request_redraw();
       }
       WindowEvent::Resized(size) => {
-        self.renderer().resize(size);
+        self.renderer.as_mut().unwrap().resize(&self.options, size);
         self.window().request_redraw();
       }
       _ => {}

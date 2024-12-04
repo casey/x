@@ -7,7 +7,6 @@ pub struct Renderer {
   frame: u64,
   frame_times: VecDeque<Instant>,
   initial_target: Target,
-  options: Options,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -69,7 +68,7 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(Uniforms::BUFFER_SIZE).try_into().unwrap()),
+            min_binding_size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -94,11 +93,15 @@ impl Renderer {
       label: label!(),
     });
 
-    let sampler = device.create_sampler(&SamplerDescriptor::default());
+    let sampler = device.create_sampler(&SamplerDescriptor {
+      address_mode_u: AddressMode::MirrorRepeat,
+      address_mode_v: AddressMode::MirrorRepeat,
+      ..default()
+    });
 
     let alignment = device.limits().min_uniform_buffer_offset_alignment;
-    let padding = (alignment - Uniforms::BUFFER_SIZE % alignment) % alignment;
-    let uniform_buffer_stride = Uniforms::BUFFER_SIZE + padding;
+    let padding = (alignment - Uniforms::buffer_size() % alignment) % alignment;
+    let uniform_buffer_stride = Uniforms::buffer_size() + padding;
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
@@ -159,7 +162,6 @@ impl Renderer {
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       initial_target,
-      options,
       queue,
       render_pipeline,
       resolution,
@@ -184,16 +186,15 @@ impl Renderer {
       .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
       .unwrap();
 
-    for (uniform, dst) in uniforms
+    for (uniforms, dst) in uniforms
       .iter()
       .zip(buffer.chunks_mut(self.uniform_buffer_stride.try_into().unwrap()))
     {
-      let Uniforms { field, resolution } = uniform;
-      dst.write(&field.value()).write(&resolution.value());
+      uniforms.write(dst);
     }
   }
 
-  pub(crate) fn render(&mut self, filters: &[Filter]) -> Result {
+  pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
     if self.frame_times.len() == self.frame_times.capacity() {
       self.frame_times.pop_front();
     }
@@ -214,13 +215,23 @@ impl Renderer {
     for filter in filters {
       uniforms.push(Uniforms {
         field: filter.field,
-        resolution: self.resolution as f32,
+        fit: false,
+        repeat: false,
+        resolution: Vec2f {
+          x: self.resolution as f32,
+          y: self.resolution as f32,
+        },
       });
     }
 
     uniforms.push(Uniforms {
       field: Field::None,
-      resolution: self.size.height.max(self.size.width) as f32,
+      fit: options.fit,
+      repeat: options.repeat,
+      resolution: Vec2f {
+        x: self.size.width as f32,
+        y: self.size.height as f32,
+      },
     });
 
     self.write_uniform_buffer(&uniforms);
@@ -294,10 +305,10 @@ impl Renderer {
     Ok(())
   }
 
-  pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
+  pub(crate) fn resize(&mut self, options: &Options, size: PhysicalSize<u32>) {
     self.config.height = size.height.max(1);
     self.config.width = size.width.max(1);
-    self.resolution = self.options.resolution(size);
+    self.resolution = options.resolution(size);
     self.size = size;
     self.surface.configure(&self.device, &self.config);
     for target in self.targets.iter_mut() {

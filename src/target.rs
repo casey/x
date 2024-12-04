@@ -25,9 +25,7 @@ impl Target {
       sample_count: 1,
       dimension: TextureDimension::D2,
       format: texture_format,
-      usage: TextureUsages::RENDER_ATTACHMENT
-        | TextureUsages::TEXTURE_BINDING
-        | TextureUsages::COPY_DST,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
       view_formats: &[texture_format],
     });
 
@@ -41,7 +39,7 @@ impl Target {
           resource: BindingResource::Buffer(BufferBinding {
             buffer: uniform_buffer,
             offset: 0,
-            size: Some(u64::from(Uniforms::BUFFER_SIZE).try_into().unwrap()),
+            size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
           }),
         },
         BindGroupEntry {

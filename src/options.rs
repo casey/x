@@ -17,6 +17,10 @@ use {
 )]
 pub(crate) struct Options {
   #[arg(long)]
+  pub(crate) fit: bool,
+  #[arg(long)]
+  pub(crate) repeat: bool,
+  #[arg(long)]
   pub(crate) resolution: Option<u32>,
 }
 
