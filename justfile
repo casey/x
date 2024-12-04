@@ -1,3 +1,8 @@
+# todo:
+# - get rid of log line
+# - mode where you fit in instead of fill
+# - toggle repeat
+
 watch +args='ltest':
   cargo watch --clear --exec '{{args}}'
 

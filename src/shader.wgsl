@@ -11,11 +11,15 @@ var source: texture_2d<f32>;
 var source_sampler: sampler;
 
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
+const BLACK = vec4(0.0, 0.0, 0.0, 1.0);
 
 const FIELD_ALL: u32 = 0;
 const FIELD_CIRCLE: u32 = 1;
 const FIELD_NONE: u32 = 2;
 const FIELD_X: u32 = 3;
+
+const FALSE: u32 = 0;
+const TRUE: u32 = 1;
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
@@ -25,7 +29,9 @@ const VERTICES = array(
 
 struct Uniforms {
   field: u32,
-  resolution: f32,
+  fit: u32,
+  repeat: u32,
+  resolution: vec2f,
 }
 
 fn field_all(p: vec2f) -> bool {
@@ -55,22 +61,48 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 
 @fragment
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
-  let uv = position.xy / uniforms.resolution;
-  let input = textureSample(source, source_sampler, uv);
-  let centered = uv * 2 - 1;;
+  let quad = position.xy / uniforms.resolution;
+
+  let aspect = uniforms.resolution.x / uniforms.resolution.y;
+
+  var centered = quad - 0.5;
+
+  if uniforms.fit == TRUE {
+    if aspect > 1 {
+      centered.x *= aspect;
+    } else {
+      centered.y /= aspect;
+    }
+  } else {
+    if aspect > 1 {
+      centered.y /= aspect;
+    } else {
+      centered.x *= aspect;
+    }
+  }
+
+  let uv = centered + 0.5;
+
+  var input = BLACK;
+
+  if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
+    input = textureSample(source, source_sampler, uv);
+  }
+
+  let p = uv * 2 - 1;;
   var on: bool;
   switch uniforms.field {
     case FIELD_ALL {
-      on = field_all(centered);
+      on = field_all(p);
     }
     case FIELD_CIRCLE {
-      on = field_circle(centered);
+      on = field_circle(p);
     }
     case FIELD_NONE {
-      on = field_none(centered);
+      on = field_none(p);
     }
     case FIELD_X {
-      on = field_x(centered);
+      on = field_x(p);
     }
     default {
       return ERROR_COLOR;

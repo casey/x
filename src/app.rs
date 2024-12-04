@@ -3,6 +3,7 @@ use super::*;
 pub(crate) struct App {
   error: Option<anyhow::Error>,
   filters: Vec<Filter>,
+  fit: bool,
   options: Options,
   renderer: Option<Renderer>,
   window: Option<Arc<Window>>,
@@ -13,6 +14,7 @@ impl App {
     Self {
       error: None,
       filters: Vec::new(),
+      fit: options.fit,
       options,
       renderer: None,
       window: None,
@@ -77,26 +79,32 @@ impl ApplicationHandler for App {
       WindowEvent::CloseRequested => {
         event_loop.exit();
       }
-      WindowEvent::KeyboardInput { event, .. } => match event.logical_key {
-        Key::Character(c) => {
-          if event.state == ElementState::Pressed {
-            match c.as_str() {
-              "a" => self.filters.push(Filter { field: Field::All }),
-              "c" => self.filters.push(Filter {
-                field: Field::Circle,
-              }),
-              "x" => self.filters.push(Filter { field: Field::X }),
-              _ => {}
+      WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
+        match event.logical_key {
+          Key::Character(c) => match c.as_str() {
+            "a" => self.filters.push(Filter { field: Field::All }),
+            "c" => self.filters.push(Filter {
+              field: Field::Circle,
+            }),
+            "f" => {
+              self.fit = !self.fit;
             }
+            "x" => self.filters.push(Filter { field: Field::X }),
+            _ => {}
+          },
+          Key::Named(NamedKey::Backspace) => {
+            self.filters.pop();
           }
+          _ => {}
         }
-        Key::Named(NamedKey::Backspace) => {
-          self.filters.pop();
-        }
-        _ => {}
-      },
+      }
       WindowEvent::RedrawRequested => {
-        if let Err(err) = self.renderer.as_mut().unwrap().render(&self.filters) {
+        if let Err(err) = self
+          .renderer
+          .as_mut()
+          .unwrap()
+          .render(self.fit, &self.filters)
+        {
           self.error = Some(err);
           event_loop.exit();
           return;
