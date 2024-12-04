@@ -7,7 +7,6 @@ pub struct Renderer {
   frame: u64,
   frame_times: VecDeque<Instant>,
   initial_target: Target,
-  options: Options,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -163,7 +162,6 @@ impl Renderer {
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       initial_target,
-      options,
       queue,
       render_pipeline,
       resolution,
@@ -196,7 +194,7 @@ impl Renderer {
     }
   }
 
-  pub(crate) fn render(&mut self, fit: bool, filters: &[Filter]) -> Result {
+  pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
     if self.frame_times.len() == self.frame_times.capacity() {
       self.frame_times.pop_front();
     }
@@ -228,8 +226,8 @@ impl Renderer {
 
     uniforms.push(Uniforms {
       field: Field::None,
-      fit,
-      repeat: self.options.repeat,
+      fit: options.fit,
+      repeat: options.repeat,
       resolution: Vec2f {
         x: self.size.width as f32,
         y: self.size.height as f32,
@@ -307,10 +305,10 @@ impl Renderer {
     Ok(())
   }
 
-  pub(crate) fn resize(&mut self, size: PhysicalSize<u32>) {
+  pub(crate) fn resize(&mut self, options: &Options, size: PhysicalSize<u32>) {
     self.config.height = size.height.max(1);
     self.config.width = size.width.max(1);
-    self.resolution = self.options.resolution(size);
+    self.resolution = options.resolution(size);
     self.size = size;
     self.surface.configure(&self.device, &self.config);
     for target in self.targets.iter_mut() {

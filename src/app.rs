@@ -3,7 +3,6 @@ use super::*;
 pub(crate) struct App {
   error: Option<anyhow::Error>,
   filters: Vec<Filter>,
-  fit: bool,
   options: Options,
   renderer: Option<Renderer>,
   window: Option<Arc<Window>>,
@@ -14,7 +13,6 @@ impl App {
     Self {
       error: None,
       filters: Vec::new(),
-      fit: options.fit,
       options,
       renderer: None,
       window: None,
@@ -23,10 +21,6 @@ impl App {
 
   fn window(&self) -> &Window {
     self.window.as_ref().unwrap()
-  }
-
-  fn renderer(&mut self) -> &mut Renderer {
-    self.renderer.as_mut().unwrap()
   }
 
   pub(crate) fn error(self) -> Option<anyhow::Error> {
@@ -87,7 +81,10 @@ impl ApplicationHandler for App {
               field: Field::Circle,
             }),
             "f" => {
-              self.fit = !self.fit;
+              self.options.fit = !self.options.fit;
+            }
+            "r" => {
+              self.options.repeat = !self.options.repeat;
             }
             "x" => self.filters.push(Filter { field: Field::X }),
             _ => {}
@@ -103,7 +100,7 @@ impl ApplicationHandler for App {
           .renderer
           .as_mut()
           .unwrap()
-          .render(self.fit, &self.filters)
+          .render(&self.options, &self.filters)
         {
           self.error = Some(err);
           event_loop.exit();
@@ -112,7 +109,7 @@ impl ApplicationHandler for App {
         self.window().request_redraw();
       }
       WindowEvent::Resized(size) => {
-        self.renderer().resize(size);
+        self.renderer.as_mut().unwrap().resize(&self.options, size);
         self.window().request_redraw();
       }
       _ => {}
