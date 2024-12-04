@@ -63,9 +63,9 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   let quad = position.xy / uniforms.resolution;
 
-  let aspect = uniforms.resolution.x / uniforms.resolution.y;
-
   var centered = quad - 0.5;
+
+  let aspect = uniforms.resolution.x / uniforms.resolution.y;
 
   if uniforms.fit == TRUE {
     if aspect > 1 {
