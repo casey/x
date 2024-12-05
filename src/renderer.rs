@@ -51,6 +51,8 @@ impl Renderer {
       .await
       .context("failed to create device")?;
 
+    // device.on_uncaptured_error(Box::new(|error| {}));
+
     let texture_format = surface.get_capabilities(&adapter).formats[0];
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
@@ -68,7 +70,7 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+            min_binding_size: Some(u64::from(dbg!(Uniforms::buffer_size())).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -99,14 +101,18 @@ impl Renderer {
       ..default()
     });
 
-    let alignment = device.limits().min_uniform_buffer_offset_alignment;
+    let limits = device.limits();
+
+    let alignment = limits.min_uniform_buffer_offset_alignment;
     let padding = (alignment - Uniforms::buffer_size() % alignment) % alignment;
     let uniform_buffer_stride = Uniforms::buffer_size() + padding;
+
+    dbg!(alignment, padding, uniform_buffer_stride);
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
       mapped_at_creation: false,
-      size: device.limits().max_buffer_size,
+      size: limits.max_buffer_size,
       usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
     });
 
@@ -181,6 +187,9 @@ impl Renderer {
     }
 
     let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
+
+    dbg!(size);
+
     let mut buffer = self
       .queue
       .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
@@ -212,26 +221,45 @@ impl Renderer {
 
     let mut uniforms = Vec::new();
 
+    // filters always render to a square texture
+    // this was do to problems when sampling out of bounds
+
+    #[derive(Clone, Copy)]
+    struct Tiling {
+      height: u32,
+      size: u32,
+      width: u32,
+    }
+
+    let tiling = if options.tile && !filters.is_empty() {
+      let size = (filters.len() as f64).sqrt().ceil() as u32;
+      Some(Tiling {
+        height: self.size.height / size,
+        size,
+        width: self.size.width / size,
+      })
+    } else {
+      None
+    };
+
     for filter in filters {
       uniforms.push(Uniforms {
+        color: filter.color,
         field: filter.field,
         fit: false,
+        position: filter.position,
         repeat: false,
-        resolution: Vec2f {
-          x: self.resolution as f32,
-          y: self.resolution as f32,
-        },
+        resolution: Vector2::new(self.resolution as f32, self.resolution as f32),
       });
     }
 
     uniforms.push(Uniforms {
+      color: Matrix4::identity(),
       field: Field::None,
       fit: options.fit,
+      position: Matrix3::identity(),
       repeat: options.repeat,
-      resolution: Vec2f {
-        x: self.size.width as f32,
-        y: self.size.height as f32,
-      },
+      resolution: Vector2::new(self.size.width as f32, self.size.height as f32),
     });
 
     self.write_uniform_buffer(&uniforms);
@@ -249,7 +277,9 @@ impl Renderer {
     let mut destination = 1;
 
     for i in 0..uniforms.len() {
-      let view = if i == uniforms.len() - 1 {
+      let last = i == uniforms.len() - 1;
+
+      let view = if last {
         &frame.texture.create_view(&TextureViewDescriptor::default())
       } else {
         &self.targets[destination].texture_view
@@ -281,7 +311,25 @@ impl Renderer {
         Some(&source_target.bind_group),
         &[self.uniform_buffer_stride * u32::try_from(i).unwrap()],
       );
+
       pass.set_pipeline(&self.render_pipeline);
+
+      if !last {
+        if let Some(tiling) = tiling {
+          let i = u32::try_from(i).unwrap();
+          let row = i / tiling.size;
+          let col = i % tiling.size;
+          pass.set_viewport(
+            (col * tiling.width) as f32,
+            (row * tiling.height) as f32,
+            tiling.width as f32,
+            tiling.height as f32,
+            0.0,
+            0.0,
+          );
+        }
+      }
+
       pass.draw(0..3, 0..1);
 
       (source, destination) = (destination, source);

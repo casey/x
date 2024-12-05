@@ -4,27 +4,97 @@ pub(crate) struct App {
   error: Option<anyhow::Error>,
   filters: Vec<Filter>,
   options: Options,
+  recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   window: Option<Arc<Window>>,
+  makro: Vec<Key>,
 }
 
 impl App {
+  pub(crate) fn error(self) -> Option<anyhow::Error> {
+    self.error
+  }
+
   pub(crate) fn new(options: Options) -> Self {
     Self {
       error: None,
       filters: Vec::new(),
       options,
+      recording: None,
       renderer: None,
       window: None,
+      makro: Vec::new(),
+    }
+  }
+
+  fn press(&mut self, key: Key) {
+    match key {
+      Key::Character(ref c) => match c.as_str() {
+        "a" => self.filters.push(Filter {
+          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::All,
+          ..default()
+        }),
+        "c" => self.filters.push(Filter {
+          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::Circle,
+          ..default()
+        }),
+        "f" => {
+          self.options.fit = !self.options.fit;
+        }
+        "q" => {
+          if let Some(recording) = self.recording.take() {
+            self.makro = recording;
+          } else {
+            self.recording = Some(Vec::new())
+          }
+          return;
+        }
+        "@" => {
+          for key in self.makro.clone() {
+            self.press(key);
+          }
+          return;
+        }
+        "r" => {
+          self.options.repeat = !self.options.repeat;
+        }
+        "x" => self.filters.push(Filter {
+          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::X,
+          ..default()
+        }),
+        _ => {}
+      },
+      Key::Named(key) => match key {
+        NamedKey::Backspace => {
+          self.filters.pop();
+        }
+        NamedKey::ArrowLeft => {
+          self.filters.push(Filter {
+            position: Matrix3::new_rotation(-0.01),
+            ..default()
+          });
+        }
+        NamedKey::ArrowRight => {
+          self.filters.push(Filter {
+            position: Matrix3::new_rotation(0.01),
+            ..default()
+          });
+        }
+        _ => {}
+      },
+      _ => {}
+    }
+
+    if let Some(recording) = &mut self.recording {
+      recording.push(key);
     }
   }
 
   fn window(&self) -> &Window {
     self.window.as_ref().unwrap()
-  }
-
-  pub(crate) fn error(self) -> Option<anyhow::Error> {
-    self.error
   }
 }
 
@@ -74,26 +144,7 @@ impl ApplicationHandler for App {
         event_loop.exit();
       }
       WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
-        match event.logical_key {
-          Key::Character(c) => match c.as_str() {
-            "a" => self.filters.push(Filter { field: Field::All }),
-            "c" => self.filters.push(Filter {
-              field: Field::Circle,
-            }),
-            "f" => {
-              self.options.fit = !self.options.fit;
-            }
-            "r" => {
-              self.options.repeat = !self.options.repeat;
-            }
-            "x" => self.filters.push(Filter { field: Field::X }),
-            _ => {}
-          },
-          Key::Named(NamedKey::Backspace) => {
-            self.filters.pop();
-          }
-          _ => {}
-        }
+        self.press(event.logical_key);
       }
       WindowEvent::RedrawRequested => {
         if let Err(err) = self
