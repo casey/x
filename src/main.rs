@@ -1,7 +1,7 @@
 use {
   self::{
     app::App, field::Field, filter::Filter, frame::Frame, options::Options, renderer::Renderer,
-    shared::Shared, tally::Tally, target::Target, uniforms::Uniforms, vec2f::Vec2f,
+    shared::Shared, tally::Tally, target::Target, uniforms::Uniforms,
   },
   anyhow::Context,
   clap::Parser,
@@ -11,7 +11,10 @@ use {
     collections::VecDeque,
     fmt::{self, Display, Formatter},
     process,
-    sync::Arc,
+    sync::{
+      atomic::{self, AtomicU32},
+      Arc,
+    },
     time::Instant,
   },
   wgpu::{
@@ -53,12 +56,20 @@ mod shared;
 mod tally;
 mod target;
 mod uniforms;
-mod vec2f;
 
+type Matrix3 = nalgebra::Matrix3<f32>;
+type Matrix4 = nalgebra::Matrix4<f32>;
 type Result<T = ()> = anyhow::Result<T>;
+type Vector2 = nalgebra::Vector2<f32>;
+type Vector4 = nalgebra::Vector4<f32>;
 
 fn default<T: Default>() -> T {
   T::default()
+}
+
+fn pad(i: usize, alignment: usize) -> usize {
+  assert!(alignment.is_power_of_two());
+  (i + alignment - 1) & !(alignment - 1)
 }
 
 fn run() -> Result<()> {

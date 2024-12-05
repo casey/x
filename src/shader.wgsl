@@ -28,8 +28,10 @@ const VERTICES = array(
 );
 
 struct Uniforms {
+  color: mat4x4f,
   field: u32,
   fit: u32,
+  position: mat3x3f,
   repeat: u32,
   resolution: vec2f,
 }
@@ -61,27 +63,33 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 
 @fragment
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
-  let quad = position.xy / uniforms.resolution;
+  // convert fragment coordinates to [-1, 1]
+  let centered = position.xy / uniforms.resolution * 2 - 1;
 
-  var centered = quad - 0.5;
+  // apply position transform
+  var transformed = (uniforms.position * vec3(centered, 1)).xy;
 
+  // calculate aspect ratio
   let aspect = uniforms.resolution.x / uniforms.resolution.y;
 
   if uniforms.fit == TRUE {
+    // fit to viewport
     if aspect > 1 {
-      centered.x *= aspect;
+      transformed.x *= aspect;
     } else {
-      centered.y /= aspect;
+      transformed.y /= aspect;
     }
   } else {
+    // fill viewport
     if aspect > 1 {
-      centered.y /= aspect;
+      transformed.y /= aspect;
     } else {
-      centered.x *= aspect;
+      transformed.x *= aspect;
     }
   }
 
-  let uv = centered + 0.5;
+  // convert position to uv coordinates
+  let uv = (transformed + 1) / 2;
 
   var input = BLACK;
 
@@ -89,27 +97,37 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     input = textureSample(source, source_sampler, uv);
   }
 
-  let p = uv * 2 - 1;;
   var on: bool;
+
   switch uniforms.field {
     case FIELD_ALL {
-      on = field_all(p);
+      on = field_all(transformed);
     }
     case FIELD_CIRCLE {
-      on = field_circle(p);
+      on = field_circle(transformed);
     }
     case FIELD_NONE {
-      on = field_none(p);
+      on = field_none(transformed);
     }
     case FIELD_X {
-      on = field_x(p);
+      on = field_x(transformed);
     }
     default {
       return ERROR_COLOR;
     }
   }
+
   if on {
-    return invert(input);
+    // convert rgb color to [-1, 1]
+    let centered = input * 2 - 1;
+
+    // apply color transform
+    let transformed = uniforms.color * centered;
+
+    // convert back to rgb
+    let color = (transformed + 1) / 2;
+
+    return color;
   } else {
     return input;
   }
