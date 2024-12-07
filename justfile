@@ -1,6 +1,6 @@
 set positional-arguments
 
-watch +args='ltest':
+watch +args='lcheck':
   cargo watch --clear --exec '{{args}}'
 
 run *args:
