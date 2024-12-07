@@ -20,15 +20,14 @@ use {
   wgpu::{
     include_wgsl, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
-    Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
-    Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
-    VertexState,
+    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
+    Device, DeviceDescriptor, Extent3d, Features, FragmentState, ImageSubresourceRange, Instance,
+    Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
+    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
+    SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
+    Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
   },
   winit::{
     application::ApplicationHandler,
@@ -95,7 +94,7 @@ fn main() {
     let backtrace = error.backtrace();
 
     if let BacktraceStatus::Captured = backtrace.status() {
-      eprintln!("{}", backtrace);
+      eprintln!("{backtrace}");
     }
 
     process::exit(1);

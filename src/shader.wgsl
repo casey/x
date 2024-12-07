@@ -4,10 +4,15 @@ var<uniform> uniforms: Uniforms;
 
 @group(0)
 @binding(1)
-var source: texture_2d<f32>;
+var image: texture_2d<f32>;
 
 @group(0)
 @binding(2)
+var source: texture_2d<f32>;
+
+// rename to texture_sampler
+@group(0)
+@binding(3)
 var source_sampler: sampler;
 
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
@@ -29,11 +34,17 @@ const VERTICES = array(
 
 struct Uniforms {
   color: mat4x4f,
+  coordinates: u32,
   field: u32,
   fit: u32,
+  image_alpha: f32,
+  offset: vec2f,
   position: mat3x3f,
   repeat: u32,
   resolution: vec2f,
+  source_alpha: f32,
+  source_offset: vec2f,
+  tiling: u32,
 }
 
 fn field_all(p: vec2f) -> bool {
@@ -63,8 +74,11 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 
 @fragment
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  // subtract offset get tile coordinates
+  let tile = position.xy - uniforms.offset;
+
   // convert fragment coordinates to [-1, 1]
-  let centered = position.xy / uniforms.resolution * 2 - 1;
+  let centered = tile / uniforms.resolution * 2 - 1;
 
   // apply position transform
   var transformed = (uniforms.position * vec3(centered, 1)).xy;
@@ -93,9 +107,20 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
 
   var input = BLACK;
 
-  if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
-    input = textureSample(source, source_sampler, uv);
+  // todo: if using coordinate colors, figure out how to blend in
+  if uniforms.coordinates == TRUE {
+    input = vec4(uv, 1.0, 1.0);
+  } else if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
+    // convert uv coordinates to tile source coordinates
+    let tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
+    // read the input color
+    input = textureSample(source, source_sampler, tile_uv);
   }
+
+  let image_input = textureSample(image, source_sampler, uv);
+
+  // todo: do real alpha blending
+  input = input * uniforms.source_alpha + image_input * uniforms.image_alpha;
 
   var on: bool;
 

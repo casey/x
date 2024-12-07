@@ -4,16 +4,16 @@ pub(crate) trait Shared {
   const ALIGNMENT: usize;
   const SIZE: usize;
 
-  fn write(&self, buffer: &mut [u8], i: &mut usize, alignment: &mut usize) {
-    *alignment = (*alignment).max(Self::ALIGNMENT);
-    let start = Self::slot(i);
-    self.write_aligned(&mut buffer[start..*i]);
-  }
-
   fn slot(i: &mut usize) -> usize {
     let start = pad(*i, Self::ALIGNMENT);
     *i = start + Self::SIZE;
     start
+  }
+
+  fn write(&self, buffer: &mut [u8], i: &mut usize, alignment: &mut usize) {
+    *alignment = (*alignment).max(Self::ALIGNMENT);
+    let start = Self::slot(i);
+    self.write_aligned(&mut buffer[start..*i]);
   }
 
   fn write_aligned(&self, buffer: &mut [u8]);

@@ -15,3 +15,9 @@ png = "0.17.14"
 pollster = "0.4.0"
 wgpu = "23.0.0"
 winit = "0.30.5"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+wildcard-imports = "allow"
+too-many-lines = "allow"

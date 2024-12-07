@@ -28,6 +28,8 @@ impl App {
   }
 
   fn press(&mut self, key: Key) {
+    let mut capture = true;
+
     match key {
       Key::Character(ref c) => match c.as_str() {
         "a" => self.filters.push(Filter {
@@ -40,6 +42,10 @@ impl App {
           field: Field::Circle,
           ..default()
         }),
+        "d" => self.filters.push(Filter {
+          coordinates: true,
+          ..default()
+        }),
         "f" => {
           self.options.fit = !self.options.fit;
         }
@@ -49,16 +55,19 @@ impl App {
           } else {
             self.recording = Some(Vec::new())
           }
-          return;
+          capture = false;
         }
         "@" => {
           for key in self.makro.clone() {
             self.press(key);
           }
-          return;
+          capture = false;
         }
         "r" => {
           self.options.repeat = !self.options.repeat;
+        }
+        "t" => {
+          self.options.tile = !self.options.tile;
         }
         "x" => self.filters.push(Filter {
           color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
@@ -88,8 +97,10 @@ impl App {
       _ => {}
     }
 
-    if let Some(recording) = &mut self.recording {
-      recording.push(key);
+    if capture {
+      if let Some(recording) = &mut self.recording {
+        recording.push(key);
+      }
     }
   }
 

@@ -2,6 +2,7 @@ use super::*;
 
 pub(crate) struct Target {
   pub(crate) bind_group: BindGroup,
+  pub(crate) texture: Texture,
   pub(crate) texture_view: TextureView,
 }
 
@@ -9,10 +10,12 @@ impl Target {
   pub(crate) fn new(
     bind_group_layout: &BindGroupLayout,
     device: &Device,
+    image_view: &TextureView,
     resolution: u32,
     sampler: &Sampler,
     texture_format: TextureFormat,
     uniform_buffer: &Buffer,
+    foo: Option<&TextureView>,
   ) -> Self {
     let texture = device.create_texture(&TextureDescriptor {
       label: label!(),
@@ -44,10 +47,14 @@ impl Target {
         },
         BindGroupEntry {
           binding: 1,
-          resource: BindingResource::TextureView(&texture_view),
+          resource: BindingResource::TextureView(&image_view),
         },
         BindGroupEntry {
           binding: 2,
+          resource: BindingResource::TextureView(foo.unwrap_or(&texture_view)),
+        },
+        BindGroupEntry {
+          binding: 3,
           resource: BindingResource::Sampler(sampler),
         },
       ],
@@ -56,6 +63,7 @@ impl Target {
 
     Self {
       bind_group,
+      texture,
       texture_view,
     }
   }
