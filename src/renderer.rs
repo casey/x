@@ -312,8 +312,6 @@ impl Renderer {
         Vector2::new(0.0, 0.0)
       };
 
-      dbg!(source_offset);
-
       uniforms.push(Uniforms {
         color: filter.color,
         coordinates: filter.coordinates,
