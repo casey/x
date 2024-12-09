@@ -111,6 +111,7 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
 
   // todo: if using coordinate colors, figure out how to blend in
   if uniforms.coordinates == TRUE {
+    // todo: send transformation to apply to coordinates
     input = vec4(uv, 1.0, 1.0);
   } else if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
     // convert uv coordinates to tile source coordinates
