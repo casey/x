@@ -292,8 +292,6 @@ impl Renderer {
         Vector2::new(0.0, 0.0)
       };
 
-      dbg!(offset);
-
       let source_offset = if let Some(tiling) = tiling {
         if let Some(i) = i.checked_sub(1) {
           let row = i as u32 / tiling.size;
@@ -308,8 +306,6 @@ impl Renderer {
       } else {
         Vector2::new(0.0, 0.0)
       };
-
-      dbg!(source_offset);
 
       uniforms.push(Uniforms {
         color: filter.color,
