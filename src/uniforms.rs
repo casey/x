@@ -12,14 +12,14 @@ pub(crate) struct Uniforms {
   pub(crate) field: Field,
   pub(crate) filters: u32,
   pub(crate) fit: bool,
-  pub(crate) image_alpha: f32,
+  pub(crate) image_read: bool,
   pub(crate) index: u32,
   pub(crate) offset: Vector2,
   pub(crate) position: Matrix3,
   pub(crate) repeat: bool,
   pub(crate) resolution: Vector2,
-  pub(crate) source_alpha: f32,
   pub(crate) source_offset: Vector2,
+  pub(crate) source_read: bool,
   pub(crate) tiling: u32,
 }
 
@@ -32,14 +32,14 @@ impl Uniforms {
     self.field.write(dst, &mut i, &mut a);
     self.filters.write(dst, &mut i, &mut a);
     self.fit.write(dst, &mut i, &mut a);
-    self.image_alpha.write(dst, &mut i, &mut a);
+    self.image_read.write(dst, &mut i, &mut a);
     self.index.write(dst, &mut i, &mut a);
     self.offset.write(dst, &mut i, &mut a);
     self.position.write(dst, &mut i, &mut a);
     self.repeat.write(dst, &mut i, &mut a);
     self.resolution.write(dst, &mut i, &mut a);
-    self.source_alpha.write(dst, &mut i, &mut a);
     self.source_offset.write(dst, &mut i, &mut a);
+    self.source_read.write(dst, &mut i, &mut a);
     self.tiling.write(dst, &mut i, &mut a);
     pad(i, a)
   }

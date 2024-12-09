@@ -267,7 +267,6 @@ impl Renderer {
 
     let tiling = if options.tile && !filters.is_empty() {
       let size = (filters.len() as f64).sqrt().ceil() as u32;
-      let side = self.resolution / size;
       Some(Tiling {
         height: self.resolution / size,
         size,
@@ -313,14 +312,14 @@ impl Renderer {
         field: filter.field,
         filters: filters.len().try_into().unwrap(),
         fit: false,
-        image_alpha: 0.0,
+        image_read: false,
         index: i.try_into().unwrap(),
         offset,
         position: filter.position,
         repeat: false,
         resolution,
-        source_alpha: 1.0,
         source_offset,
+        source_read: true,
         tiling: if let Some(tiling) = tiling {
           tiling.size
         } else {
@@ -342,15 +341,15 @@ impl Renderer {
       repeat: options.repeat,
       resolution: Vector2::new(self.size.width as f32, self.size.height as f32),
       source_offset: Vector2::new(0.0, 0.0),
-      source_alpha: if tiling.is_some() {
-        1.0
+      source_read: if tiling.is_some() {
+        true
       } else {
-        (filters.len() % 2) as f32
+        filters.len() % 2 == 1
       },
-      image_alpha: if tiling.is_some() {
-        1.0
+      image_read: if tiling.is_some() {
+        true
       } else {
-        ((filters.len() + 1) % 2) as f32
+        filters.len() % 2 == 0
       },
       index: filters.len().try_into().unwrap(),
       tiling: 1,
