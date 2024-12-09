@@ -76,12 +76,6 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 
 @fragment
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
-  // if uniforms.index < uniforms.filters {
-  //   let color = (1 / f32(uniforms.filters)) * f32(uniforms.index);
-
-  //   return vec4(color, color, color, 1.0);
-  // }
-
   // subtract offset get tile coordinates
   let tile = position.xy - uniforms.offset;
 
@@ -122,12 +116,12 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     // convert uv coordinates to tile source coordinates
     let tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
 
-    // calculate scaling factor to compensate for tiles not taking up full source texture
-    let scaling_factor = uniforms.resolution * f32(uniforms.tiling)
+    // scale to compensate for tiles not taking up full source texture
+    let scale = uniforms.resolution * f32(uniforms.tiling)
       / vec2f(textureDimensions(source, 0));
 
     // read the input color
-    input = textureSample(source, source_sampler, tile_uv * scaling_factor);
+    input = textureSample(source, source_sampler, tile_uv * scale);
   }
 
   let image_input = textureSample(image, source_sampler, uv);
