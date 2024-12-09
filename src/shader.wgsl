@@ -10,7 +10,7 @@ var image: texture_2d<f32>;
 @binding(2)
 var source: texture_2d<f32>;
 
-// rename to texture_sampler
+// todo: rename to texture_sampler
 @group(0)
 @binding(3)
 var source_sampler: sampler;
@@ -22,9 +22,6 @@ const FIELD_ALL: u32 = 0;
 const FIELD_CIRCLE: u32 = 1;
 const FIELD_NONE: u32 = 2;
 const FIELD_X: u32 = 3;
-
-const FALSE: u32 = 0;
-const TRUE: u32 = 1;
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
@@ -38,14 +35,14 @@ struct Uniforms {
   field: u32,
   filters: u32,
   fit: u32,
-  image_alpha: f32,
+  image_read: u32,
   index: u32,
   offset: vec2f,
   position: mat3x3f,
   repeat: u32,
   resolution: vec2f,
-  source_alpha: f32,
   source_offset: vec2f,
+  source_read: u32,
   tiling: u32,
 }
 
@@ -88,7 +85,7 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   // calculate aspect ratio
   let aspect = uniforms.resolution.x / uniforms.resolution.y;
 
-  if uniforms.fit == TRUE {
+  if bool(uniforms.fit) {
     // fit to viewport
     if aspect > 1 {
       transformed.x *= aspect;
@@ -109,11 +106,9 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
 
   var input = BLACK;
 
-  // todo: if using coordinate colors, figure out how to blend in
-  if uniforms.coordinates == TRUE {
-    // todo: send transformation to apply to coordinates
+  if bool(uniforms.coordinates) {
     input = vec4(uv, 1.0, 1.0);
-  } else if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
+  } else if bool(uniforms.repeat) || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
     // convert uv coordinates to tile source coordinates
     let tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
 
@@ -128,7 +123,7 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   let image_input = textureSample(image, source_sampler, uv);
 
   // todo: do real alpha blending
-  input = input * uniforms.source_alpha + image_input * uniforms.image_alpha;
+  input = input * f32(uniforms.source_read) + image_input * f32(uniforms.image_read);
 
   var on: bool;
 
