@@ -268,7 +268,6 @@ impl Renderer {
     let tiling = if options.tile && !filters.is_empty() {
       let size = (filters.len() as f64).sqrt().ceil() as u32;
       let side = self.resolution / size;
-      dbg!(self.resolution % side);
       Some(Tiling {
         height: self.resolution / size,
         size,
@@ -307,8 +306,6 @@ impl Renderer {
       } else {
         Vector2::new(0.0, 0.0)
       };
-
-      dbg!(source_offset);
 
       uniforms.push(Uniforms {
         color: filter.color,
