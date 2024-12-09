@@ -119,15 +119,15 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   if uniforms.coordinates == TRUE {
     input = vec4(uv, 1.0, 1.0);
   } else if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
-    // 0..1
-    // 0..0.5
     // convert uv coordinates to tile source coordinates
     let tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
 
-    let foo = tile_uv * (uniforms.resolution * f32(uniforms.tiling) / vec2f(textureDimensions(source, 0)));
+    // calculate scaling factor to compensate for tiles not taking up full source texture
+    let scaling_factor = uniforms.resolution * f32(uniforms.tiling)
+      / vec2f(textureDimensions(source, 0));
 
     // read the input color
-    input = textureSample(source, source_sampler, foo);
+    input = textureSample(source, source_sampler, tile_uv * scaling_factor);
   }
 
   let image_input = textureSample(image, source_sampler, uv);
