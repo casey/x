@@ -36,8 +36,10 @@ struct Uniforms {
   color: mat4x4f,
   coordinates: u32,
   field: u32,
+  filters: u32,
   fit: u32,
   image_alpha: f32,
+  index: u32,
   offset: vec2f,
   position: mat3x3f,
   repeat: u32,
@@ -74,6 +76,12 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 
 @fragment
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  // if uniforms.index < uniforms.filters {
+  //   let color = (1 / f32(uniforms.filters)) * f32(uniforms.index);
+
+  //   return vec4(color, color, color, 1.0);
+  // }
+
   // subtract offset get tile coordinates
   let tile = position.xy - uniforms.offset;
 
@@ -111,6 +119,8 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   if uniforms.coordinates == TRUE {
     input = vec4(uv, 1.0, 1.0);
   } else if uniforms.repeat == TRUE || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
+    // 0..1
+    // 0..0.5
     // convert uv coordinates to tile source coordinates
     let tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
     // read the input color
