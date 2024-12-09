@@ -8,7 +8,6 @@ pub struct Renderer {
   frame: u64,
   frame_times: VecDeque<Instant>,
   image_view: TextureView,
-  initial_target: Target,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -187,8 +186,6 @@ impl Renderer {
       )
     };
 
-    let initial_target = target();
-
     let targets = [target(), target()];
 
     let final_target = Target::new(
@@ -210,7 +207,6 @@ impl Renderer {
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       image_view,
-      initial_target,
       queue,
       render_pipeline,
       resolution,
@@ -271,6 +267,8 @@ impl Renderer {
 
     let tiling = if options.tile && !filters.is_empty() {
       let size = (filters.len() as f64).sqrt().ceil() as u32;
+      let side = self.resolution / size;
+      dbg!(self.resolution % side);
       Some(Tiling {
         height: self.resolution / size,
         size,
@@ -280,8 +278,6 @@ impl Renderer {
       None
     };
 
-    // fels like we're sampling the wrong source
-
     for (i, filter) in filters.iter().enumerate() {
       let resolution = if let Some(tiling) = tiling {
         Vector2::new(tiling.width as f32, tiling.height as f32)
@@ -290,8 +286,8 @@ impl Renderer {
       };
 
       let offset = if let Some(tiling) = tiling {
-        let row = i as u32 / tiling.size;
         let col = i as u32 % tiling.size;
+        let row = i as u32 / tiling.size;
         Vector2::new((tiling.width * col) as f32, (tiling.height * row) as f32)
       } else {
         Vector2::new(0.0, 0.0)
@@ -302,8 +298,8 @@ impl Renderer {
           let row = i as u32 / tiling.size;
           let col = i as u32 % tiling.size;
           Vector2::new(
-            (tiling.width * col) as f32 / (tiling.width * tiling.size) as f32,
-            (tiling.height * row) as f32 / (tiling.height * tiling.size) as f32,
+            col as f32 / tiling.size as f32,
+            row as f32 / tiling.size as f32,
           )
         } else {
           Vector2::new(0.0, 0.0)
@@ -312,12 +308,16 @@ impl Renderer {
         Vector2::new(0.0, 0.0)
       };
 
+      dbg!(source_offset);
+
       uniforms.push(Uniforms {
         color: filter.color,
         coordinates: filter.coordinates,
         field: filter.field,
+        filters: filters.len().try_into().unwrap(),
         fit: false,
         image_alpha: 0.0,
+        index: i.try_into().unwrap(),
         offset,
         position: filter.position,
         repeat: false,
@@ -336,6 +336,7 @@ impl Renderer {
       color: Matrix4::identity(),
       coordinates: false,
       field: Field::None,
+      filters: filters.len().try_into().unwrap(),
       // todo: change to false
       fit: options.fit,
       offset: Vector2::default(),
@@ -354,6 +355,7 @@ impl Renderer {
       } else {
         ((filters.len() + 1) % 2) as f32
       },
+      index: filters.len().try_into().unwrap(),
       tiling: 1,
     });
 
@@ -383,24 +385,9 @@ impl Renderer {
 
     let mut source = 0;
     let mut destination = 1;
+    let mut uniforms = 0;
 
-    for i in 0..uniforms.len() {
-      let last = i == uniforms.len() - 1;
-
-      let view = if last {
-        &frame.texture.create_view(&TextureViewDescriptor::default())
-      } else {
-        &self.targets[destination].texture_view
-      };
-
-      let source_target = if i == 0 {
-        &self.initial_target
-      } else if last {
-        &self.final_target
-      } else {
-        &self.targets[source]
-      };
-
+    for i in 0..filters.len() {
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         color_attachments: &[Some(RenderPassColorAttachment {
           ops: Operations {
@@ -408,7 +395,7 @@ impl Renderer {
             store: StoreOp::Store,
           },
           resolve_target: None,
-          view,
+          view: &self.targets[destination].texture_view,
         })],
         depth_stencil_attachment: None,
         label: label!(),
@@ -418,31 +405,58 @@ impl Renderer {
 
       pass.set_bind_group(
         0,
-        Some(&source_target.bind_group),
-        &[self.uniform_buffer_stride * u32::try_from(i).unwrap()],
+        Some(&self.targets[source].bind_group),
+        &[self.uniform_buffer_stride * uniforms],
       );
 
       pass.set_pipeline(&self.render_pipeline);
 
-      if !last {
-        if let Some(tiling) = tiling {
-          let i = u32::try_from(i).unwrap();
-          let row = i / tiling.size;
-          let col = i % tiling.size;
-          pass.set_viewport(
-            (col * tiling.width) as f32,
-            (row * tiling.height) as f32,
-            tiling.width as f32,
-            tiling.height as f32,
-            0.0,
-            0.0,
-          );
-        }
+      if let Some(tiling) = tiling {
+        let i = u32::try_from(i).unwrap();
+        let col = i % tiling.size;
+        let row = i / tiling.size;
+        pass.set_viewport(
+          (col * tiling.width) as f32,
+          (row * tiling.height) as f32,
+          tiling.width as f32,
+          tiling.height as f32,
+          0.0,
+          0.0,
+        );
       }
 
       pass.draw(0..3, 0..1);
 
+      uniforms += 1;
+
       (source, destination) = (destination, source);
+    }
+
+    {
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        color_attachments: &[Some(RenderPassColorAttachment {
+          ops: Operations {
+            load: LoadOp::Load,
+            store: StoreOp::Store,
+          },
+          resolve_target: None,
+          view: &frame.texture.create_view(&TextureViewDescriptor::default()),
+        })],
+        depth_stencil_attachment: None,
+        label: label!(),
+        occlusion_query_set: None,
+        timestamp_writes: None,
+      });
+
+      pass.set_bind_group(
+        0,
+        Some(&self.final_target.bind_group),
+        &[self.uniform_buffer_stride * uniforms],
+      );
+
+      pass.set_pipeline(&self.render_pipeline);
+
+      pass.draw(0..3, 0..1);
     }
 
     self.queue.submit([encoder.finish()]);

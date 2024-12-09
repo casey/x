@@ -10,8 +10,10 @@ pub(crate) struct Uniforms {
   pub(crate) color: Matrix4,
   pub(crate) coordinates: bool,
   pub(crate) field: Field,
+  pub(crate) filters: u32,
   pub(crate) fit: bool,
   pub(crate) image_alpha: f32,
+  pub(crate) index: u32,
   pub(crate) offset: Vector2,
   pub(crate) position: Matrix3,
   pub(crate) repeat: bool,
@@ -28,8 +30,10 @@ impl Uniforms {
     self.color.write(dst, &mut i, &mut a);
     self.coordinates.write(dst, &mut i, &mut a);
     self.field.write(dst, &mut i, &mut a);
+    self.filters.write(dst, &mut i, &mut a);
     self.fit.write(dst, &mut i, &mut a);
     self.image_alpha.write(dst, &mut i, &mut a);
+    self.index.write(dst, &mut i, &mut a);
     self.offset.write(dst, &mut i, &mut a);
     self.position.write(dst, &mut i, &mut a);
     self.repeat.write(dst, &mut i, &mut a);

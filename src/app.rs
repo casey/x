@@ -32,6 +32,12 @@ impl App {
 
     match key {
       Key::Character(ref c) => match c.as_str() {
+        "@" => {
+          for key in self.makro.clone() {
+            self.press(key);
+          }
+          capture = false;
+        }
         "a" => self.filters.push(Filter {
           color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
           field: Field::All,
@@ -49,17 +55,16 @@ impl App {
         "f" => {
           self.options.fit = !self.options.fit;
         }
+        "n" => self.filters.push(Filter {
+          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::None,
+          ..default()
+        }),
         "q" => {
           if let Some(recording) = self.recording.take() {
             self.makro = recording;
           } else {
             self.recording = Some(Vec::new())
-          }
-          capture = false;
-        }
-        "@" => {
-          for key in self.makro.clone() {
-            self.press(key);
           }
           capture = false;
         }
