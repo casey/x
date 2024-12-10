@@ -127,8 +127,7 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   }
 
   if bool(uniforms.image_read) && read(uv) {
-    let image_input = textureSample(image, texture_sampler, uv);
-    input += image_input;
+    input += textureSample(image, texture_sampler, uv);
   }
 
   var on: bool;
