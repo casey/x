@@ -39,12 +39,12 @@ impl App {
           capture = false;
         }
         "a" => self.filters.push(Filter {
-          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
           field: Field::All,
           ..default()
         }),
         "c" => self.filters.push(Filter {
-          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
           field: Field::Circle,
           ..default()
         }),
@@ -56,7 +56,7 @@ impl App {
           self.options.fit = !self.options.fit;
         }
         "n" => self.filters.push(Filter {
-          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
           field: Field::None,
           ..default()
         }),
@@ -75,7 +75,7 @@ impl App {
           self.options.tile = !self.options.tile;
         }
         "x" => self.filters.push(Filter {
-          color: Matrix4::from_diagonal(&Vector4::new(-1.0, -1.0, -1.0, 1.0)),
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
           field: Field::X,
           ..default()
         }),
@@ -87,13 +87,13 @@ impl App {
         }
         NamedKey::ArrowLeft => {
           self.filters.push(Filter {
-            position: Matrix3::new_rotation(-0.01),
+            position: Mat3f::new_rotation(-0.01),
             ..default()
           });
         }
         NamedKey::ArrowRight => {
           self.filters.push(Filter {
-            position: Matrix3::new_rotation(0.01),
+            position: Mat3f::new_rotation(0.01),
             ..default()
           });
         }

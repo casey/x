@@ -55,7 +55,7 @@ impl Shared for Field {
   }
 }
 
-impl Shared for Matrix3 {
+impl Shared for Mat3f {
   const ALIGNMENT: usize = 16;
   const SIZE: usize = 48;
 
@@ -68,7 +68,7 @@ impl Shared for Matrix3 {
   }
 }
 
-impl Shared for Matrix4 {
+impl Shared for Mat4f {
   const ALIGNMENT: usize = 16;
   const SIZE: usize = 64;
 
@@ -79,7 +79,7 @@ impl Shared for Matrix4 {
   }
 }
 
-impl Shared for Vector2 {
+impl Shared for Vec2f {
   const ALIGNMENT: usize = 8;
   const SIZE: usize = 8;
 

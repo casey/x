@@ -11,7 +11,7 @@ pub struct Renderer {
   render_pipeline: RenderPipeline,
   resolution: u32,
   sampler: Sampler,
-  size: PhysicalSize<u32>,
+  size: Vec2u,
   surface: Surface<'static>,
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
@@ -201,7 +201,7 @@ impl Renderer {
       render_pipeline,
       resolution,
       sampler,
-      size,
+      size: Vec2u::new(size.width, size.height),
       surface,
       texture_format,
       uniform_buffer,
@@ -235,45 +235,21 @@ impl Renderer {
     let tiling = if options.tile && !filters.is_empty() {
       #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
       let size = (filters.len() as f64).sqrt().ceil() as u32;
-      Some(Tiling {
+      Tiling {
         height: self.resolution / size,
         size,
         width: self.resolution / size,
-      })
+      }
     } else {
-      None
+      Tiling {
+        height: self.resolution,
+        size: 1,
+        width: self.resolution,
+      }
     };
 
     for (i, filter) in filters.iter().enumerate() {
-      let resolution = if let Some(tiling) = tiling {
-        Vector2::new(tiling.width as f32, tiling.height as f32)
-      } else {
-        Vector2::new(self.resolution as f32, self.resolution as f32)
-      };
-
-      let offset = if let Some(tiling) = tiling {
-        let col = u32::try_from(i).unwrap() % tiling.size;
-        let row = u32::try_from(i).unwrap() / tiling.size;
-        Vector2::new((tiling.width * col) as f32, (tiling.height * row) as f32)
-      } else {
-        Vector2::new(0.0, 0.0)
-      };
-
-      let source_offset = if let Some(tiling) = tiling {
-        if let Some(i) = i.checked_sub(1) {
-          let row = u32::try_from(i).unwrap() / tiling.size;
-          let col = u32::try_from(i).unwrap() % tiling.size;
-          Vector2::new(
-            col as f32 / tiling.size as f32,
-            row as f32 / tiling.size as f32,
-          )
-        } else {
-          Vector2::new(0.0, 0.0)
-        }
-      } else {
-        Vector2::new(0.0, 0.0)
-      };
-
+      let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
         color: filter.color,
         coordinates: filter.coordinates,
@@ -281,45 +257,37 @@ impl Renderer {
         filters: filters.len().try_into().unwrap(),
         fit: false,
         image_read: false,
-        index: i.try_into().unwrap(),
-        offset,
+        index: i,
+        offset: tiling.offset(i),
         position: filter.position,
         repeat: false,
-        resolution,
-        source_offset,
+        resolution: tiling.resolution(),
+        source_offset: tiling.source_offset(i),
         source_read: true,
-        tiling: if let Some(tiling) = tiling {
-          tiling.size
-        } else {
-          1
-        },
+        tiling: tiling.size,
       });
     }
 
-    uniforms.push(Uniforms {
-      color: Matrix4::identity(),
-      coordinates: false,
-      field: Field::None,
-      filters: filters.len().try_into().unwrap(),
-      fit: options.fit,
-      offset: Vector2::default(),
-      position: Matrix3::identity(),
-      repeat: options.repeat,
-      resolution: Vector2::new(self.size.width as f32, self.size.height as f32),
-      source_offset: Vector2::new(0.0, 0.0),
-      source_read: if tiling.is_some() {
-        true
-      } else {
-        filters.len() % 2 == 1
-      },
-      image_read: if tiling.is_some() {
-        true
-      } else {
-        filters.len() % 2 == 0
-      },
-      index: filters.len().try_into().unwrap(),
-      tiling: 1,
-    });
+    {
+      let filters = filters.len().try_into().unwrap();
+
+      uniforms.push(Uniforms {
+        color: Mat4f::identity(),
+        coordinates: false,
+        field: Field::None,
+        filters,
+        fit: options.fit,
+        image_read: tiling.image_read(filters),
+        index: filters,
+        offset: Vec2f::default(),
+        position: Mat3f::identity(),
+        repeat: options.repeat,
+        resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+        source_offset: Vec2f::new(0.0, 0.0),
+        source_read: tiling.source_read(filters),
+        tiling: 1,
+      });
+    }
 
     self.write_uniform_buffer(&uniforms);
 
@@ -373,19 +341,7 @@ impl Renderer {
 
       pass.set_pipeline(&self.render_pipeline);
 
-      if let Some(tiling) = tiling {
-        let i = u32::try_from(i).unwrap();
-        let col = i % tiling.size;
-        let row = i / tiling.size;
-        pass.set_viewport(
-          (col * tiling.width) as f32,
-          (row * tiling.height) as f32,
-          tiling.width as f32,
-          tiling.height as f32,
-          0.0,
-          0.0,
-        );
-      }
+      tiling.set_viewport(&mut pass, i.try_into().unwrap());
 
       pass.draw(0..3, 0..1);
 
@@ -443,7 +399,7 @@ impl Renderer {
     self.config.height = size.height.max(1);
     self.config.width = size.width.max(1);
     self.resolution = options.resolution(size);
-    self.size = size;
+    self.size = Vec2u::new(size.width, size.height);
     self.surface.configure(&self.device, &self.config);
 
     let image_texture = self.device.create_texture(&TextureDescriptor {

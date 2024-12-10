@@ -1,19 +1,19 @@
 use super::*;
 
 pub(crate) struct Filter {
-  pub(crate) color: Matrix4,
+  pub(crate) color: Mat4f,
   pub(crate) coordinates: bool,
   pub(crate) field: Field,
-  pub(crate) position: Matrix3,
+  pub(crate) position: Mat3f,
 }
 
 impl Default for Filter {
   fn default() -> Self {
     Self {
-      color: Matrix4::identity(),
+      color: Mat4f::identity(),
       coordinates: false,
       field: Field::default(),
-      position: Matrix3::identity(),
+      position: Mat3f::identity(),
     }
   }
 }

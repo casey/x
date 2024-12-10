@@ -21,11 +21,12 @@ use {
     BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
     Device, DeviceDescriptor, Extent3d, Features, FragmentState, ImageSubresourceRange, Instance,
     Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
-    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPassColorAttachment,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
-    SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp, Surface, SurfaceConfiguration,
-    Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
+    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
+    Surface, SurfaceConfiguration, Texture, TextureAspect, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+    TextureViewDimension, VertexState,
   },
   winit::{
     application::ApplicationHandler,
@@ -56,11 +57,13 @@ mod target;
 mod tiling;
 mod uniforms;
 
-type Matrix3 = nalgebra::Matrix3<f32>;
-type Matrix4 = nalgebra::Matrix4<f32>;
 type Result<T = ()> = anyhow::Result<T>;
-type Vector2 = nalgebra::Vector2<f32>;
-type Vector4 = nalgebra::Vector4<f32>;
+
+type Mat3f = nalgebra::Matrix3<f32>;
+type Mat4f = nalgebra::Matrix4<f32>;
+type Vec2f = nalgebra::Vector2<f32>;
+type Vec2u = nalgebra::Vector2<u32>;
+type Vec4f = nalgebra::Vector4<f32>;
 
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;

@@ -2,18 +2,18 @@ use super::*;
 
 #[derive(Default)]
 pub(crate) struct Uniforms {
-  pub(crate) color: Matrix4,
+  pub(crate) color: Mat4f,
   pub(crate) coordinates: bool,
   pub(crate) field: Field,
   pub(crate) filters: u32,
   pub(crate) fit: bool,
   pub(crate) image_read: bool,
   pub(crate) index: u32,
-  pub(crate) offset: Vector2,
-  pub(crate) position: Matrix3,
+  pub(crate) offset: Vec2f,
+  pub(crate) position: Mat3f,
   pub(crate) repeat: bool,
-  pub(crate) resolution: Vector2,
-  pub(crate) source_offset: Vector2,
+  pub(crate) resolution: Vec2f,
+  pub(crate) source_offset: Vec2f,
   pub(crate) source_read: bool,
   pub(crate) tiling: u32,
 }
