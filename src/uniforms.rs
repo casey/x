@@ -44,6 +44,7 @@ impl Uniforms {
     pad(i, a)
   }
 
+  // todo: change to const on renderer
   pub(crate) fn buffer_size() -> u32 {
     let buffer_size = BUFFER_SIZE.load(atomic::Ordering::Relaxed);
 

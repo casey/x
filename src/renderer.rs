@@ -2,25 +2,27 @@ use super::*;
 
 pub struct Renderer {
   bind_group_layout: BindGroupLayout,
+  bindings: Option<Bindings>,
   config: SurfaceConfiguration,
   device: Device,
-  final_target: Target,
   frame: u64,
   frame_times: VecDeque<Instant>,
-  image_view: TextureView,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
   sampler: Sampler,
   size: PhysicalSize<u32>,
   surface: Surface<'static>,
-  targets: [Target; 2],
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
   uniform_buffer_stride: u32,
 }
 
 impl Renderer {
+  fn bindings(&self) -> &Bindings {
+    self.bindings.as_ref().unwrap()
+  }
+
   pub async fn new(options: Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
@@ -153,68 +155,108 @@ impl Renderer {
 
     let resolution = options.resolution(size);
 
-    let image_texture = device.create_texture(&TextureDescriptor {
-      label: label!(),
-      size: Extent3d {
-        width: resolution,
-        height: resolution,
-        depth_or_array_layers: 1,
-      },
-      mip_level_count: 1,
-      sample_count: 1,
-      dimension: TextureDimension::D2,
-      format: texture_format,
-      usage: TextureUsages::TEXTURE_BINDING,
-      view_formats: &[texture_format],
-    });
-
-    let image_view = image_texture.create_view(&TextureViewDescriptor::default());
-
-    let target = || {
-      Target::new(
-        &bind_group_layout,
-        &device,
-        &image_view,
-        resolution,
-        &sampler,
-        texture_format,
-        &uniform_buffer,
-        None,
-      )
-    };
-
-    let targets = [target(), target()];
-
-    let final_target = Target::new(
-      &bind_group_layout,
-      &device,
-      &targets[0].texture_view,
-      resolution,
-      &sampler,
-      texture_format,
-      &uniform_buffer,
-      Some(&targets[1].texture_view),
-    );
-
-    Ok(Renderer {
+    let mut renderer = Renderer {
       bind_group_layout,
+      bindings: None,
       config,
       device,
-      final_target,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
-      image_view,
       queue,
       render_pipeline,
       resolution,
       sampler,
       size,
       surface,
-      targets,
       texture_format,
       uniform_buffer,
       uniform_buffer_stride,
+    };
+
+    renderer.resize(&options, size);
+
+    Ok(renderer)
+  }
+
+  fn bind_group(&self, image_view: &TextureView, source_view: &TextureView) -> BindGroup {
+    self.device.create_bind_group(&BindGroupDescriptor {
+      layout: &self.bind_group_layout,
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::TextureView(source_view),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+      ],
+      label: label!(),
     })
+  }
+
+  fn target(&self, image_view: &TextureView) -> Target {
+    let texture = self.device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D2,
+      format: self.texture_format,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[self.texture_format],
+    });
+
+    let texture_view = texture.create_view(&TextureViewDescriptor::default());
+
+    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::TextureView(&texture_view),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+      ],
+      label: label!(),
+      layout: &self.bind_group_layout,
+    });
+
+    Target {
+      bind_group,
+      texture,
+      texture_view,
+    }
   }
 
   fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
@@ -355,19 +397,17 @@ impl Renderer {
       .get_current_texture()
       .context("failed to acquire next swap chain texture")?;
 
-    for target in &self.targets {
-      if let Some(texture) = &target.texture {
-        encoder.clear_texture(
-          texture,
-          &ImageSubresourceRange {
-            aspect: TextureAspect::All,
-            base_mip_level: 0,
-            mip_level_count: None,
-            base_array_layer: 0,
-            array_layer_count: None,
-          },
-        );
-      }
+    for target in &self.bindings().targets {
+      encoder.clear_texture(
+        &target.texture,
+        &ImageSubresourceRange {
+          aspect: TextureAspect::All,
+          base_mip_level: 0,
+          mip_level_count: None,
+          base_array_layer: 0,
+          array_layer_count: None,
+        },
+      );
     }
 
     let mut source = 0;
@@ -382,7 +422,7 @@ impl Renderer {
             store: StoreOp::Store,
           },
           resolve_target: None,
-          view: &self.targets[destination].texture_view,
+          view: &self.bindings().targets[destination].texture_view,
         })],
         depth_stencil_attachment: None,
         label: label!(),
@@ -392,7 +432,7 @@ impl Renderer {
 
       pass.set_bind_group(
         0,
-        Some(&self.targets[source].bind_group),
+        Some(&self.bindings().targets[source].bind_group),
         &[self.uniform_buffer_stride * uniforms],
       );
 
@@ -437,7 +477,7 @@ impl Renderer {
 
       pass.set_bind_group(
         0,
-        Some(&self.final_target.bind_group),
+        Some(&self.bindings().bind_group),
         &[self.uniform_buffer_stride * uniforms],
       );
 
@@ -472,44 +512,29 @@ impl Renderer {
     self.surface.configure(&self.device, &self.config);
 
     let image_texture = self.device.create_texture(&TextureDescriptor {
-      label: label!(),
-      size: Extent3d {
-        width: self.resolution,
-        height: self.resolution,
-        depth_or_array_layers: 1,
-      },
-      mip_level_count: 1,
-      sample_count: 1,
       dimension: TextureDimension::D2,
       format: self.texture_format,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
       usage: TextureUsages::TEXTURE_BINDING,
       view_formats: &[self.texture_format],
     });
 
-    self.image_view = image_texture.create_view(&TextureViewDescriptor::default());
+    let image_view = image_texture.create_view(&TextureViewDescriptor::default());
 
-    for target in &mut self.targets {
-      *target = Target::new(
-        &self.bind_group_layout,
-        &self.device,
-        &self.image_view,
-        self.resolution,
-        &self.sampler,
-        self.texture_format,
-        &self.uniform_buffer,
-        None,
-      );
-    }
+    let targets = [self.target(&image_view), self.target(&image_view)];
 
-    self.final_target = Target::new(
-      &self.bind_group_layout,
-      &self.device,
-      &self.targets[0].texture_view,
-      self.resolution,
-      &self.sampler,
-      self.texture_format,
-      &self.uniform_buffer,
-      Some(&self.targets[1].texture_view),
-    );
+    let bind_group = self.bind_group(&targets[0].texture_view, &targets[1].texture_view);
+
+    self.bindings = Some(Bindings {
+      bind_group,
+      targets,
+    });
   }
 }

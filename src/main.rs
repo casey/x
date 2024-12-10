@@ -1,7 +1,8 @@
 use {
   self::{
-    app::App, field::Field, filter::Filter, frame::Frame, options::Options, renderer::Renderer,
-    shared::Shared, tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
+    app::App, bindings::Bindings, field::Field, filter::Filter, frame::Frame, options::Options,
+    renderer::Renderer, shared::Shared, tally::Tally, target::Target, tiling::Tiling,
+    uniforms::Uniforms,
   },
   anyhow::Context,
   clap::Parser,
@@ -46,6 +47,7 @@ macro_rules! label {
 }
 
 mod app;
+mod bindings;
 mod field;
 mod filter;
 mod frame;
