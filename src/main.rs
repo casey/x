@@ -12,10 +12,7 @@ use {
     collections::VecDeque,
     fmt::{self, Display, Formatter},
     process,
-    sync::{
-      atomic::{self, AtomicU32},
-      Arc,
-    },
+    sync::Arc,
     time::Instant,
   },
   wgpu::{
@@ -64,6 +61,9 @@ type Matrix4 = nalgebra::Matrix4<f32>;
 type Result<T = ()> = anyhow::Result<T>;
 type Vector2 = nalgebra::Vector2<f32>;
 type Vector4 = nalgebra::Vector4<f32>;
+
+const KIB: usize = 1 << 10;
+const MIB: usize = KIB << 10;
 
 fn default<T: Default>() -> T {
   T::default()

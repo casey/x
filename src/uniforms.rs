@@ -1,10 +1,5 @@
 use super::*;
 
-const KIB: usize = 1 << 10;
-const MIB: usize = KIB << 10;
-
-static BUFFER_SIZE: AtomicU32 = AtomicU32::new(0);
-
 #[derive(Default)]
 pub(crate) struct Uniforms {
   pub(crate) color: Matrix4,
@@ -42,19 +37,5 @@ impl Uniforms {
     self.source_read.write(dst, &mut i, &mut a);
     self.tiling.write(dst, &mut i, &mut a);
     pad(i, a)
-  }
-
-  // todo: change to const on renderer
-  pub(crate) fn buffer_size() -> u32 {
-    let buffer_size = BUFFER_SIZE.load(atomic::Ordering::Relaxed);
-
-    if buffer_size != 0 {
-      return buffer_size;
-    }
-
-    let mut buffer = vec![0; MIB];
-    let buffer_size = Uniforms::default().write(&mut buffer).try_into().unwrap();
-    BUFFER_SIZE.store(buffer_size, atomic::Ordering::Relaxed);
-    buffer_size
   }
 }

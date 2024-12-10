@@ -15,6 +15,7 @@ pub struct Renderer {
   surface: Surface<'static>,
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
+  uniform_buffer_size: u32,
   uniform_buffer_stride: u32,
 }
 
@@ -64,6 +65,11 @@ impl Renderer {
 
     surface.configure(&device, &config);
 
+    let uniform_buffer_size = {
+      let mut buffer = vec![0; MIB];
+      u32::try_from(Uniforms::default().write(&mut buffer)).unwrap()
+    };
+
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       entries: &[
         BindGroupLayoutEntry {
@@ -71,7 +77,7 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -115,8 +121,8 @@ impl Renderer {
     let limits = device.limits();
 
     let alignment = limits.min_uniform_buffer_offset_alignment;
-    let padding = (alignment - Uniforms::buffer_size() % alignment) % alignment;
-    let uniform_buffer_stride = Uniforms::buffer_size() + padding;
+    let padding = (alignment - uniform_buffer_size % alignment) % alignment;
+    let uniform_buffer_stride = uniform_buffer_size + padding;
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
@@ -170,6 +176,7 @@ impl Renderer {
       surface,
       texture_format,
       uniform_buffer,
+      uniform_buffer_size,
       uniform_buffer_stride,
     };
 
@@ -187,7 +194,7 @@ impl Renderer {
           resource: BindingResource::Buffer(BufferBinding {
             buffer: &self.uniform_buffer,
             offset: 0,
-            size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
           }),
         },
         BindGroupEntry {
@@ -232,7 +239,7 @@ impl Renderer {
           resource: BindingResource::Buffer(BufferBinding {
             buffer: &self.uniform_buffer,
             offset: 0,
-            size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
           }),
         },
         BindGroupEntry {
