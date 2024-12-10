@@ -2,9 +2,8 @@ use super::*;
 
 #[derive(Clone, Copy)]
 pub(crate) struct Tiling {
-  pub(crate) height: u32,
+  pub(crate) resolution: u32,
   pub(crate) size: u32,
-  pub(crate) width: u32,
 }
 
 impl Tiling {
@@ -24,11 +23,14 @@ impl Tiling {
     let col = filter % self.size;
     let row = filter / self.size;
 
-    Vec2f::new((self.width * col) as f32, (self.height * row) as f32)
+    Vec2f::new(
+      (self.resolution * col) as f32,
+      (self.resolution * row) as f32,
+    )
   }
 
   pub(crate) fn resolution(&self) -> Vec2f {
-    Vec2f::new(self.width as f32, self.height as f32)
+    Vec2f::new(self.resolution as f32, self.resolution as f32)
   }
 
   pub(crate) fn set_viewport(&self, render_pass: &mut RenderPass, filter: u32) {
@@ -40,10 +42,10 @@ impl Tiling {
     let row = filter / self.size;
 
     render_pass.set_viewport(
-      (col * self.width) as f32,
-      (row * self.height) as f32,
-      self.width as f32,
-      self.height as f32,
+      (col * self.resolution) as f32,
+      (row * self.resolution) as f32,
+      self.resolution as f32,
+      self.resolution as f32,
       0.0,
       0.0,
     );

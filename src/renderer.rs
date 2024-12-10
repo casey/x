@@ -240,9 +240,8 @@ impl Renderer {
     };
 
     let tiling = Tiling {
-      height: self.resolution / tiling_size,
+      resolution: self.resolution / tiling_size,
       size: tiling_size,
-      width: self.resolution / tiling_size,
     };
 
     for (i, filter) in filters.iter().enumerate() {
