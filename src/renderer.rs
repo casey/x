@@ -108,8 +108,8 @@ impl Renderer {
     });
 
     let sampler = device.create_sampler(&SamplerDescriptor {
-      address_mode_u: AddressMode::MirrorRepeat,
-      address_mode_v: AddressMode::MirrorRepeat,
+      address_mode_u: AddressMode::Repeat,
+      address_mode_v: AddressMode::Repeat,
       ..default()
     });
 
@@ -333,11 +333,9 @@ impl Renderer {
       coordinates: false,
       field: Field::None,
       filters: filters.len().try_into().unwrap(),
-      // todo: change to false
       fit: options.fit,
       offset: Vector2::default(),
       position: Matrix3::identity(),
-      // todo: change to false
       repeat: options.repeat,
       resolution: Vector2::new(self.size.width as f32, self.size.height as f32),
       source_offset: Vector2::new(0.0, 0.0),

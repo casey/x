@@ -10,10 +10,9 @@ var image: texture_2d<f32>;
 @binding(2)
 var source: texture_2d<f32>;
 
-// todo: rename to texture_sampler
 @group(0)
 @binding(3)
-var source_sampler: sampler;
+var texture_sampler: sampler;
 
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
 const BLACK = vec4(0.0, 0.0, 0.0, 1.0);
@@ -71,6 +70,10 @@ fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
   return VERTICES[i];
 }
 
+fn read(uv: vec2f) -> bool {
+  return bool(uniforms.repeat) || all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0));
+}
+
 @fragment
 fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   // subtract offset get tile coordinates
@@ -108,22 +111,25 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
 
   if bool(uniforms.coordinates) {
     input = vec4(uv, 1.0, 1.0);
-  } else if bool(uniforms.repeat) || (all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0))) {
+  } else if bool(uniforms.source_read) && read(uv) {
     // convert uv coordinates to tile source coordinates
-    let tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
+    var tile_uv = uv / f32(uniforms.tiling) + uniforms.source_offset;
 
-    // scale to compensate for tiles not taking up full source texture
-    let scale = uniforms.resolution * f32(uniforms.tiling)
-      / vec2f(textureDimensions(source, 0));
+    if uniforms.index < uniforms.filters {
+      // scale to compensate for tiles not taking up full source texture
+      let scale = uniforms.resolution * f32(uniforms.tiling)
+        / vec2f(textureDimensions(source, 0));
+      tile_uv *= scale;
+    }
 
     // read the input color
-    input = textureSample(source, source_sampler, tile_uv * scale);
+    input = textureSample(source, texture_sampler, tile_uv);
   }
 
-  let image_input = textureSample(image, source_sampler, uv);
-
-  // todo: do real alpha blending
-  input = input * f32(uniforms.source_read) + image_input * f32(uniforms.image_read);
+  if bool(uniforms.image_read) && read(uv) {
+    let image_input = textureSample(image, texture_sampler, uv);
+    input += image_input;
+  }
 
   var on: bool;
 
