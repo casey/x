@@ -64,7 +64,7 @@ impl App {
           if let Some(recording) = self.recording.take() {
             self.makro = recording;
           } else {
-            self.recording = Some(Vec::new())
+            self.recording = Some(Vec::new());
           }
           capture = false;
         }

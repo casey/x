@@ -18,6 +18,9 @@ winit = "0.30.5"
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
+cast-precision-loss = "allow"
 pedantic = { level = "deny", priority = -1 }
-wildcard-imports = "allow"
+struct-excessive-bools = "allow"
+too-many-arguments = "allow"
 too-many-lines = "allow"
+wildcard-imports = "allow"

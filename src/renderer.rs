@@ -238,6 +238,11 @@ impl Renderer {
   }
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
+    fn sqrt_ceil(n: usize) -> u32 {
+      #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+      (n as f64).sqrt().ceil() as u32
+    }
+
     if self.frame_times.len() == self.frame_times.capacity() {
       self.frame_times.pop_front();
     }
@@ -255,15 +260,8 @@ impl Renderer {
 
     let mut uniforms = Vec::new();
 
-    #[derive(Clone, Copy)]
-    struct Tiling {
-      height: u32,
-      size: u32,
-      width: u32,
-    }
-
     let tiling = if options.tile && !filters.is_empty() {
-      let size = (filters.len() as f64).sqrt().ceil() as u32;
+      let size = sqrt_ceil(filters.len());
       Some(Tiling {
         height: self.resolution / size,
         size,
@@ -281,8 +279,8 @@ impl Renderer {
       };
 
       let offset = if let Some(tiling) = tiling {
-        let col = i as u32 % tiling.size;
-        let row = i as u32 / tiling.size;
+        let col = u32::try_from(i).unwrap() % tiling.size;
+        let row = u32::try_from(i).unwrap() / tiling.size;
         Vector2::new((tiling.width * col) as f32, (tiling.height * row) as f32)
       } else {
         Vector2::new(0.0, 0.0)
@@ -290,8 +288,8 @@ impl Renderer {
 
       let source_offset = if let Some(tiling) = tiling {
         if let Some(i) = i.checked_sub(1) {
-          let row = i as u32 / tiling.size;
-          let col = i as u32 % tiling.size;
+          let row = u32::try_from(i).unwrap() / tiling.size;
+          let col = u32::try_from(i).unwrap() % tiling.size;
           Vector2::new(
             col as f32 / tiling.size as f32,
             row as f32 / tiling.size as f32,
@@ -362,16 +360,18 @@ impl Renderer {
       .context("failed to acquire next swap chain texture")?;
 
     for target in &self.targets {
-      encoder.clear_texture(
-        &target.texture,
-        &ImageSubresourceRange {
-          aspect: TextureAspect::All,
-          base_mip_level: 0,
-          mip_level_count: None,
-          base_array_layer: 0,
-          array_layer_count: None,
-        },
-      );
+      if let Some(texture) = &target.texture {
+        encoder.clear_texture(
+          texture,
+          &ImageSubresourceRange {
+            aspect: TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: None,
+            base_array_layer: 0,
+            array_layer_count: None,
+          },
+        );
+      }
     }
 
     let mut source = 0;
@@ -492,7 +492,7 @@ impl Renderer {
 
     self.image_view = image_texture.create_view(&TextureViewDescriptor::default());
 
-    for target in self.targets.iter_mut() {
+    for target in &mut self.targets {
       *target = Target::new(
         &self.bind_group_layout,
         &self.device,

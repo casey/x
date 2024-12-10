@@ -24,7 +24,7 @@ impl Shared for bool {
   const SIZE: usize = u32::ALIGNMENT;
 
   fn write_aligned(&self, buffer: &mut [u8]) {
-    (*self as u32).write_aligned(buffer);
+    u32::from(*self).write_aligned(buffer);
   }
 }
 
