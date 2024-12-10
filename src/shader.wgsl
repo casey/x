@@ -65,13 +65,13 @@ fn invert(color: vec4f) -> vec4f {
   return vec4((color.xyx - 1) * -1, 1);
 }
 
+fn read(uv: vec2f) -> bool {
+  return bool(uniforms.repeat) || all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0));
+}
+
 @vertex
 fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
   return VERTICES[i];
-}
-
-fn read(uv: vec2f) -> bool {
-  return bool(uniforms.repeat) || all(uv >= vec2(0.0, 0.0)) && all(uv <= vec2(1.0, 1.0));
 }
 
 @fragment

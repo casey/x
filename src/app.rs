@@ -3,11 +3,11 @@ use super::*;
 pub(crate) struct App {
   error: Option<anyhow::Error>,
   filters: Vec<Filter>,
+  makro: Vec<Key>,
   options: Options,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   window: Option<Arc<Window>>,
-  makro: Vec<Key>,
 }
 
 impl App {
@@ -19,11 +19,11 @@ impl App {
     Self {
       error: None,
       filters: Vec::new(),
+      makro: Vec::new(),
       options,
       recording: None,
       renderer: None,
       window: None,
-      makro: Vec::new(),
     }
   }
 

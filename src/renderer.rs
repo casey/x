@@ -20,6 +20,35 @@ pub struct Renderer {
 }
 
 impl Renderer {
+  fn bind_group(&self, image_view: &TextureView, source_view: &TextureView) -> BindGroup {
+    self.device.create_bind_group(&BindGroupDescriptor {
+      layout: &self.bind_group_layout,
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::TextureView(source_view),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+      ],
+      label: label!(),
+    })
+  }
+
   fn bindings(&self) -> &Bindings {
     self.bindings.as_ref().unwrap()
   }
@@ -183,107 +212,6 @@ impl Renderer {
     renderer.resize(&options, size);
 
     Ok(renderer)
-  }
-
-  fn bind_group(&self, image_view: &TextureView, source_view: &TextureView) -> BindGroup {
-    self.device.create_bind_group(&BindGroupDescriptor {
-      layout: &self.bind_group_layout,
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(image_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::TextureView(source_view),
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-      ],
-      label: label!(),
-    })
-  }
-
-  fn target(&self, image_view: &TextureView) -> Target {
-    let texture = self.device.create_texture(&TextureDescriptor {
-      dimension: TextureDimension::D2,
-      format: self.texture_format,
-      label: label!(),
-      mip_level_count: 1,
-      sample_count: 1,
-      size: Extent3d {
-        depth_or_array_layers: 1,
-        height: self.resolution,
-        width: self.resolution,
-      },
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      view_formats: &[self.texture_format],
-    });
-
-    let texture_view = texture.create_view(&TextureViewDescriptor::default());
-
-    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(image_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::TextureView(&texture_view),
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-      ],
-      label: label!(),
-      layout: &self.bind_group_layout,
-    });
-
-    Target {
-      bind_group,
-      texture,
-      texture_view,
-    }
-  }
-
-  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
-    if uniforms.is_empty() {
-      return;
-    }
-
-    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
-
-    let mut buffer = self
-      .queue
-      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
-      .unwrap();
-
-    for (uniforms, dst) in uniforms
-      .iter()
-      .zip(buffer.chunks_mut(self.uniform_buffer_stride.try_into().unwrap()))
-    {
-      uniforms.write(dst);
-    }
   }
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
@@ -500,9 +428,9 @@ impl Renderer {
     info!(
       "{}",
       Frame {
-        number: self.frame,
+        filters: filters.len(),
         fps,
-        filters: filters.len()
+        number: self.frame,
       }
     );
 
@@ -543,5 +471,77 @@ impl Renderer {
       bind_group,
       targets,
     });
+  }
+
+  fn target(&self, image_view: &TextureView) -> Target {
+    let texture = self.device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D2,
+      format: self.texture_format,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[self.texture_format],
+    });
+
+    let texture_view = texture.create_view(&TextureViewDescriptor::default());
+
+    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::TextureView(&texture_view),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+      ],
+      label: label!(),
+      layout: &self.bind_group_layout,
+    });
+
+    Target {
+      bind_group,
+      texture,
+      texture_view,
+    }
+  }
+
+  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
+    if uniforms.is_empty() {
+      return;
+    }
+
+    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
+
+    let mut buffer = self
+      .queue
+      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
+      .unwrap();
+
+    for (uniforms, dst) in uniforms
+      .iter()
+      .zip(buffer.chunks_mut(self.uniform_buffer_stride.try_into().unwrap()))
+    {
+      uniforms.write(dst);
+    }
   }
 }
