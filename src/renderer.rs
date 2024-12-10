@@ -233,8 +233,8 @@ impl Renderer {
     let mut uniforms = Vec::new();
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let tiling_size = if options.tile && !filters.is_empty() {
-      (filters.len() as f64).sqrt().ceil() as u32
+    let tiling_size = if options.tile {
+      (filters.len().max(1) as f64).sqrt().ceil() as u32
     } else {
       1
     };
