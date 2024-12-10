@@ -51,7 +51,7 @@ impl Uniforms {
       return buffer_size;
     }
 
-    let mut buffer = vec![0; 1 * MIB];
+    let mut buffer = vec![0; MIB];
     let buffer_size = Uniforms::default().write(&mut buffer).try_into().unwrap();
     BUFFER_SIZE.store(buffer_size, atomic::Ordering::Relaxed);
     buffer_size

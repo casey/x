@@ -1,7 +1,7 @@
 use {
   self::{
     app::App, field::Field, filter::Filter, frame::Frame, options::Options, renderer::Renderer,
-    shared::Shared, tally::Tally, target::Target, uniforms::Uniforms,
+    shared::Shared, tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
   },
   anyhow::Context,
   clap::Parser,
@@ -54,6 +54,7 @@ mod renderer;
 mod shared;
 mod tally;
 mod target;
+mod tiling;
 mod uniforms;
 
 type Matrix3 = nalgebra::Matrix3<f32>;
