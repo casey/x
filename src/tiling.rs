@@ -7,7 +7,7 @@ pub(crate) struct Tiling {
 }
 
 impl Tiling {
-  pub(crate) fn image_read(&self, filters: u32) -> bool {
+  pub(crate) fn image_read(self, filters: u32) -> bool {
     if self.size == 1 {
       filters % 2 == 0
     } else {
@@ -15,7 +15,7 @@ impl Tiling {
     }
   }
 
-  pub(crate) fn offset(&self, filter: u32) -> Vec2f {
+  pub(crate) fn offset(self, filter: u32) -> Vec2f {
     if self.size == 1 {
       return Vec2f::new(0.0, 0.0);
     }
@@ -29,11 +29,11 @@ impl Tiling {
     )
   }
 
-  pub(crate) fn resolution(&self) -> Vec2f {
+  pub(crate) fn resolution(self) -> Vec2f {
     Vec2f::new(self.resolution as f32, self.resolution as f32)
   }
 
-  pub(crate) fn set_viewport(&self, render_pass: &mut RenderPass, filter: u32) {
+  pub(crate) fn set_viewport(self, render_pass: &mut RenderPass, filter: u32) {
     if self.size == 1 {
       return;
     }
@@ -51,7 +51,7 @@ impl Tiling {
     );
   }
 
-  pub(crate) fn source_offset(&self, filter: u32) -> Vec2f {
+  pub(crate) fn source_offset(self, filter: u32) -> Vec2f {
     if self.size == 1 {
       return Vec2f::new(0.0, 0.0);
     }
@@ -66,7 +66,7 @@ impl Tiling {
     Vec2f::new(col as f32 / self.size as f32, row as f32 / self.size as f32)
   }
 
-  pub(crate) fn source_read(&self, filters: u32) -> bool {
+  pub(crate) fn source_read(self, filters: u32) -> bool {
     if self.size == 1 {
       filters % 2 == 1
     } else {
