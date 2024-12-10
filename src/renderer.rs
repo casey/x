@@ -52,9 +52,6 @@ impl Renderer {
       .await
       .context("failed to create device")?;
 
-    // todo:
-    // device.on_uncaptured_error(Box::new(|error| {}));
-
     let texture_format = surface.get_capabilities(&adapter).formats[0];
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
