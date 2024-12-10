@@ -10,7 +10,17 @@ clap = { version = "4.5.21", features = ["derive"] }
 dirs = "5.0.1"
 env_logger = "0.11.0"
 log = "0.4.22"
+nalgebra = "0.33.2"
 png = "0.17.14"
 pollster = "0.4.0"
 wgpu = "23.0.0"
 winit = "0.30.5"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+cast-precision-loss = "allow"
+pedantic = { level = "deny", priority = -1 }
+struct-excessive-bools = "allow"
+too-many-arguments = "allow"
+too-many-lines = "allow"
+wildcard-imports = "allow"

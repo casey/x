@@ -3,28 +3,114 @@ use super::*;
 pub(crate) struct App {
   error: Option<anyhow::Error>,
   filters: Vec<Filter>,
+  makro: Vec<Key>,
   options: Options,
+  recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   window: Option<Arc<Window>>,
 }
 
 impl App {
+  pub(crate) fn error(self) -> Option<anyhow::Error> {
+    self.error
+  }
+
   pub(crate) fn new(options: Options) -> Self {
     Self {
       error: None,
       filters: Vec::new(),
+      makro: Vec::new(),
       options,
+      recording: None,
       renderer: None,
       window: None,
     }
   }
 
-  fn window(&self) -> &Window {
-    self.window.as_ref().unwrap()
+  fn press(&mut self, key: Key) {
+    let mut capture = true;
+
+    match key {
+      Key::Character(ref c) => match c.as_str() {
+        "@" => {
+          for key in self.makro.clone() {
+            self.press(key);
+          }
+          capture = false;
+        }
+        "a" => self.filters.push(Filter {
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::All,
+          ..default()
+        }),
+        "c" => self.filters.push(Filter {
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::Circle,
+          ..default()
+        }),
+        "d" => self.filters.push(Filter {
+          coordinates: true,
+          ..default()
+        }),
+        "f" => {
+          self.options.fit = !self.options.fit;
+        }
+        "n" => self.filters.push(Filter {
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::None,
+          ..default()
+        }),
+        "q" => {
+          if let Some(recording) = self.recording.take() {
+            self.makro = recording;
+          } else {
+            self.recording = Some(Vec::new());
+          }
+          capture = false;
+        }
+        "r" => {
+          self.options.repeat = !self.options.repeat;
+        }
+        "t" => {
+          self.options.tile = !self.options.tile;
+        }
+        "x" => self.filters.push(Filter {
+          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          field: Field::X,
+          ..default()
+        }),
+        _ => {}
+      },
+      Key::Named(key) => match key {
+        NamedKey::Backspace => {
+          self.filters.pop();
+        }
+        NamedKey::ArrowLeft => {
+          self.filters.push(Filter {
+            position: Mat3f::new_rotation(-0.01),
+            ..default()
+          });
+        }
+        NamedKey::ArrowRight => {
+          self.filters.push(Filter {
+            position: Mat3f::new_rotation(0.01),
+            ..default()
+          });
+        }
+        _ => {}
+      },
+      _ => {}
+    }
+
+    if capture {
+      if let Some(recording) = &mut self.recording {
+        recording.push(key);
+      }
+    }
   }
 
-  pub(crate) fn error(self) -> Option<anyhow::Error> {
-    self.error
+  fn window(&self) -> &Window {
+    self.window.as_ref().unwrap()
   }
 }
 
@@ -74,26 +160,7 @@ impl ApplicationHandler for App {
         event_loop.exit();
       }
       WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
-        match event.logical_key {
-          Key::Character(c) => match c.as_str() {
-            "a" => self.filters.push(Filter { field: Field::All }),
-            "c" => self.filters.push(Filter {
-              field: Field::Circle,
-            }),
-            "f" => {
-              self.options.fit = !self.options.fit;
-            }
-            "r" => {
-              self.options.repeat = !self.options.repeat;
-            }
-            "x" => self.filters.push(Filter { field: Field::X }),
-            _ => {}
-          },
-          Key::Named(NamedKey::Backspace) => {
-            self.filters.pop();
-          }
-          _ => {}
-        }
+        self.press(event.logical_key);
       }
       WindowEvent::RedrawRequested => {
         if let Err(err) = self

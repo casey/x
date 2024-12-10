@@ -2,24 +2,57 @@ use super::*;
 
 pub struct Renderer {
   bind_group_layout: BindGroupLayout,
+  bindings: Option<Bindings>,
   config: SurfaceConfiguration,
   device: Device,
   frame: u64,
   frame_times: VecDeque<Instant>,
-  initial_target: Target,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
   sampler: Sampler,
-  size: PhysicalSize<u32>,
+  size: Vec2u,
   surface: Surface<'static>,
-  targets: [Target; 2],
   texture_format: TextureFormat,
   uniform_buffer: Buffer,
+  uniform_buffer_size: u32,
   uniform_buffer_stride: u32,
 }
 
 impl Renderer {
+  fn bind_group(&self, image_view: &TextureView, source_view: &TextureView) -> BindGroup {
+    self.device.create_bind_group(&BindGroupDescriptor {
+      layout: &self.bind_group_layout,
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::TextureView(source_view),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+      ],
+      label: label!(),
+    })
+  }
+
+  fn bindings(&self) -> &Bindings {
+    self.bindings.as_ref().unwrap()
+  }
+
   pub async fn new(options: Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
@@ -42,7 +75,7 @@ impl Renderer {
       .request_device(
         &DeviceDescriptor {
           label: label!(),
-          required_features: Features::empty(),
+          required_features: Features::CLEAR_TEXTURE,
           required_limits: Limits::default(),
           memory_hints: MemoryHints::Performance,
         },
@@ -61,6 +94,11 @@ impl Renderer {
 
     surface.configure(&device, &config);
 
+    let uniform_buffer_size = {
+      let mut buffer = vec![0; MIB];
+      u32::try_from(Uniforms::default().write(&mut buffer)).unwrap()
+    };
+
     let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       entries: &[
         BindGroupLayoutEntry {
@@ -68,7 +106,7 @@ impl Renderer {
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(Uniforms::buffer_size()).try_into().unwrap()),
+            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
           },
           visibility: ShaderStages::FRAGMENT,
@@ -86,6 +124,16 @@ impl Renderer {
         BindGroupLayoutEntry {
           binding: 2,
           count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: 3,
+          count: None,
           ty: BindingType::Sampler(SamplerBindingType::Filtering),
           visibility: ShaderStages::FRAGMENT,
         },
@@ -94,19 +142,21 @@ impl Renderer {
     });
 
     let sampler = device.create_sampler(&SamplerDescriptor {
-      address_mode_u: AddressMode::MirrorRepeat,
-      address_mode_v: AddressMode::MirrorRepeat,
+      address_mode_u: AddressMode::Repeat,
+      address_mode_v: AddressMode::Repeat,
       ..default()
     });
 
-    let alignment = device.limits().min_uniform_buffer_offset_alignment;
-    let padding = (alignment - Uniforms::buffer_size() % alignment) % alignment;
-    let uniform_buffer_stride = Uniforms::buffer_size() + padding;
+    let limits = device.limits();
+
+    let alignment = limits.min_uniform_buffer_offset_alignment;
+    let padding = (alignment - uniform_buffer_size % alignment) % alignment;
+    let uniform_buffer_stride = uniform_buffer_size + padding;
 
     let uniform_buffer = device.create_buffer(&BufferDescriptor {
       label: label!(),
       mapped_at_creation: false,
-      size: device.limits().max_buffer_size,
+      size: limits.max_buffer_size,
       usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
     });
 
@@ -140,58 +190,28 @@ impl Renderer {
 
     let resolution = options.resolution(size);
 
-    let target = || {
-      Target::new(
-        &bind_group_layout,
-        &device,
-        resolution,
-        &sampler,
-        texture_format,
-        &uniform_buffer,
-      )
-    };
-
-    let initial_target = target();
-
-    let targets = [target(), target()];
-
-    Ok(Renderer {
+    let mut renderer = Renderer {
       bind_group_layout,
+      bindings: None,
       config,
       device,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
-      initial_target,
       queue,
       render_pipeline,
       resolution,
       sampler,
-      size,
+      size: Vec2u::new(size.width, size.height),
       surface,
-      targets,
       texture_format,
       uniform_buffer,
+      uniform_buffer_size,
       uniform_buffer_stride,
-    })
-  }
+    };
 
-  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
-    if uniforms.is_empty() {
-      return;
-    }
+    renderer.resize(&options, size);
 
-    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
-    let mut buffer = self
-      .queue
-      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
-      .unwrap();
-
-    for (uniforms, dst) in uniforms
-      .iter()
-      .zip(buffer.chunks_mut(self.uniform_buffer_stride.try_into().unwrap()))
-    {
-      uniforms.write(dst);
-    }
+    Ok(renderer)
   }
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
@@ -212,27 +232,58 @@ impl Renderer {
 
     let mut uniforms = Vec::new();
 
-    for filter in filters {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let tiling_size = if options.tile {
+      (filters.len().max(1) as f64).sqrt().ceil() as u32
+    } else {
+      1
+    };
+
+    let tiling = Tiling {
+      resolution: self.resolution / tiling_size,
+      size: tiling_size,
+    };
+
+    for (i, filter) in filters.iter().enumerate() {
+      let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
+        color: filter.color,
+        coordinates: filter.coordinates,
         field: filter.field,
+        filters: filters.len().try_into().unwrap(),
         fit: false,
+        image_read: false,
+        index: i,
+        offset: tiling.offset(i),
+        position: filter.position,
         repeat: false,
-        resolution: Vec2f {
-          x: self.resolution as f32,
-          y: self.resolution as f32,
-        },
+        resolution: tiling.resolution(),
+        source_offset: tiling.source_offset(i),
+        source_read: true,
+        tiling: tiling.size,
       });
     }
 
-    uniforms.push(Uniforms {
-      field: Field::None,
-      fit: options.fit,
-      repeat: options.repeat,
-      resolution: Vec2f {
-        x: self.size.width as f32,
-        y: self.size.height as f32,
-      },
-    });
+    {
+      let filters = filters.len().try_into().unwrap();
+
+      uniforms.push(Uniforms {
+        color: Mat4f::identity(),
+        coordinates: false,
+        field: Field::None,
+        filters,
+        fit: options.fit,
+        image_read: tiling.image_read(filters),
+        index: filters,
+        offset: Vec2f::default(),
+        position: Mat3f::identity(),
+        repeat: options.repeat,
+        resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+        source_offset: Vec2f::new(0.0, 0.0),
+        source_read: tiling.source_read(filters),
+        tiling: 1,
+      });
+    }
 
     self.write_uniform_buffer(&uniforms);
 
@@ -245,30 +296,32 @@ impl Renderer {
       .get_current_texture()
       .context("failed to acquire next swap chain texture")?;
 
+    for target in &self.bindings().targets {
+      encoder.clear_texture(
+        &target.texture,
+        &ImageSubresourceRange {
+          aspect: TextureAspect::All,
+          base_mip_level: 0,
+          mip_level_count: None,
+          base_array_layer: 0,
+          array_layer_count: None,
+        },
+      );
+    }
+
     let mut source = 0;
     let mut destination = 1;
+    let mut uniforms = 0;
 
-    for i in 0..uniforms.len() {
-      let view = if i == uniforms.len() - 1 {
-        &frame.texture.create_view(&TextureViewDescriptor::default())
-      } else {
-        &self.targets[destination].texture_view
-      };
-
-      let source_target = if i == 0 {
-        &self.initial_target
-      } else {
-        &self.targets[source]
-      };
-
+    for i in 0..filters.len() {
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         color_attachments: &[Some(RenderPassColorAttachment {
           ops: Operations {
-            load: LoadOp::Clear(Color::BLACK),
+            load: LoadOp::Load,
             store: StoreOp::Store,
           },
           resolve_target: None,
-          view,
+          view: &self.bindings().targets[destination].texture_view,
         })],
         depth_stencil_attachment: None,
         label: label!(),
@@ -278,13 +331,46 @@ impl Renderer {
 
       pass.set_bind_group(
         0,
-        Some(&source_target.bind_group),
-        &[self.uniform_buffer_stride * u32::try_from(i).unwrap()],
+        Some(&self.bindings().targets[source].bind_group),
+        &[self.uniform_buffer_stride * uniforms],
       );
+
       pass.set_pipeline(&self.render_pipeline);
+
+      tiling.set_viewport(&mut pass, i.try_into().unwrap());
+
       pass.draw(0..3, 0..1);
 
+      uniforms += 1;
+
       (source, destination) = (destination, source);
+    }
+
+    {
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        color_attachments: &[Some(RenderPassColorAttachment {
+          ops: Operations {
+            load: LoadOp::Load,
+            store: StoreOp::Store,
+          },
+          resolve_target: None,
+          view: &frame.texture.create_view(&TextureViewDescriptor::default()),
+        })],
+        depth_stencil_attachment: None,
+        label: label!(),
+        occlusion_query_set: None,
+        timestamp_writes: None,
+      });
+
+      pass.set_bind_group(
+        0,
+        Some(&self.bindings().bind_group),
+        &[self.uniform_buffer_stride * uniforms],
+      );
+
+      pass.set_pipeline(&self.render_pipeline);
+
+      pass.draw(0..3, 0..1);
     }
 
     self.queue.submit([encoder.finish()]);
@@ -294,9 +380,9 @@ impl Renderer {
     info!(
       "{}",
       Frame {
-        number: self.frame,
+        filters: filters.len(),
         fps,
-        filters: filters.len()
+        number: self.frame,
       }
     );
 
@@ -309,17 +395,105 @@ impl Renderer {
     self.config.height = size.height.max(1);
     self.config.width = size.width.max(1);
     self.resolution = options.resolution(size);
-    self.size = size;
+    self.size = Vec2u::new(size.width, size.height);
     self.surface.configure(&self.device, &self.config);
-    for target in self.targets.iter_mut() {
-      *target = Target::new(
-        &self.bind_group_layout,
-        &self.device,
-        self.resolution,
-        &self.sampler,
-        self.texture_format,
-        &self.uniform_buffer,
-      );
+
+    let image_texture = self.device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D2,
+      format: self.texture_format,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
+      usage: TextureUsages::TEXTURE_BINDING,
+      view_formats: &[self.texture_format],
+    });
+
+    let image_view = image_texture.create_view(&TextureViewDescriptor::default());
+
+    let targets = [self.target(&image_view), self.target(&image_view)];
+
+    let bind_group = self.bind_group(&targets[0].texture_view, &targets[1].texture_view);
+
+    self.bindings = Some(Bindings {
+      bind_group,
+      targets,
+    });
+  }
+
+  fn target(&self, image_view: &TextureView) -> Target {
+    let texture = self.device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D2,
+      format: self.texture_format,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[self.texture_format],
+    });
+
+    let texture_view = texture.create_view(&TextureViewDescriptor::default());
+
+    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image_view),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::TextureView(&texture_view),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+      ],
+      label: label!(),
+      layout: &self.bind_group_layout,
+    });
+
+    Target {
+      bind_group,
+      texture,
+      texture_view,
+    }
+  }
+
+  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
+    if uniforms.is_empty() {
+      return;
+    }
+
+    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
+
+    let mut buffer = self
+      .queue
+      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
+      .unwrap();
+
+    for (uniforms, dst) in uniforms
+      .iter()
+      .zip(buffer.chunks_mut(self.uniform_buffer_stride.try_into().unwrap()))
+    {
+      uniforms.write(dst);
     }
   }
 }

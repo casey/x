@@ -1,7 +1,8 @@
 use {
   self::{
-    app::App, field::Field, filter::Filter, frame::Frame, options::Options, renderer::Renderer,
-    shared::Shared, tally::Tally, target::Target, uniforms::Uniforms, vec2f::Vec2f,
+    app::App, bindings::Bindings, field::Field, filter::Filter, frame::Frame, options::Options,
+    renderer::Renderer, shared::Shared, tally::Tally, target::Target, tiling::Tiling,
+    uniforms::Uniforms,
   },
   anyhow::Context,
   clap::Parser,
@@ -17,15 +18,15 @@ use {
   wgpu::{
     include_wgsl, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, Color,
-    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
-    Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
-    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
+    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
+    Device, DeviceDescriptor, Extent3d, Features, FragmentState, ImageSubresourceRange, Instance,
+    Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
+    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
     RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
-    Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
-    VertexState,
+    Surface, SurfaceConfiguration, Texture, TextureAspect, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+    TextureViewDimension, VertexState,
   },
   winit::{
     application::ApplicationHandler,
@@ -44,6 +45,7 @@ macro_rules! label {
 }
 
 mod app;
+mod bindings;
 mod field;
 mod filter;
 mod frame;
@@ -52,13 +54,27 @@ mod renderer;
 mod shared;
 mod tally;
 mod target;
+mod tiling;
 mod uniforms;
-mod vec2f;
 
 type Result<T = ()> = anyhow::Result<T>;
 
+type Mat3f = nalgebra::Matrix3<f32>;
+type Mat4f = nalgebra::Matrix4<f32>;
+type Vec2f = nalgebra::Vector2<f32>;
+type Vec2u = nalgebra::Vector2<u32>;
+type Vec4f = nalgebra::Vector4<f32>;
+
+const KIB: usize = 1 << 10;
+const MIB: usize = KIB << 10;
+
 fn default<T: Default>() -> T {
   T::default()
+}
+
+fn pad(i: usize, alignment: usize) -> usize {
+  assert!(alignment.is_power_of_two());
+  (i + alignment - 1) & !(alignment - 1)
 }
 
 fn run() -> Result<()> {
@@ -84,7 +100,7 @@ fn main() {
     let backtrace = error.backtrace();
 
     if let BacktraceStatus::Captured = backtrace.status() {
-      eprintln!("{}", backtrace);
+      eprintln!("{backtrace}");
     }
 
     process::exit(1);

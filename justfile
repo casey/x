@@ -1,6 +1,6 @@
 set positional-arguments
 
-watch +args='ltest':
+watch +args='lcheck':
   cargo watch --clear --exec '{{args}}'
 
 run *args:
@@ -9,8 +9,10 @@ run *args:
   cargo build
   ./target/debug/x "$@" 2> >(grep -Ev 'IMKClient|IMKInputSession' >&2)
 
-ci:
+forbid:
   ./bin/forbid
+
+ci: forbid
   cargo lclippy --workspace --all-targets -- --deny warnings
   cargo fmt --all -- --check
   cargo ltest --workspace

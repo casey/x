@@ -4,16 +4,16 @@ pub(crate) trait Shared {
   const ALIGNMENT: usize;
   const SIZE: usize;
 
-  fn write(&self, buffer: &mut [u8], i: &mut usize) {
-    let start = Self::slot(i);
-    self.write_aligned(&mut buffer[start..*i]);
-  }
-
   fn slot(i: &mut usize) -> usize {
-    assert!(Self::ALIGNMENT.is_power_of_two());
-    let start = (*i + Self::ALIGNMENT - 1) & !(Self::ALIGNMENT - 1);
+    let start = pad(*i, Self::ALIGNMENT);
     *i = start + Self::SIZE;
     start
+  }
+
+  fn write(&self, buffer: &mut [u8], i: &mut usize, alignment: &mut usize) {
+    *alignment = (*alignment).max(Self::ALIGNMENT);
+    let start = Self::slot(i);
+    self.write_aligned(&mut buffer[start..*i]);
   }
 
   fn write_aligned(&self, buffer: &mut [u8]);
@@ -24,7 +24,7 @@ impl Shared for bool {
   const SIZE: usize = u32::ALIGNMENT;
 
   fn write_aligned(&self, buffer: &mut [u8]) {
-    (*self as u32).write_aligned(buffer);
+    u32::from(*self).write_aligned(buffer);
   }
 }
 
@@ -55,12 +55,37 @@ impl Shared for Field {
   }
 }
 
+impl Shared for Mat3f {
+  const ALIGNMENT: usize = 16;
+  const SIZE: usize = 48;
+
+  fn write_aligned(&self, buffer: &mut [u8]) {
+    for (column, buffer) in self.column_iter().zip(buffer.chunks_mut(f32::SIZE * 4)) {
+      for (scalar, buffer) in column.as_slice().iter().zip(buffer.chunks_mut(f32::SIZE)) {
+        scalar.write_aligned(buffer);
+      }
+    }
+  }
+}
+
+impl Shared for Mat4f {
+  const ALIGNMENT: usize = 16;
+  const SIZE: usize = 64;
+
+  fn write_aligned(&self, buffer: &mut [u8]) {
+    for (scalar, buffer) in self.as_slice().iter().zip(buffer.chunks_mut(f32::SIZE)) {
+      scalar.write_aligned(buffer);
+    }
+  }
+}
+
 impl Shared for Vec2f {
   const ALIGNMENT: usize = 8;
   const SIZE: usize = 8;
 
   fn write_aligned(&self, buffer: &mut [u8]) {
-    self.x.write_aligned(&mut buffer[0..f32::SIZE]);
-    self.y.write_aligned(&mut buffer[4..4 + f32::SIZE]);
+    for (scalar, buffer) in self.as_slice().iter().zip(buffer.chunks_mut(f32::SIZE)) {
+      scalar.write_aligned(buffer);
+    }
   }
 }

@@ -1,9 +1,9 @@
 use super::*;
 
 pub(crate) struct Frame {
+  pub(crate) filters: usize,
   pub(crate) fps: Option<f64>,
   pub(crate) number: u64,
-  pub(crate) filters: usize,
 }
 
 impl Display for Frame {
