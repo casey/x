@@ -238,11 +238,6 @@ impl Renderer {
   }
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
-    fn sqrt_ceil(n: usize) -> u32 {
-      #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-      (n as f64).sqrt().ceil() as u32
-    }
-
     if self.frame_times.len() == self.frame_times.capacity() {
       self.frame_times.pop_front();
     }
@@ -261,7 +256,8 @@ impl Renderer {
     let mut uniforms = Vec::new();
 
     let tiling = if options.tile && !filters.is_empty() {
-      let size = sqrt_ceil(filters.len());
+      #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+      let size = (filters.len() as f64).sqrt().ceil() as u32;
       Some(Tiling {
         height: self.resolution / size,
         size,
