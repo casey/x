@@ -232,20 +232,17 @@ impl Renderer {
 
     let mut uniforms = Vec::new();
 
-    let tiling = if options.tile && !filters.is_empty() {
-      #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-      let size = (filters.len() as f64).sqrt().ceil() as u32;
-      Tiling {
-        height: self.resolution / size,
-        size,
-        width: self.resolution / size,
-      }
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let tiling_size = if options.tile && !filters.is_empty() {
+      (filters.len() as f64).sqrt().ceil() as u32
     } else {
-      Tiling {
-        height: self.resolution,
-        size: 1,
-        width: self.resolution,
-      }
+      1
+    };
+
+    let tiling = Tiling {
+      height: self.resolution / tiling_size,
+      size: tiling_size,
+      width: self.resolution / tiling_size,
     };
 
     for (i, filter) in filters.iter().enumerate() {
