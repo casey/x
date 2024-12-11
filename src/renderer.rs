@@ -54,7 +54,7 @@ impl Renderer {
     self.bindings.as_ref().unwrap()
   }
 
-  pub async fn new(options: Options, window: Arc<Window>) -> Result<Self> {
+  pub async fn new(options: &Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);

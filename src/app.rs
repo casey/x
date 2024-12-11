@@ -154,7 +154,9 @@ impl ApplicationHandler for App {
         }
       };
 
-      let renderer = match pollster::block_on(Renderer::new(self.options.clone(), window.clone())) {
+      self.window = Some(window.clone());
+
+      let renderer = match pollster::block_on(Renderer::new(&self.options, window)) {
         Ok(renderer) => renderer,
         Err(err) => {
           self.error = Some(err);
@@ -163,14 +165,12 @@ impl ApplicationHandler for App {
         }
       };
 
-      self.window = Some(window);
-
       self.renderer = Some(renderer);
     }
   }
 
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-    if self.window.is_none() || self.renderer.is_none() {
+    if self.renderer.is_none() {
       event_loop.exit();
       return;
     }
