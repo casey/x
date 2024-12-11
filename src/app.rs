@@ -10,10 +10,6 @@ pub(crate) struct App {
   window: Option<Arc<Window>>,
 }
 
-fn invert() -> Mat4f {
-  Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0))
-}
-
 impl App {
   pub(crate) fn error(self) -> Option<anyhow::Error> {
     self.error
@@ -43,13 +39,13 @@ impl App {
           capture = false;
         }
         "a" => self.filters.push(Filter {
-          color: invert(),
+          color: invert_color(),
           field: Field::All,
           wrap: self.options.wrap,
           ..default()
         }),
         "c" => self.filters.push(Filter {
-          color: invert(),
+          color: invert_color(),
           field: Field::Circle,
           wrap: self.options.wrap,
           ..default()
@@ -85,7 +81,7 @@ impl App {
           self.options.wrap = !self.options.wrap;
         }
         "x" => self.filters.push(Filter {
-          color: invert(),
+          color: invert_color(),
           field: Field::X,
           wrap: self.options.wrap,
           ..default()
