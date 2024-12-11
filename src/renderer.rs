@@ -261,6 +261,7 @@ impl Renderer {
         source_offset: tiling.source_offset(i),
         source_read: true,
         tiling: tiling.size,
+        wrap: filter.wrap,
       });
     }
 
@@ -282,6 +283,7 @@ impl Renderer {
         source_offset: Vec2f::new(0.0, 0.0),
         source_read: tiling.source_read(filters),
         tiling: 1,
+        wrap: false,
       });
     }
 

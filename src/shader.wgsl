@@ -43,6 +43,7 @@ struct Uniforms {
   source_offset: vec2f,
   source_read: u32,
   tiling: u32,
+  wrap: u32,
 }
 
 fn field_all(p: vec2f) -> bool {
@@ -105,7 +106,12 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   }
 
   // convert position to uv coordinates
-  let uv = (transformed + 1) / 2;
+  var uv = (transformed + 1) / 2;
+
+  // wrap uv coordinates
+  if bool(uniforms.wrap) {
+    uv = fract(uv);
+  }
 
   var input = BLACK;
 
