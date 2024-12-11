@@ -217,7 +217,7 @@ impl Renderer {
       error_channel,
     };
 
-    renderer.resize(&options, size);
+    renderer.resize(options, size);
 
     Ok(renderer)
   }
