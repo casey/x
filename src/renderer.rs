@@ -224,7 +224,7 @@ impl Renderer {
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
     match self.error_channel.try_recv() {
-      Ok(error) => return Err(error.into()),
+      Ok(error) => return Err(anyhow::Error::from(error).context("validation error")),
       Err(std::sync::mpsc::TryRecvError::Empty) => {}
       Err(std::sync::mpsc::TryRecvError::Disconnected) => bail!("error channel disconnected"),
     }

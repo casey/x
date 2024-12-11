@@ -1,7 +1,7 @@
 use super::*;
 
 pub(crate) struct App {
-  error: Option<anyhow::Error>,
+  error: Option<Error>,
   filters: Vec<Filter>,
   makro: Vec<Key>,
   options: Options,
@@ -11,7 +11,7 @@ pub(crate) struct App {
 }
 
 impl App {
-  pub(crate) fn error(self) -> Option<anyhow::Error> {
+  pub(crate) fn error(self) -> Option<Error> {
     self.error
   }
 

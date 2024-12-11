@@ -4,9 +4,9 @@ use {
     renderer::Renderer, shared::Shared, tally::Tally, target::Target, tiling::Tiling,
     uniforms::Uniforms,
   },
-  anyhow::Context,
   clap::Parser,
   log::info,
+  snafu::{ErrorCompat, ResultExt, Snafu},
   std::{
     backtrace::BacktraceStatus,
     collections::VecDeque,
@@ -57,7 +57,7 @@ mod target;
 mod tiling;
 mod uniforms;
 
-type Result<T = ()> = anyhow::Result<T>;
+type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 type Mat3f = nalgebra::Matrix3<f32>;
 type Mat4f = nalgebra::Matrix4<f32>;
@@ -67,6 +67,11 @@ type Vec4f = nalgebra::Vector4<f32>;
 
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;
+
+#[derive(Debug, Snafu)]
+enum Error {
+  Foo(()),
+}
 
 fn default<T: Default>() -> T {
   T::default()
@@ -81,14 +86,17 @@ fn pad(i: usize, alignment: usize) -> usize {
   (i + alignment - 1) & !(alignment - 1)
 }
 
-fn run() -> Result<()> {
+fn run() -> Result<(), Error> {
   env_logger::init();
 
   let options = Options::parse();
 
   let mut app = App::new(options);
 
-  EventLoop::with_user_event().build()?.run_app(&mut app)?;
+  EventLoop::with_user_event()
+    .build()
+    .context(Error::Foo)?
+    .run_app(&mut app)?;
 
   if let Some(err) = app.error() {
     return Err(err);
@@ -101,10 +109,10 @@ fn main() {
   if let Err(error) = run() {
     eprintln!("error: {error}");
 
-    let backtrace = error.backtrace();
-
-    if let BacktraceStatus::Captured = backtrace.status() {
-      eprintln!("{backtrace}");
+    if let Some(backtrace) = error.backtrace() {
+      if let BacktraceStatus::Captured = backtrace.status() {
+        eprintln!("{backtrace}");
+      }
     }
 
     process::exit(1);
