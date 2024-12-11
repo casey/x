@@ -5,6 +5,7 @@ pub struct Renderer {
   bindings: Option<Bindings>,
   config: SurfaceConfiguration,
   device: Device,
+  error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
   frame: u64,
   frame_times: VecDeque<Instant>,
   queue: Queue,
@@ -53,14 +54,16 @@ impl Renderer {
     self.bindings.as_ref().unwrap()
   }
 
-  pub async fn new(options: Options, window: Arc<Window>) -> Result<Self> {
+  pub async fn new(options: &Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
     size.height = size.height.max(1);
 
     let instance = Instance::default();
 
-    let surface = instance.create_surface(window)?;
+    let surface = instance
+      .create_surface(window)
+      .context(error::CreateSurface)?;
 
     let adapter = instance
       .request_adapter(&RequestAdapterOptions {
@@ -69,7 +72,7 @@ impl Renderer {
         compatible_surface: Some(&surface),
       })
       .await
-      .context("failed to find an appropriate adapter")?;
+      .context(error::Adapter)?;
 
     let (device, queue) = adapter
       .request_device(
@@ -82,7 +85,11 @@ impl Renderer {
         None,
       )
       .await
-      .context("failed to create device")?;
+      .context(error::Device)?;
+
+    let (tx, error_channel) = std::sync::mpsc::channel();
+
+    device.on_uncaptured_error(Box::new(move |error| tx.send(error).unwrap()));
 
     let texture_format = surface.get_capabilities(&adapter).formats[0];
 
@@ -90,7 +97,7 @@ impl Renderer {
 
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
-      .context("failed to get default config")?;
+      .context(error::DefaultConfig)?;
 
     surface.configure(&device, &config);
 
@@ -207,14 +214,21 @@ impl Renderer {
       uniform_buffer,
       uniform_buffer_size,
       uniform_buffer_stride,
+      error_channel,
     };
 
-    renderer.resize(&options, size);
+    renderer.resize(options, size);
 
     Ok(renderer)
   }
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
+    match self.error_channel.try_recv() {
+      Ok(error) => return Err(error::Validation.into_error(error)),
+      Err(std::sync::mpsc::TryRecvError::Empty) => {}
+      Err(std::sync::mpsc::TryRecvError::Disconnected) => panic!("error channel disconnected"),
+    }
+
     if self.frame_times.len() == self.frame_times.capacity() {
       self.frame_times.pop_front();
     }
@@ -296,7 +310,7 @@ impl Renderer {
     let frame = self
       .surface
       .get_current_texture()
-      .context("failed to acquire next swap chain texture")?;
+      .context(error::CurrentTexture)?;
 
     for target in &self.bindings().targets {
       encoder.clear_texture(

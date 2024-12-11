@@ -1,7 +1,7 @@
 use super::*;
 
 pub(crate) struct App {
-  error: Option<anyhow::Error>,
+  error: Option<Error>,
   filters: Vec<Filter>,
   makro: Vec<Key>,
   options: Options,
@@ -11,7 +11,7 @@ pub(crate) struct App {
 }
 
 impl App {
-  pub(crate) fn error(self) -> Option<anyhow::Error> {
+  pub(crate) fn error(self) -> Option<Error> {
     self.error
   }
 
@@ -131,27 +131,32 @@ impl ApplicationHandler for App {
     if self.window.is_none() {
       assert!(self.renderer.is_none());
 
-      let window = match event_loop.create_window(
-        WindowAttributes::default()
-          .with_inner_size(PhysicalSize {
-            width: 1024,
-            height: 1024,
-          })
-          .with_min_inner_size(PhysicalSize {
-            width: 256,
-            height: 256,
-          })
-          .with_title("x"),
-      ) {
+      let window = match event_loop
+        .create_window(
+          WindowAttributes::default()
+            .with_inner_size(PhysicalSize {
+              width: 1024,
+              height: 1024,
+            })
+            .with_min_inner_size(PhysicalSize {
+              width: 256,
+              height: 256,
+            })
+            .with_title("x"),
+        )
+        .context(error::CreateWindow)
+      {
         Ok(window) => Arc::new(window),
         Err(err) => {
-          self.error = Some(err.into());
+          self.error = Some(err);
           event_loop.exit();
           return;
         }
       };
 
-      let renderer = match pollster::block_on(Renderer::new(self.options.clone(), window.clone())) {
+      self.window = Some(window.clone());
+
+      let renderer = match pollster::block_on(Renderer::new(&self.options, window)) {
         Ok(renderer) => renderer,
         Err(err) => {
           self.error = Some(err);
@@ -160,13 +165,16 @@ impl ApplicationHandler for App {
         }
       };
 
-      self.window = Some(window);
-
       self.renderer = Some(renderer);
     }
   }
 
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+    if self.renderer.is_none() {
+      event_loop.exit();
+      return;
+    }
+
     match event {
       WindowEvent::CloseRequested => {
         event_loop.exit();

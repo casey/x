@@ -1,12 +1,12 @@
 use {
   self::{
-    app::App, bindings::Bindings, field::Field, filter::Filter, frame::Frame, options::Options,
-    renderer::Renderer, shared::Shared, tally::Tally, target::Target, tiling::Tiling,
-    uniforms::Uniforms,
+    app::App, bindings::Bindings, error::Error, field::Field, filter::Filter, frame::Frame,
+    options::Options, renderer::Renderer, shared::Shared, tally::Tally, target::Target,
+    tiling::Tiling, uniforms::Uniforms,
   },
-  anyhow::Context,
   clap::Parser,
   log::info,
+  snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
     backtrace::BacktraceStatus,
     collections::VecDeque,
@@ -46,6 +46,7 @@ macro_rules! label {
 
 mod app;
 mod bindings;
+mod error;
 mod field;
 mod filter;
 mod frame;
@@ -57,7 +58,7 @@ mod target;
 mod tiling;
 mod uniforms;
 
-type Result<T = ()> = anyhow::Result<T>;
+type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 type Mat3f = nalgebra::Matrix3<f32>;
 type Mat4f = nalgebra::Matrix4<f32>;
@@ -81,14 +82,18 @@ fn pad(i: usize, alignment: usize) -> usize {
   (i + alignment - 1) & !(alignment - 1)
 }
 
-fn run() -> Result<()> {
+fn run() -> Result<(), Error> {
   env_logger::init();
 
   let options = Options::parse();
 
   let mut app = App::new(options);
 
-  EventLoop::with_user_event().build()?.run_app(&mut app)?;
+  EventLoop::with_user_event()
+    .build()
+    .context(error::EventLoopBuild)?
+    .run_app(&mut app)
+    .context(error::RunApp)?;
 
   if let Some(err) = app.error() {
     return Err(err);
@@ -98,13 +103,23 @@ fn run() -> Result<()> {
 }
 
 fn main() {
-  if let Err(error) = run() {
-    eprintln!("error: {error}");
+  if let Err(err) = run() {
+    eprintln!("error: {err}");
 
-    let backtrace = error.backtrace();
+    for (i, err) in err.iter_chain().skip(1).enumerate() {
+      if i == 0 {
+        eprintln!();
+        eprintln!("because:");
+      }
 
-    if let BacktraceStatus::Captured = backtrace.status() {
-      eprintln!("{backtrace}");
+      eprintln!("- {err}");
+    }
+
+    if let Some(backtrace) = err.backtrace() {
+      if backtrace.status() == BacktraceStatus::Captured {
+        eprintln!("backtrace:");
+        eprintln!("{backtrace}");
+      }
     }
 
     process::exit(1);
