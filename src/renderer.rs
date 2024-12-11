@@ -5,6 +5,7 @@ pub struct Renderer {
   bindings: Option<Bindings>,
   config: SurfaceConfiguration,
   device: Device,
+  error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
   frame: u64,
   frame_times: VecDeque<Instant>,
   queue: Queue,
@@ -83,6 +84,12 @@ impl Renderer {
       )
       .await
       .context("failed to create device")?;
+
+    // device.push_error_scope(wgpu::ErrorFilter::Validation);
+
+    let (tx, error_channel) = std::sync::mpsc::channel();
+
+    device.on_uncaptured_error(Box::new(move |error| tx.send(error).unwrap()));
 
     let texture_format = surface.get_capabilities(&adapter).formats[0];
 
@@ -207,6 +214,7 @@ impl Renderer {
       uniform_buffer,
       uniform_buffer_size,
       uniform_buffer_stride,
+      error_channel,
     };
 
     renderer.resize(&options, size);
@@ -215,6 +223,12 @@ impl Renderer {
   }
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
+    match self.error_channel.try_recv() {
+      Ok(error) => return Err(error.into()),
+      Err(std::sync::mpsc::TryRecvError::Empty) => {}
+      Err(std::sync::mpsc::TryRecvError::Disconnected) => bail!("error channel disconnected"),
+    }
+
     if self.frame_times.len() == self.frame_times.capacity() {
       self.frame_times.pop_front();
     }
