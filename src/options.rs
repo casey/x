@@ -24,6 +24,8 @@ pub(crate) struct Options {
   pub(crate) resolution: Option<u32>,
   #[arg(long)]
   pub(crate) tile: bool,
+  #[arg(long)]
+  pub(crate) wrap: bool,
 }
 
 impl Options {

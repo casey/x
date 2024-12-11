@@ -10,6 +10,10 @@ pub(crate) struct App {
   window: Option<Arc<Window>>,
 }
 
+fn invert() -> Mat4f {
+  Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0))
+}
+
 impl App {
   pub(crate) fn error(self) -> Option<anyhow::Error> {
     self.error
@@ -39,25 +43,28 @@ impl App {
           capture = false;
         }
         "a" => self.filters.push(Filter {
-          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          color: invert(),
           field: Field::All,
+          wrap: self.options.wrap,
           ..default()
         }),
         "c" => self.filters.push(Filter {
-          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          color: invert(),
           field: Field::Circle,
+          wrap: self.options.wrap,
           ..default()
         }),
         "d" => self.filters.push(Filter {
           coordinates: true,
+          wrap: self.options.wrap,
           ..default()
         }),
         "f" => {
           self.options.fit = !self.options.fit;
         }
         "n" => self.filters.push(Filter {
-          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
           field: Field::None,
+          wrap: self.options.wrap,
           ..default()
         }),
         "q" => {
@@ -74,9 +81,18 @@ impl App {
         "t" => {
           self.options.tile = !self.options.tile;
         }
+        "w" => {
+          self.options.wrap = !self.options.wrap;
+        }
         "x" => self.filters.push(Filter {
-          color: Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0)),
+          color: invert(),
           field: Field::X,
+          wrap: self.options.wrap,
+          ..default()
+        }),
+        "z" => self.filters.push(Filter {
+          position: Mat3f::new_scaling(2.0),
+          wrap: self.options.wrap,
           ..default()
         }),
         _ => {}

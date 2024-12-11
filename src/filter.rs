@@ -5,6 +5,7 @@ pub(crate) struct Filter {
   pub(crate) coordinates: bool,
   pub(crate) field: Field,
   pub(crate) position: Mat3f,
+  pub(crate) wrap: bool,
 }
 
 impl Default for Filter {
@@ -14,6 +15,7 @@ impl Default for Filter {
       coordinates: false,
       field: Field::default(),
       position: Mat3f::identity(),
+      wrap: false,
     }
   }
 }

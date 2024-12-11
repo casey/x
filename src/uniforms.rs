@@ -16,6 +16,7 @@ pub(crate) struct Uniforms {
   pub(crate) source_offset: Vec2f,
   pub(crate) source_read: bool,
   pub(crate) tiling: u32,
+  pub(crate) wrap: bool,
 }
 
 impl Uniforms {
@@ -36,6 +37,7 @@ impl Uniforms {
     self.source_offset.write(dst, &mut i, &mut a);
     self.source_read.write(dst, &mut i, &mut a);
     self.tiling.write(dst, &mut i, &mut a);
+    self.wrap.write(dst, &mut i, &mut a);
     pad(i, a)
   }
 }
