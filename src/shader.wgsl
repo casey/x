@@ -2,8 +2,6 @@
 @binding(0)
 var<uniform> uniforms: Uniforms;
 
-asdf
-
 @group(0)
 @binding(1)
 var image: texture_2d<f32>;

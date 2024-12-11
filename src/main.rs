@@ -1,12 +1,12 @@
 use {
   self::{
-    app::App, bindings::Bindings, field::Field, filter::Filter, frame::Frame, options::Options,
-    renderer::Renderer, shared::Shared, tally::Tally, target::Target, tiling::Tiling,
-    uniforms::Uniforms,
+    app::App, bindings::Bindings, error::Error, field::Field, filter::Filter, frame::Frame,
+    options::Options, renderer::Renderer, shared::Shared, tally::Tally, target::Target,
+    tiling::Tiling, uniforms::Uniforms,
   },
   clap::Parser,
   log::info,
-  snafu::{ErrorCompat, ResultExt, Snafu},
+  snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
     backtrace::BacktraceStatus,
     collections::VecDeque,
@@ -46,6 +46,7 @@ macro_rules! label {
 
 mod app;
 mod bindings;
+mod error;
 mod field;
 mod filter;
 mod frame;
@@ -67,11 +68,6 @@ type Vec4f = nalgebra::Vector4<f32>;
 
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;
-
-#[derive(Debug, Snafu)]
-enum Error {
-  Foo(()),
-}
 
 fn default<T: Default>() -> T {
   T::default()
@@ -95,8 +91,9 @@ fn run() -> Result<(), Error> {
 
   EventLoop::with_user_event()
     .build()
-    .context(Error::Foo)?
-    .run_app(&mut app)?;
+    .context(error::EventLoopBuild)?
+    .run_app(&mut app)
+    .context(error::RunApp)?;
 
   if let Some(err) = app.error() {
     return Err(err);
@@ -106,11 +103,21 @@ fn run() -> Result<(), Error> {
 }
 
 fn main() {
-  if let Err(error) = run() {
-    eprintln!("error: {error}");
+  if let Err(err) = run() {
+    eprintln!("error: {err}");
 
-    if let Some(backtrace) = error.backtrace() {
-      if let BacktraceStatus::Captured = backtrace.status() {
+    for (i, err) in err.iter_chain().skip(1).enumerate() {
+      if i == 0 {
+        eprintln!();
+        eprintln!("because:");
+      }
+
+      eprintln!("- {err}");
+    }
+
+    if let Some(backtrace) = err.backtrace() {
+      if backtrace.status() == BacktraceStatus::Captured {
+        eprintln!("backtrace:");
         eprintln!("{backtrace}");
       }
     }

@@ -131,21 +131,24 @@ impl ApplicationHandler for App {
     if self.window.is_none() {
       assert!(self.renderer.is_none());
 
-      let window = match event_loop.create_window(
-        WindowAttributes::default()
-          .with_inner_size(PhysicalSize {
-            width: 1024,
-            height: 1024,
-          })
-          .with_min_inner_size(PhysicalSize {
-            width: 256,
-            height: 256,
-          })
-          .with_title("x"),
-      ) {
+      let window = match event_loop
+        .create_window(
+          WindowAttributes::default()
+            .with_inner_size(PhysicalSize {
+              width: 1024,
+              height: 1024,
+            })
+            .with_min_inner_size(PhysicalSize {
+              width: 256,
+              height: 256,
+            })
+            .with_title("x"),
+        )
+        .context(error::CreateWindow)
+      {
         Ok(window) => Arc::new(window),
         Err(err) => {
-          self.error = Some(err.into());
+          self.error = Some(err);
           event_loop.exit();
           return;
         }
@@ -167,6 +170,11 @@ impl ApplicationHandler for App {
   }
 
   fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+    if self.window.is_none() || self.renderer.is_none() {
+      event_loop.exit();
+      return;
+    }
+
     match event {
       WindowEvent::CloseRequested => {
         event_loop.exit();

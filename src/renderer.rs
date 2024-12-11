@@ -61,7 +61,9 @@ impl Renderer {
 
     let instance = Instance::default();
 
-    let surface = instance.create_surface(window)?;
+    let surface = instance
+      .create_surface(window)
+      .context(error::CreateSurface)?;
 
     let adapter = instance
       .request_adapter(&RequestAdapterOptions {
@@ -70,7 +72,7 @@ impl Renderer {
         compatible_surface: Some(&surface),
       })
       .await
-      .context("failed to find an appropriate adapter")?;
+      .context(error::Adapter)?;
 
     let (device, queue) = adapter
       .request_device(
@@ -83,9 +85,7 @@ impl Renderer {
         None,
       )
       .await
-      .context("failed to create device")?;
-
-    // device.push_error_scope(wgpu::ErrorFilter::Validation);
+      .context(error::Device)?;
 
     let (tx, error_channel) = std::sync::mpsc::channel();
 
@@ -97,7 +97,7 @@ impl Renderer {
 
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
-      .context("failed to get default config")?;
+      .context(error::DefaultConfig)?;
 
     surface.configure(&device, &config);
 
@@ -224,9 +224,9 @@ impl Renderer {
 
   pub(crate) fn render(&mut self, options: &Options, filters: &[Filter]) -> Result {
     match self.error_channel.try_recv() {
-      Ok(error) => return Err(anyhow::Error::from(error).context("validation error")),
+      Ok(error) => return Err(error::Validation.into_error(error)),
       Err(std::sync::mpsc::TryRecvError::Empty) => {}
-      Err(std::sync::mpsc::TryRecvError::Disconnected) => bail!("error channel disconnected"),
+      Err(std::sync::mpsc::TryRecvError::Disconnected) => panic!("error channel disconnected"),
     }
 
     if self.frame_times.len() == self.frame_times.capacity() {
@@ -310,7 +310,7 @@ impl Renderer {
     let frame = self
       .surface
       .get_current_texture()
-      .context("failed to acquire next swap chain texture")?;
+      .context(error::CurrentTexture)?;
 
     for target in &self.bindings().targets {
       encoder.clear_texture(
