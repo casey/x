@@ -22,6 +22,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev ripgrep
+
     - name: Install Rust Toolchain
       run: rustup toolchain install stable --profile minimal --component rustfmt clippy
 
@@ -34,9 +39,7 @@ jobs:
       run: cargo fmt --all -- --check
 
     - name: Check for Forbidden Words
-      run: |
-        sudo apt-get install ripgrep
-        ./bin/forbid
+      run: ./bin/forbid
 
     - name: Test
       run: cargo test --workspace
