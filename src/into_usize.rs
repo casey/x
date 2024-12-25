@@ -8,12 +8,6 @@ impl IntoUsize for u32 {
   }
 }
 
-impl IntoUsize for u64 {
-  fn into_usize(self) -> usize {
-    self.try_into().unwrap()
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -21,10 +15,5 @@ mod tests {
   #[test]
   fn u32_into_usize() {
     u32::MAX.into_usize();
-  }
-
-  #[test]
-  fn u64_into_usize() {
-    u64::MAX.into_usize();
   }
 }
