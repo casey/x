@@ -1,6 +1,6 @@
 @group(0)
 @binding(0)
-var<uniform> uniforms: Uniforms;
+var filtering_sampler: sampler;
 
 @group(0)
 @binding(1)
@@ -8,19 +8,19 @@ var image: texture_2d<f32>;
 
 @group(0)
 @binding(2)
-var samples: texture_1d<f32>;
+var non_filtering_sampler: sampler;
 
 @group(0)
 @binding(3)
-var source: texture_2d<f32>;
+var samples: texture_1d<f32>;
 
 @group(0)
 @binding(4)
-var filtering_sampler: sampler;
+var source: texture_2d<f32>;
 
 @group(0)
 @binding(5)
-var non_filtering_sampler: sampler;
+var<uniform> uniforms: Uniforms;
 
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
 const BLACK = vec4(0.0, 0.0, 0.0, 1.0);

@@ -34,11 +34,7 @@ impl Renderer {
       entries: &[
         BindGroupEntry {
           binding: 0,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
+          resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
           binding: 1,
@@ -46,19 +42,23 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: 2,
-          resource: BindingResource::TextureView(sample_view),
+          resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
           binding: 3,
-          resource: BindingResource::TextureView(source_view),
+          resource: BindingResource::TextureView(sample_view),
         },
         BindGroupEntry {
           binding: 4,
-          resource: BindingResource::Sampler(&self.sampler),
+          resource: BindingResource::TextureView(source_view),
         },
         BindGroupEntry {
           binding: 5,
-          resource: BindingResource::Sampler(&self.sampler),
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
         },
       ],
       label: label!(),
@@ -126,11 +126,7 @@ impl Renderer {
         BindGroupLayoutEntry {
           binding: 0,
           count: None,
-          ty: BindingType::Buffer {
-            has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
-            ty: BufferBindingType::Uniform,
-          },
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
@@ -146,6 +142,12 @@ impl Renderer {
         BindGroupLayoutEntry {
           binding: 2,
           count: None,
+          ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: 3,
+          count: None,
           ty: BindingType::Texture {
             multisampled: false,
             sample_type: TextureSampleType::Float { filterable: false },
@@ -154,7 +156,7 @@ impl Renderer {
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 3,
+          binding: 4,
           count: None,
           ty: BindingType::Texture {
             multisampled: false,
@@ -164,15 +166,13 @@ impl Renderer {
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 4,
-          count: None,
-          ty: BindingType::Sampler(SamplerBindingType::Filtering),
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
           binding: 5,
           count: None,
-          ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+          ty: BindingType::Buffer {
+            has_dynamic_offset: true,
+            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
+            ty: BufferBindingType::Uniform,
+          },
           visibility: ShaderStages::FRAGMENT,
         },
       ],
@@ -552,11 +552,7 @@ impl Renderer {
       entries: &[
         BindGroupEntry {
           binding: 0,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
+          resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
           binding: 1,
@@ -564,19 +560,23 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: 2,
-          resource: BindingResource::TextureView(&self.sample_view),
+          resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
           binding: 3,
-          resource: BindingResource::TextureView(&texture_view),
+          resource: BindingResource::TextureView(&self.sample_view),
         },
         BindGroupEntry {
           binding: 4,
-          resource: BindingResource::Sampler(&self.sampler),
+          resource: BindingResource::TextureView(&texture_view),
         },
         BindGroupEntry {
           binding: 5,
-          resource: BindingResource::Sampler(&self.sampler),
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
         },
       ],
       label: label!(),
