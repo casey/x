@@ -8,11 +8,19 @@ var image: texture_2d<f32>;
 
 @group(0)
 @binding(2)
-var source: texture_2d<f32>;
+var samples: texture_1d<f32>;
 
 @group(0)
 @binding(3)
-var texture_sampler: sampler;
+var source: texture_2d<f32>;
+
+@group(0)
+@binding(4)
+var filtering_sampler: sampler;
+
+@group(0)
+@binding(5)
+var non_filtering_sampler: sampler;
 
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
 const BLACK = vec4(0.0, 0.0, 0.0, 1.0);
@@ -20,7 +28,8 @@ const BLACK = vec4(0.0, 0.0, 0.0, 1.0);
 const FIELD_ALL: u32 = 0;
 const FIELD_CIRCLE: u32 = 1;
 const FIELD_NONE: u32 = 2;
-const FIELD_X: u32 = 3;
+const FIELD_SAMPLES: u32 = 3;
+const FIELD_X: u32 = 4;
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
@@ -40,6 +49,7 @@ struct Uniforms {
   position: mat3x3f,
   repeat: u32,
   resolution: vec2f,
+  sample_range: f32,
   source_offset: vec2f,
   source_read: u32,
   tiling: u32,
@@ -56,6 +66,12 @@ fn field_circle(p: vec2f) -> bool {
 
 fn field_none(p: vec2f) -> bool {
   return false;
+}
+
+fn field_samples(p: vec2f) -> bool {
+  let x = (p.x + 1.0) * 0.5 * uniforms.sample_range;
+  let sample = textureSample(samples, non_filtering_sampler, x).x;
+  return sample > p.y;
 }
 
 fn field_x(p: vec2f) -> bool {
@@ -129,11 +145,11 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     }
 
     // read the input color
-    input = textureSample(source, texture_sampler, tile_uv);
+    input = textureSample(source, filtering_sampler, tile_uv);
   }
 
   if bool(uniforms.image_read) && read(uv) {
-    input += textureSample(image, texture_sampler, uv);
+    input += textureSample(image, filtering_sampler, uv);
   }
 
   var on: bool;
@@ -147,6 +163,9 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     }
     case FIELD_NONE {
       on = field_none(transformed);
+    }
+    case FIELD_SAMPLES {
+      on = field_samples(transformed);
     }
     case FIELD_X {
       on = field_x(transformed);

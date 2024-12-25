@@ -1,18 +1,22 @@
 use {
   self::{
     app::App, bindings::Bindings, error::Error, field::Field, filter::Filter, frame::Frame,
-    options::Options, renderer::Renderer, shared::Shared, tally::Tally, target::Target,
-    tiling::Tiling, uniforms::Uniforms,
+    into_usize::IntoUsize, options::Options, renderer::Renderer, shared::Shared, tally::Tally,
+    target::Target, tiling::Tiling, uniforms::Uniforms,
   },
   clap::Parser,
+  cpal::{
+    traits::{DeviceTrait, HostTrait},
+    SupportedBufferSize,
+  },
   log::info,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
-    backtrace::BacktraceStatus,
+    backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
     process,
-    sync::Arc,
+    sync::{mpsc, Arc, Mutex},
     time::Instant,
   },
   wgpu::{
@@ -50,6 +54,7 @@ mod error;
 mod field;
 mod filter;
 mod frame;
+mod into_usize;
 mod options;
 mod renderer;
 mod shared;
@@ -87,7 +92,7 @@ fn run() -> Result<(), Error> {
 
   let options = Options::parse();
 
-  let mut app = App::new(options);
+  let mut app = App::new(options)?;
 
   EventLoop::with_user_event()
     .build()

@@ -5,5 +5,6 @@ pub(crate) enum Field {
   Circle,
   #[default]
   None,
+  Samples,
   X,
 }
