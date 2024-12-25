@@ -326,8 +326,7 @@ impl Renderer {
       },
       &samples
         .iter()
-        .map(|sample| sample.to_le_bytes())
-        .flatten()
+        .flat_map(|sample| sample.to_le_bytes())
         .collect::<Vec<u8>>(),
       wgpu::ImageDataLayout {
         offset: 0,

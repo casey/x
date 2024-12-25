@@ -27,7 +27,7 @@ impl App {
     let supported_stream_config = device
       .supported_input_configs()
       .context(error::SupportedStreamConfigs)?
-      .max_by_key(|config| config.max_sample_rate())
+      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
       .context(error::SupportedStreamConfig)?
       .with_max_sample_rate();
 

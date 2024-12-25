@@ -22,6 +22,7 @@ winit = "0.30.5"
 all = { level = "deny", priority = -1 }
 cast-precision-loss = "allow"
 pedantic = { level = "deny", priority = -1 }
+similar-names = "allow"
 struct-excessive-bools = "allow"
 too-many-arguments = "allow"
 too-many-lines = "allow"

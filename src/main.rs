@@ -7,7 +7,7 @@ use {
   clap::Parser,
   cpal::{
     traits::{DeviceTrait, HostTrait},
-    SupportedBufferSize,
+    SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
