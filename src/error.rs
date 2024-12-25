@@ -4,25 +4,56 @@ use super::*;
 #[snafu(context(suffix(false)), visibility(pub(crate)))]
 pub(crate) enum Error {
   #[snafu(display("failed to get adapter"))]
-  Adapter,
+  Adapter { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to build audio input stream"))]
+  BuildAudioInputStream {
+    backtrace: Option<Backtrace>,
+    source: cpal::BuildStreamError,
+  },
   #[snafu(display("failed to create surface"))]
-  CreateSurface { source: wgpu::CreateSurfaceError },
+  CreateSurface {
+    backtrace: Option<Backtrace>,
+    source: wgpu::CreateSurfaceError,
+  },
   #[snafu(display("failed to create window"))]
-  CreateWindow { source: winit::error::OsError },
+  CreateWindow {
+    backtrace: Option<Backtrace>,
+    source: winit::error::OsError,
+  },
   #[snafu(display("failed to get current texture"))]
-  CurrentTexture { source: wgpu::SurfaceError },
+  CurrentTexture {
+    backtrace: Option<Backtrace>,
+    source: wgpu::SurfaceError,
+  },
   #[snafu(display("failed to get default config"))]
-  DefaultConfig,
+  DefaultConfig { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get device"))]
-  Device { source: wgpu::RequestDeviceError },
+  Device {
+    backtrace: Option<Backtrace>,
+    source: wgpu::RequestDeviceError,
+  },
   #[snafu(display("failed to build event loop"))]
   EventLoopBuild {
+    backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("failed to get default audio input device"))]
+  DefaultAudioInputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to run app"))]
   RunApp {
+    backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("failed to get supported stream config"))]
+  SupportedStreamConfig { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get supported stream configs"))]
+  SupportedStreamConfigs {
+    backtrace: Option<Backtrace>,
+    source: cpal::SupportedStreamConfigsError,
+  },
   #[snafu(display("validation failed"))]
-  Validation { source: wgpu::Error },
+  Validation {
+    backtrace: Option<Backtrace>,
+    source: wgpu::Error,
+  },
 }
