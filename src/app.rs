@@ -212,8 +212,7 @@ impl App {
     for (i, x_k) in self.frequencies.iter().enumerate() {
       let f_k =
         (i as f32 * self.stream_config.sample_rate.0 as f32) / self.frequencies.len() as f32;
-      let weight = m_weight(f_k);
-      spl += x_k.norm() * weight;
+      spl += x_k.norm() * m_weight(f_k);
     }
 
     let spl_linear = 10f32.powf(spl / 20.0);
