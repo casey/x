@@ -39,6 +39,11 @@ pub(crate) enum Error {
   },
   #[snafu(display("failed to get default audio input device"))]
   DefaultAudioInputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to play audio input stream"))]
+  PlayStream {
+    backtrace: Option<Backtrace>,
+    source: cpal::PlayStreamError,
+  },
   #[snafu(display("failed to run app"))]
   RunApp {
     backtrace: Option<Backtrace>,

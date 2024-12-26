@@ -3,14 +3,19 @@ use super::*;
 pub(crate) struct App {
   error: Option<Error>,
   filters: Vec<Filter>,
+  frequencies: Vec<Complex<f32>>,
   #[allow(unused)]
   input: cpal::Stream,
   makro: Vec<Key>,
   options: Options,
+  planner: rustfft::FftPlanner<f32>,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   sample_queue: Arc<Mutex<VecDeque<f32>>>,
   samples: Vec<f32>,
+  scratch: Vec<Complex<f32>>,
+  spl: f32,
+  stream_config: StreamConfig,
   window: Option<Arc<Window>>,
 }
 
@@ -65,16 +70,23 @@ impl App {
       )
       .context(error::BuildAudioInputStream)?;
 
+    input.play().context(error::PlayStream)?;
+
     Ok(Self {
       error: None,
       filters: Vec::new(),
+      frequencies: Vec::new(),
       input,
       makro: Vec::new(),
       options,
+      planner: rustfft::FftPlanner::new(),
       recording: None,
       renderer: None,
       sample_queue,
       samples: Vec::new(),
+      scratch: Vec::new(),
+      spl: 0.0,
+      stream_config,
       window: None,
     })
   }
@@ -179,6 +191,66 @@ impl App {
     }
   }
 
+  fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+    self.samples.clear();
+    self
+      .samples
+      .extend(self.sample_queue.lock().unwrap().drain(..));
+
+    self.frequencies.clear();
+    self
+      .frequencies
+      .extend(self.samples.iter().map(|sample| Complex::from(sample)));
+    let fft = self.planner.plan_fft_forward(self.samples.len());
+    let scratch_len = fft.get_inplace_scratch_len();
+    if self.scratch.len() < scratch_len {
+      self.scratch.resize(scratch_len, 0.0.into());
+    }
+    fft.process_with_scratch(&mut self.frequencies, &mut self.scratch[..scratch_len]);
+
+    let mut spl = 0.0;
+    for (i, x_k) in self.frequencies.iter().enumerate() {
+      let f_k =
+        (i as f32 * self.stream_config.sample_rate.0 as f32) / self.frequencies.len() as f32;
+      let weight = m_weight(f_k);
+      spl += x_k.norm() * weight;
+    }
+
+    let spl_linear = 10f32.powf(spl / 20.0);
+
+    const ALPHA: f32 = 0.9;
+
+    // todo:
+    // - some kind of visual slider
+    // - why is spl infinity sometimes?
+    // - need to validate spl calculations
+    // - hdr rendering?
+    // - weighted color rotation
+    // - color rotations in different color spaces
+    // - wrap should default to on?
+    // - most important thing is programmability, repeatability
+
+    self.spl = ALPHA * spl_linear + (1.0 - ALPHA) * self.spl;
+
+    if self.spl.classify() == FpCategory::Infinite {
+      self.spl = 0.0;
+    }
+
+    let spl = 20.0 * self.spl.log10();
+
+    if let Err(err) = self.renderer.as_mut().unwrap().render(
+      &self.options,
+      &self.filters,
+      &self.samples,
+      spl / 1000.0,
+    ) {
+      self.error = Some(err);
+      event_loop.exit();
+      return;
+    }
+    self.window().request_redraw();
+  }
+
   fn window(&self) -> &Window {
     self.window.as_ref().unwrap()
   }
@@ -241,23 +313,7 @@ impl ApplicationHandler for App {
         self.press(event.logical_key);
       }
       WindowEvent::RedrawRequested => {
-        self.samples.clear();
-        self
-          .samples
-          .extend(self.sample_queue.lock().unwrap().drain(..));
-
-        if let Err(err) =
-          self
-            .renderer
-            .as_mut()
-            .unwrap()
-            .render(&self.options, &self.filters, &self.samples)
-        {
-          self.error = Some(err);
-          event_loop.exit();
-          return;
-        }
-        self.window().request_redraw();
+        self.redraw(event_loop);
       }
       WindowEvent::Resized(size) => {
         self.renderer.as_mut().unwrap().resize(&self.options, size);

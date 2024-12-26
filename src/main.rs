@@ -6,15 +6,17 @@ use {
   },
   clap::Parser,
   cpal::{
-    traits::{DeviceTrait, HostTrait},
-    SupportedBufferSize, SupportedStreamConfigRange,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
+  rustfft::num_complex::Complex,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    num::FpCategory,
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
@@ -48,6 +50,23 @@ macro_rules! label {
   };
 }
 
+// f = 1.0 = 1 kHz
+fn m_weight(f: f32) -> f32 {
+  let c0 = 1.246332637532143 * 1.0e-4;
+  let c1 = -4.737338981378384 * 1.0e-24;
+  let c2 = 2.04382833606125 * 1.0e-15;
+  let c3 = -1.363894795463638 * 1.0e-7;
+  let c4 = 1.306612257412824 * 1.0e-19;
+  let c5 = -2.118150887518656 * 1.0e-11;
+  let c6 = 5.559488023498642 * 1.0e-4;
+  let c7 = 8.164578311186197;
+  let f2 = f * f;
+  let f4 = f2 * f2;
+  let a = c1 * f4 * f2 + c2 * f4 + c3 * f2 + 1.0;
+  let b = c4 * f4 * f + c5 * f2 * f + c6 * f;
+  c7 * c0 * f / (a * a + b * b).sqrt()
+}
+
 mod app;
 mod bindings;
 mod error;
@@ -69,6 +88,7 @@ type Mat3f = nalgebra::Matrix3<f32>;
 type Mat4f = nalgebra::Matrix4<f32>;
 type Vec2f = nalgebra::Vector2<f32>;
 type Vec2u = nalgebra::Vector2<u32>;
+type Vec3f = nalgebra::Vector3<f32>;
 type Vec4f = nalgebra::Vector4<f32>;
 
 const KIB: usize = 1 << 10;

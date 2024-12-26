@@ -277,6 +277,7 @@ impl Renderer {
     options: &Options,
     filters: &[Filter],
     samples: &[f32],
+    spl: f32,
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
@@ -340,10 +341,13 @@ impl Renderer {
       },
     );
 
+    let foo = Mat4f::new_rotation(Vec3f::new(0.0, 0.0, 1.0) * spl)
+      * Mat4f::new_translation(&(Vec3f::new(0.5, 0.5, 0.5) * spl));
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
-        color: filter.color,
+        color: filter.color * foo,
         coordinates: filter.coordinates,
         field: filter.field,
         filters: filters.len().try_into().unwrap(),
@@ -355,6 +359,7 @@ impl Renderer {
         repeat: false,
         resolution: tiling.resolution(),
         sample_range,
+        spl,
         source_offset: tiling.source_offset(i),
         source_read: true,
         tiling: tiling.size,
@@ -378,6 +383,7 @@ impl Renderer {
         repeat: options.repeat,
         resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
         sample_range,
+        spl,
         source_offset: Vec2f::new(0.0, 0.0),
         source_read: tiling.source_read(filters),
         tiling: 1,
