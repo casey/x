@@ -1,21 +1,13 @@
 use super::*;
 
 pub(crate) struct App {
+  analyzer: Analyzer,
   error: Option<Error>,
   filters: Vec<Filter>,
-  frequencies: Vec<Complex<f32>>,
-  #[allow(unused)]
-  input: cpal::Stream,
   makro: Vec<Key>,
   options: Options,
-  planner: rustfft::FftPlanner<f32>,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
-  sample_queue: Arc<Mutex<VecDeque<f32>>>,
-  samples: Vec<f32>,
-  scratch: Vec<Complex<f32>>,
-  spl: f32,
-  stream_config: StreamConfig,
   window: Option<Arc<Window>>,
 }
 
@@ -25,68 +17,14 @@ impl App {
   }
 
   pub(crate) fn new(options: Options) -> Result<Self> {
-    let device = cpal::default_host()
-      .default_input_device()
-      .context(error::DefaultAudioInputDevice)?;
-
-    let supported_stream_config = device
-      .supported_input_configs()
-      .context(error::SupportedStreamConfigs)?
-      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::SupportedStreamConfig)?
-      .with_max_sample_rate();
-
-    let buffer_size = match supported_stream_config.buffer_size() {
-      SupportedBufferSize::Range { min, .. } => {
-        log::info!("input audio buffer size: {min}");
-        Some(*min)
-      }
-      SupportedBufferSize::Unknown => {
-        log::info!("input audio buffer size: unknown");
-        None
-      }
-    };
-
-    let mut stream_config = supported_stream_config.config();
-
-    if let Some(buffer_size) = buffer_size {
-      stream_config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
-    }
-
-    let sample_queue = Arc::new(Mutex::new(VecDeque::new()));
-
-    let write = sample_queue.clone();
-
-    let input = device
-      .build_input_stream(
-        &stream_config,
-        move |data: &[f32], _| {
-          write.lock().unwrap().extend(data);
-        },
-        move |err| {
-          eprintln!("audio error: {err}");
-        },
-        None,
-      )
-      .context(error::BuildAudioInputStream)?;
-
-    input.play().context(error::PlayStream)?;
-
     Ok(Self {
+      analyzer: Analyzer::new()?,
       error: None,
       filters: Vec::new(),
-      frequencies: Vec::new(),
-      input,
       makro: Vec::new(),
       options,
-      planner: rustfft::FftPlanner::new(),
       recording: None,
       renderer: None,
-      sample_queue,
-      samples: Vec::new(),
-      scratch: Vec::new(),
-      spl: 0.0,
-      stream_config,
       window: None,
     })
   }
@@ -192,56 +130,13 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
-    self.samples.clear();
-    self
-      .samples
-      .extend(self.sample_queue.lock().unwrap().drain(..));
-
-    self.frequencies.clear();
-    self
-      .frequencies
-      .extend(self.samples.iter().map(|sample| Complex::from(sample)));
-    let fft = self.planner.plan_fft_forward(self.samples.len());
-    let scratch_len = fft.get_inplace_scratch_len();
-    if self.scratch.len() < scratch_len {
-      self.scratch.resize(scratch_len, 0.0.into());
-    }
-    fft.process_with_scratch(&mut self.frequencies, &mut self.scratch[..scratch_len]);
-
-    let mut spl = 0.0;
-    for (i, x_k) in self.frequencies.iter().enumerate() {
-      let f_k =
-        (i as f32 * self.stream_config.sample_rate.0 as f32) / self.frequencies.len() as f32;
-      spl += x_k.norm() * m_weight(f_k);
-    }
-
-    let spl_linear = 10f32.powf(spl / 20.0);
-
-    const ALPHA: f32 = 0.9;
-
-    // todo:
-    // - some kind of visual slider
-    // - why is spl infinity sometimes?
-    // - need to validate spl calculations
-    // - hdr rendering?
-    // - weighted color rotation
-    // - color rotations in different color spaces
-    // - wrap should default to on?
-    // - most important thing is programmability, repeatability
-
-    self.spl = ALPHA * spl_linear + (1.0 - ALPHA) * self.spl;
-
-    if self.spl.classify() == FpCategory::Infinite {
-      self.spl = 0.0;
-    }
-
-    let spl = 20.0 * self.spl.log10();
+    self.analyzer.update();
 
     if let Err(err) = self.renderer.as_mut().unwrap().render(
       &self.options,
       &self.filters,
-      &self.samples,
-      spl / 1000.0,
+      &self.analyzer.samples(),
+      self.analyzer.spl() / 1000.0,
     ) {
       self.error = Some(err);
       event_loop.exit();
