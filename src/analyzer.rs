@@ -1,5 +1,7 @@
 use super::*;
 
+const ALPHA: f32 = 0.9;
+
 struct Input {
   config: StreamConfig,
   queue: Arc<Mutex<VecDeque<f32>>>,
@@ -74,20 +76,6 @@ impl Input {
   }
 }
 
-struct Sinusoid {
-  frequency: f32,
-  rate: f32,
-  time: f32,
-}
-
-impl Sinusoid {
-  fn fill(&self, samples: &mut [f32]) {
-    for (i, sample) in samples.iter_mut().enumerate() {
-      *sample = self.time.sin();
-    }
-  }
-}
-
 pub(crate) struct Analyzer {
   frequencies: Vec<Complex<f32>>,
   input: Input,
@@ -123,7 +111,7 @@ impl Analyzer {
     self.frequencies.clear();
     self
       .frequencies
-      .extend(self.samples.iter().map(|sample| Complex::from(sample)));
+      .extend(self.samples.iter().map(Complex::from));
     let fft = self.planner.plan_fft_forward(self.samples.len());
     let scratch_len = fft.get_inplace_scratch_len();
     if self.scratch.len() < scratch_len {
@@ -138,8 +126,6 @@ impl Analyzer {
     }
 
     let spl_linear = 10f32.powf(spl / 20.0);
-
-    const ALPHA: f32 = 0.9;
 
     self.spl = ALPHA * spl_linear + (1.0 - ALPHA) * self.spl;
 

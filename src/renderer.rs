@@ -341,13 +341,10 @@ impl Renderer {
       },
     );
 
-    let foo = Mat4f::new_rotation(Vec3f::new(0.0, 0.0, 1.0) * spl)
-      * Mat4f::new_translation(&(Vec3f::new(0.5, 0.5, 0.5) * spl));
-
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
-        color: filter.color * foo,
+        color: filter.color,
         coordinates: filter.coordinates,
         field: filter.field,
         filters: filters.len().try_into().unwrap(),

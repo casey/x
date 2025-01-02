@@ -135,7 +135,7 @@ impl App {
     if let Err(err) = self.renderer.as_mut().unwrap().render(
       &self.options,
       &self.filters,
-      &self.analyzer.samples(),
+      self.analyzer.samples(),
       self.analyzer.spl() / 1000.0,
     ) {
       self.error = Some(err);

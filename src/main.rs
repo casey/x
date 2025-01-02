@@ -72,7 +72,6 @@ type Mat3f = nalgebra::Matrix3<f32>;
 type Mat4f = nalgebra::Matrix4<f32>;
 type Vec2f = nalgebra::Vector2<f32>;
 type Vec2u = nalgebra::Vector2<u32>;
-type Vec3f = nalgebra::Vector3<f32>;
 type Vec4f = nalgebra::Vector4<f32>;
 
 const KIB: usize = 1 << 10;
