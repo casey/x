@@ -277,6 +277,7 @@ impl Renderer {
     options: &Options,
     filters: &[Filter],
     samples: &[f32],
+    spl: f32,
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
@@ -355,6 +356,7 @@ impl Renderer {
         repeat: false,
         resolution: tiling.resolution(),
         sample_range,
+        spl,
         source_offset: tiling.source_offset(i),
         source_read: true,
         tiling: tiling.size,
@@ -378,6 +380,7 @@ impl Renderer {
         repeat: options.repeat,
         resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
         sample_range,
+        spl,
         source_offset: Vec2f::new(0.0, 0.0),
         source_read: tiling.source_read(filters),
         tiling: 1,

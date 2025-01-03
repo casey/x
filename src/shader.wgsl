@@ -52,6 +52,7 @@ struct Uniforms {
   sample_range: f32,
   source_offset: vec2f,
   source_read: u32,
+  spl: f32,
   tiling: u32,
   wrap: u32,
 }
@@ -61,7 +62,7 @@ fn field_all(p: vec2f) -> bool {
 }
 
 fn field_circle(p: vec2f) -> bool {
-  return length(p) < 1;
+  return length(p) < 1 + uniforms.spl;
 }
 
 fn field_none(p: vec2f) -> bool {
@@ -69,13 +70,13 @@ fn field_none(p: vec2f) -> bool {
 }
 
 fn field_samples(p: vec2f) -> bool {
-  let x = (p.x + 1.0) * 0.5 * uniforms.sample_range;
+  let x = (p.x + 1) * 0.5 * uniforms.sample_range;
   let sample = textureSample(samples, non_filtering_sampler, x).x;
-  return sample > p.y;
+  return sample * 4 < p.y;
 }
 
 fn field_x(p: vec2f) -> bool {
-  return abs(abs(p.x) - abs(p.y)) < 0.2;
+  return abs(abs(p.x) - abs(p.y)) < 0.2 + uniforms.spl;
 }
 
 fn invert(color: vec4f) -> vec4f {

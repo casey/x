@@ -1,20 +1,22 @@
 use {
   self::{
-    app::App, bindings::Bindings, error::Error, field::Field, filter::Filter, frame::Frame,
-    into_usize::IntoUsize, options::Options, renderer::Renderer, shared::Shared, tally::Tally,
-    target::Target, tiling::Tiling, uniforms::Uniforms,
+    analyzer::Analyzer, app::App, bindings::Bindings, error::Error, field::Field, filter::Filter,
+    frame::Frame, into_usize::IntoUsize, options::Options, renderer::Renderer, shared::Shared,
+    tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
   },
   clap::Parser,
   cpal::{
-    traits::{DeviceTrait, HostTrait},
-    SupportedBufferSize, SupportedStreamConfigRange,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
+  rustfft::{num_complex::Complex, FftPlanner},
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    num::FpCategory,
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
@@ -48,6 +50,7 @@ macro_rules! label {
   };
 }
 
+mod analyzer;
 mod app;
 mod bindings;
 mod error;
