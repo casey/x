@@ -136,7 +136,7 @@ impl App {
       &self.options,
       &self.filters,
       self.analyzer.samples(),
-      self.analyzer.spl() / 1000.0,
+      self.analyzer.dba() / 1000.0,
     ) {
       self.error = Some(err);
       event_loop.exit();

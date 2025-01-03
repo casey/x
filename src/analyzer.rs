@@ -77,12 +77,13 @@ impl Input {
 }
 
 pub(crate) struct Analyzer {
-  frequencies: Vec<Complex<f32>>,
+  complex_frequencies: Vec<Complex<f32>>,
+  dba: f32,
+  frequencies: Vec<f32>,
   input: Input,
   planner: FftPlanner<f32>,
   samples: Vec<f32>,
   scratch: Vec<Complex<f32>>,
-  spl: f32,
 }
 
 impl Analyzer {
@@ -92,13 +93,18 @@ impl Analyzer {
     input.play()?;
 
     Ok(Self {
+      complex_frequencies: Vec::new(),
+      dba: 0.0,
       frequencies: Vec::new(),
       input,
       planner: FftPlanner::new(),
       samples: Vec::new(),
       scratch: Vec::new(),
-      spl: 0.0,
     })
+  }
+
+  pub(crate) fn frequencies(&self) -> &[f32] {
+    &self.frequencies
   }
 
   pub(crate) fn samples(&self) -> &[f32] {
@@ -108,33 +114,44 @@ impl Analyzer {
   pub(crate) fn update(&mut self) {
     self.input.drain(&mut self.samples);
 
-    self.frequencies.clear();
+    self.complex_frequencies.clear();
     self
-      .frequencies
+      .complex_frequencies
       .extend(self.samples.iter().map(Complex::from));
     let fft = self.planner.plan_fft_forward(self.samples.len());
     let scratch_len = fft.get_inplace_scratch_len();
     if self.scratch.len() < scratch_len {
       self.scratch.resize(scratch_len, 0.0.into());
     }
-    fft.process_with_scratch(&mut self.frequencies, &mut self.scratch[..scratch_len]);
+    fft.process_with_scratch(
+      &mut self.complex_frequencies,
+      &mut self.scratch[..scratch_len],
+    );
 
-    let mut spl = 0.0;
-    for (i, x_k) in self.frequencies.iter().enumerate() {
-      let f_k = (i as f32 * self.input.sample_rate() as f32) / self.frequencies.len() as f32;
-      spl += x_k.norm() * fundsp::math::a_weight(f_k);
+    self.frequencies.clear();
+    self.frequencies.extend(
+      self
+        .complex_frequencies
+        .iter()
+        .map(|complex| complex.norm()),
+    );
+
+    let mut power = 0.0;
+    let n = self.complex_frequencies.len() / 2;
+    for (i, f) in self.complex_frequencies[..n].iter().enumerate() {
+      let frequency =
+        i as f32 * self.input.sample_rate() as f32 / self.complex_frequencies.len() as f32;
+      power += f.norm_sqr() * fundsp::math::a_weight(frequency);
     }
 
-    let spl_linear = 10f32.powf(spl / 20.0);
+    let dba = 10.0 * power.log10();
 
-    self.spl = ALPHA * spl_linear + (1.0 - ALPHA) * self.spl;
-
-    if self.spl.classify() == FpCategory::Infinite {
-      self.spl = 0.0;
+    if dba.classify() != FpCategory::Infinite {
+      self.dba = ALPHA * dba + (1.0 - ALPHA) * self.dba;
     }
   }
 
-  pub(crate) fn spl(&self) -> f32 {
-    20.0 * self.spl.log10()
+  pub(crate) fn dba(&self) -> f32 {
+    self.dba
   }
 }
