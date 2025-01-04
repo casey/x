@@ -85,11 +85,7 @@ impl Analyzer {
     self.samples.clear();
     self.samples.extend(self.queue.lock().unwrap().drain(..));
 
-    let samples = if self.samples.len() % 2 == 1 {
-      &self.samples[..self.samples.len() - 1]
-    } else {
-      &self.samples
-    };
+    let samples = &self.samples[..self.samples.len() & !1];
 
     self.complex_frequencies.clear();
     self
