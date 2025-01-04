@@ -193,10 +193,10 @@ impl Renderer {
 
   fn bind_group(
     &self,
+    frequencies: &TextureView,
     image: &TextureView,
     samples: &TextureView,
     source: &TextureView,
-    frequencies: &TextureView,
   ) -> BindGroup {
     let mut i = 0;
     let mut binding = || {
@@ -561,10 +561,10 @@ impl Renderer {
     let targets = [self.target(&image_view), self.target(&image_view)];
 
     let bind_group = self.bind_group(
+      &self.frequency_view,
       &targets[0].texture_view,
       &self.sample_view,
       &targets[1].texture_view,
-      &self.frequency_view,
     );
 
     self.bindings = Some(Bindings {
@@ -592,10 +592,10 @@ impl Renderer {
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
     let bind_group = self.bind_group(
+      &self.frequency_view,
       image_view,
       &self.sample_view,
       &texture_view,
-      &self.frequency_view,
     );
 
     Target {
