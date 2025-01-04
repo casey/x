@@ -53,7 +53,7 @@ impl Analyzer {
           clone.lock().unwrap().extend(data);
         },
         move |err| {
-          eprintln!("audio error: {err}");
+          eprintln!("audio input error: {err}");
         },
         None,
       )
@@ -85,15 +85,17 @@ impl Analyzer {
     self.samples.clear();
     self.samples.extend(self.queue.lock().unwrap().drain(..));
 
-    if self.samples.len() % 2 == 1 {
-      self.samples.pop();
-    }
+    let samples = if self.samples.len() % 2 == 1 {
+      &self.samples[..self.samples.len() - 1]
+    } else {
+      &self.samples
+    };
 
     self.complex_frequencies.clear();
     self
       .complex_frequencies
-      .extend(self.samples.iter().map(Complex::from));
-    let fft = self.planner.plan_fft_forward(self.samples.len());
+      .extend(samples.iter().map(Complex::from));
+    let fft = self.planner.plan_fft_forward(samples.len());
     let scratch_len = fft.get_inplace_scratch_len();
     if self.scratch.len() < scratch_len {
       self.scratch.resize(scratch_len, 0.0.into());
