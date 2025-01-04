@@ -628,7 +628,7 @@ impl Renderer {
   fn write_texture(&self, data: &[f32], destination: &Texture) {
     self.queue.write_texture(
       wgpu::ImageCopyTexture {
-        texture: &destination,
+        texture: destination,
         mip_level: 0,
         origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
         aspect: TextureAspect::All,
