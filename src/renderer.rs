@@ -349,65 +349,21 @@ impl Renderer {
       size: tiling_size,
     };
 
-    let samples = {
-      let samples = analyzer.samples();
-      &samples[0..samples.len().min(self.samples.width().into_usize())]
-    };
+    let sample_count = analyzer
+      .samples()
+      .len()
+      .min(self.samples.width().into_usize());
+    let samples = &analyzer.samples()[..sample_count];
+    let sample_range = sample_count as f32 / self.samples.width() as f32;
+    self.write_texture(samples, &self.samples);
 
-    let sample_range = samples.len() as f32 / self.samples.width() as f32;
-
-    self.queue.write_texture(
-      wgpu::ImageCopyTexture {
-        texture: &self.samples,
-        mip_level: 0,
-        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-        aspect: TextureAspect::All,
-      },
-      &samples
-        .iter()
-        .flat_map(|sample| sample.to_le_bytes())
-        .collect::<Vec<u8>>(),
-      wgpu::ImageDataLayout {
-        offset: 0,
-        bytes_per_row: None,
-        rows_per_image: None,
-      },
-      Extent3d {
-        width: samples.len().try_into().unwrap(),
-        height: 1,
-        depth_or_array_layers: 1,
-      },
-    );
-
-    let frequencies = {
-      let frequencies = analyzer.frequencies();
-      &frequencies[0..frequencies.len().min(self.frequencies.width().into_usize())]
-    };
-
-    let frequency_range = frequencies.len() as f32 / self.frequencies.width() as f32;
-
-    self.queue.write_texture(
-      wgpu::ImageCopyTexture {
-        texture: &self.frequencies,
-        mip_level: 0,
-        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-        aspect: TextureAspect::All,
-      },
-      &frequencies
-        .iter()
-        .flat_map(|frequency| frequency.to_le_bytes())
-        .collect::<Vec<u8>>(),
-      wgpu::ImageDataLayout {
-        offset: 0,
-        bytes_per_row: None,
-        rows_per_image: None,
-      },
-      Extent3d {
-        width: frequencies.len().try_into().unwrap(),
-        height: 1,
-        depth_or_array_layers: 1,
-      },
-    );
+    let frequency_count = analyzer
+      .frequencies()
+      .len()
+      .min(self.frequencies.width().into_usize());
+    let frequencies = &analyzer.frequencies()[..frequency_count];
+    let frequency_range = frequency_count as f32 / self.frequencies.width() as f32;
+    self.write_texture(frequencies, &self.frequencies);
 
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
@@ -683,5 +639,30 @@ impl Renderer {
     {
       uniforms.write(dst);
     }
+  }
+
+  fn write_texture(&self, data: &[f32], destination: &Texture) {
+    self.queue.write_texture(
+      wgpu::ImageCopyTexture {
+        texture: &destination,
+        mip_level: 0,
+        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+        aspect: TextureAspect::All,
+      },
+      &data
+        .iter()
+        .flat_map(|value| value.to_le_bytes())
+        .collect::<Vec<u8>>(),
+      wgpu::ImageDataLayout {
+        offset: 0,
+        bytes_per_row: None,
+        rows_per_image: None,
+      },
+      Extent3d {
+        width: data.len().try_into().unwrap(),
+        height: 1,
+        depth_or_array_layers: 1,
+      },
+    );
   }
 }
