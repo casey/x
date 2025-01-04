@@ -8,6 +8,8 @@ pub struct Renderer {
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
   frame: u64,
   frame_times: VecDeque<Instant>,
+  frequencies: Texture,
+  frequency_view: TextureView,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -23,52 +25,6 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  fn bind_group(
-    &self,
-    image_view: &TextureView,
-    sample_view: &TextureView,
-    source_view: &TextureView,
-  ) -> BindGroup {
-    self.device.create_bind_group(&BindGroupDescriptor {
-      layout: &self.bind_group_layout,
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(image_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::TextureView(sample_view),
-        },
-        BindGroupEntry {
-          binding: 4,
-          resource: BindingResource::TextureView(source_view),
-        },
-        BindGroupEntry {
-          binding: 5,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-      ],
-      label: label!(),
-    })
-  }
-
-  fn bindings(&self) -> &Bindings {
-    self.bindings.as_ref().unwrap()
-  }
-
   pub async fn new(options: &Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
@@ -175,6 +131,16 @@ impl Renderer {
           },
           visibility: ShaderStages::FRAGMENT,
         },
+        BindGroupLayoutEntry {
+          binding: 6,
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D1,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
       ],
       label: label!(),
     });
@@ -243,6 +209,23 @@ impl Renderer {
 
     let sample_view = samples.create_view(&TextureViewDescriptor::default());
 
+    let frequencies = device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D1,
+      format: TextureFormat::R32Float,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: 1,
+        width: limits.max_texture_dimension_1d,
+      },
+      usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[TextureFormat::R32Float],
+    });
+
+    let frequency_view = frequencies.create_view(&TextureViewDescriptor::default());
+
     let resolution = options.resolution(size);
 
     let mut renderer = Renderer {
@@ -253,6 +236,8 @@ impl Renderer {
       error_channel,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
+      frequencies,
+      frequency_view,
       queue,
       render_pipeline,
       resolution,
@@ -272,12 +257,62 @@ impl Renderer {
     Ok(renderer)
   }
 
+  fn bind_group(
+    &self,
+    image: &TextureView,
+    samples: &TextureView,
+    source: &TextureView,
+    frequencies: &TextureView,
+  ) -> BindGroup {
+    self.device.create_bind_group(&BindGroupDescriptor {
+      layout: &self.bind_group_layout,
+      entries: &[
+        BindGroupEntry {
+          binding: 0,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: 1,
+          resource: BindingResource::TextureView(image),
+        },
+        BindGroupEntry {
+          binding: 2,
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: 3,
+          resource: BindingResource::TextureView(samples),
+        },
+        BindGroupEntry {
+          binding: 4,
+          resource: BindingResource::TextureView(source),
+        },
+        BindGroupEntry {
+          binding: 5,
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+        BindGroupEntry {
+          binding: 6,
+          resource: BindingResource::TextureView(frequencies),
+        },
+      ],
+      label: label!(),
+    })
+  }
+
+  fn bindings(&self) -> &Bindings {
+    self.bindings.as_ref().unwrap()
+  }
+
   pub(crate) fn render(
     &mut self,
     options: &Options,
     filters: &[Filter],
-    samples: &[f32],
-    spl: f32,
+    analyzer: &Analyzer,
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
@@ -314,7 +349,10 @@ impl Renderer {
       size: tiling_size,
     };
 
-    let samples = &samples[0..samples.len().min(self.samples.width().into_usize())];
+    let samples = {
+      let samples = analyzer.samples();
+      &samples[0..samples.len().min(self.samples.width().into_usize())]
+    };
 
     let sample_range = samples.len() as f32 / self.samples.width() as f32;
 
@@ -341,6 +379,36 @@ impl Renderer {
       },
     );
 
+    let frequencies = {
+      let frequencies = analyzer.frequencies();
+      &frequencies[0..frequencies.len().min(self.frequencies.width().into_usize())]
+    };
+
+    let frequency_range = frequencies.len() as f32 / self.frequencies.width() as f32;
+
+    self.queue.write_texture(
+      wgpu::ImageCopyTexture {
+        texture: &self.frequencies,
+        mip_level: 0,
+        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+        aspect: TextureAspect::All,
+      },
+      &frequencies
+        .iter()
+        .flat_map(|frequency| frequency.to_le_bytes())
+        .collect::<Vec<u8>>(),
+      wgpu::ImageDataLayout {
+        offset: 0,
+        bytes_per_row: None,
+        rows_per_image: None,
+      },
+      Extent3d {
+        width: frequencies.len().try_into().unwrap(),
+        height: 1,
+        depth_or_array_layers: 1,
+      },
+    );
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
@@ -349,6 +417,7 @@ impl Renderer {
         field: filter.field,
         filters: filters.len().try_into().unwrap(),
         fit: false,
+        frequency_range,
         image_read: false,
         index: i,
         offset: tiling.offset(i),
@@ -356,7 +425,6 @@ impl Renderer {
         repeat: false,
         resolution: tiling.resolution(),
         sample_range,
-        spl,
         source_offset: tiling.source_offset(i),
         source_read: true,
         tiling: tiling.size,
@@ -373,6 +441,7 @@ impl Renderer {
         field: Field::None,
         filters,
         fit: options.fit,
+        frequency_range,
         image_read: tiling.image_read(filters),
         index: filters,
         offset: Vec2f::default(),
@@ -380,7 +449,6 @@ impl Renderer {
         repeat: options.repeat,
         resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
         sample_range,
-        spl,
         source_offset: Vec2f::new(0.0, 0.0),
         source_read: tiling.source_read(filters),
         tiling: 1,
@@ -524,6 +592,7 @@ impl Renderer {
       &targets[0].texture_view,
       &self.sample_view,
       &targets[1].texture_view,
+      &self.frequency_view,
     );
 
     self.bindings = Some(Bindings {
@@ -579,6 +648,10 @@ impl Renderer {
             offset: 0,
             size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
           }),
+        },
+        BindGroupEntry {
+          binding: 6,
+          resource: BindingResource::TextureView(&self.frequency_view),
         },
       ],
       label: label!(),

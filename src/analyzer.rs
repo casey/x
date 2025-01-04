@@ -1,15 +1,19 @@
 use super::*;
 
-const ALPHA: f32 = 0.9;
-
-struct Input {
+pub(crate) struct Analyzer {
+  complex_frequencies: Vec<Complex<f32>>,
   config: StreamConfig,
+  frequencies: Vec<f32>,
+  planner: FftPlanner<f32>,
   queue: Arc<Mutex<VecDeque<f32>>>,
+  samples: Vec<f32>,
+  scratch: Vec<Complex<f32>>,
+  #[allow(unused)]
   stream: cpal::Stream,
 }
 
-impl Input {
-  fn new() -> Result<Self> {
+impl Analyzer {
+  pub(crate) fn new() -> Result<Self> {
     let device = cpal::default_host()
       .default_input_device()
       .context(error::DefaultAudioInputDevice)?;
@@ -55,51 +59,17 @@ impl Input {
       )
       .context(error::BuildAudioInputStream)?;
 
-    Ok(Self {
-      config,
-      queue,
-      stream,
-    })
-  }
-
-  fn play(&self) -> Result<()> {
-    self.stream.play().context(error::PlayStream)
-  }
-
-  fn drain(&self, samples: &mut Vec<f32>) {
-    samples.clear();
-    samples.extend(self.queue.lock().unwrap().drain(..));
-  }
-
-  fn sample_rate(&self) -> u32 {
-    self.config.sample_rate.0
-  }
-}
-
-pub(crate) struct Analyzer {
-  complex_frequencies: Vec<Complex<f32>>,
-  dba: f32,
-  frequencies: Vec<f32>,
-  input: Input,
-  planner: FftPlanner<f32>,
-  samples: Vec<f32>,
-  scratch: Vec<Complex<f32>>,
-}
-
-impl Analyzer {
-  pub(crate) fn new() -> Result<Self> {
-    let input = Input::new()?;
-
-    input.play()?;
+    stream.play().context(error::PlayStream)?;
 
     Ok(Self {
       complex_frequencies: Vec::new(),
-      dba: 0.0,
+      config,
       frequencies: Vec::new(),
-      input,
       planner: FftPlanner::new(),
+      queue,
       samples: Vec::new(),
       scratch: Vec::new(),
+      stream,
     })
   }
 
@@ -112,7 +82,12 @@ impl Analyzer {
   }
 
   pub(crate) fn update(&mut self) {
-    self.input.drain(&mut self.samples);
+    self.samples.clear();
+    self.samples.extend(self.queue.lock().unwrap().drain(..));
+
+    if self.samples.len() % 2 == 1 {
+      self.samples.pop();
+    }
 
     self.complex_frequencies.clear();
     self
@@ -128,30 +103,32 @@ impl Analyzer {
       &mut self.scratch[..scratch_len],
     );
 
+    let n = self.complex_frequencies.len() / 2;
+
+    let divisor = self.config.sample_rate.0 as f32 / self.complex_frequencies.len() as f32;
+
+    let threshold = (20.0 / divisor) as usize;
+
+    let cutoff = (15_000.0 / divisor) as usize;
+
     self.frequencies.clear();
     self.frequencies.extend(
       self
         .complex_frequencies
         .iter()
-        .map(|complex| complex.norm()),
+        .enumerate()
+        .skip(threshold)
+        .take(cutoff.saturating_sub(threshold))
+        .map(|(i, complex)| {
+          let frequency = i as f32 * (self.config.sample_rate.0 as f32 / n as f32);
+          let weight = fundsp::math::a_weight(frequency);
+          let level = if i == 0 || i == n {
+            complex.norm()
+          } else {
+            complex.norm() * 2.0
+          };
+          level * weight
+        }),
     );
-
-    let mut power = 0.0;
-    let n = self.complex_frequencies.len() / 2;
-    for (i, f) in self.complex_frequencies[..n].iter().enumerate() {
-      let frequency =
-        i as f32 * self.input.sample_rate() as f32 / self.complex_frequencies.len() as f32;
-      power += f.norm_sqr() * fundsp::math::a_weight(frequency);
-    }
-
-    let dba = 10.0 * power.log10();
-
-    if dba.classify() != FpCategory::Infinite {
-      self.dba = ALPHA * dba + (1.0 - ALPHA) * self.dba;
-    }
-  }
-
-  pub(crate) fn dba(&self) -> f32 {
-    self.dba
   }
 }

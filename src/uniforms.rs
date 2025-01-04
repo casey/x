@@ -7,6 +7,7 @@ pub(crate) struct Uniforms {
   pub(crate) field: Field,
   pub(crate) filters: u32,
   pub(crate) fit: bool,
+  pub(crate) frequency_range: f32,
   pub(crate) image_read: bool,
   pub(crate) index: u32,
   pub(crate) offset: Vec2f,
@@ -16,7 +17,6 @@ pub(crate) struct Uniforms {
   pub(crate) sample_range: f32,
   pub(crate) source_offset: Vec2f,
   pub(crate) source_read: bool,
-  pub(crate) spl: f32,
   pub(crate) tiling: u32,
   pub(crate) wrap: bool,
 }
@@ -30,6 +30,7 @@ impl Uniforms {
     self.field.write(dst, &mut i, &mut a);
     self.filters.write(dst, &mut i, &mut a);
     self.fit.write(dst, &mut i, &mut a);
+    self.frequency_range.write(dst, &mut i, &mut a);
     self.image_read.write(dst, &mut i, &mut a);
     self.index.write(dst, &mut i, &mut a);
     self.offset.write(dst, &mut i, &mut a);
@@ -39,7 +40,6 @@ impl Uniforms {
     self.sample_range.write(dst, &mut i, &mut a);
     self.source_offset.write(dst, &mut i, &mut a);
     self.source_read.write(dst, &mut i, &mut a);
-    self.spl.write(dst, &mut i, &mut a);
     self.tiling.write(dst, &mut i, &mut a);
     self.wrap.write(dst, &mut i, &mut a);
     pad(i, a)

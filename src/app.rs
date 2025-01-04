@@ -60,6 +60,12 @@ impl App {
         "f" => {
           self.options.fit = !self.options.fit;
         }
+        "l" => self.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Frequencies,
+          wrap: self.options.wrap,
+          ..default()
+        }),
         "n" => self.filters.push(Filter {
           field: Field::None,
           wrap: self.options.wrap,
@@ -135,8 +141,9 @@ impl App {
     if let Err(err) = self.renderer.as_mut().unwrap().render(
       &self.options,
       &self.filters,
-      self.analyzer.samples(),
-      self.analyzer.dba() / 1000.0,
+      &self.analyzer,
+      // self.analyzer.samples(),
+      // self.analyzer.dba() / 1000.0,
     ) {
       self.error = Some(err);
       event_loop.exit();

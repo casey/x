@@ -24,3 +24,6 @@ outdated:
 
 unused:
   cargo +nightly udeps --workspace
+
+doc:
+  cargo doc --workspace --open
