@@ -101,10 +101,12 @@ impl Analyzer {
       &mut self.scratch[..scratch_len],
     );
 
-    let n = self.complex_frequencies.len() / 2;
-    let divisor = self.config.sample_rate.0 as f32 / self.complex_frequencies.len() as f32;
-    let threshold = (20.0 / divisor).into_usize();
-    let cutoff = (15_000.0 / divisor).into_usize();
+    let n = self.complex_frequencies.len();
+    let half = n / 2;
+    let spacing = self.config.sample_rate.0 as f32 / n as f32;
+    let threshold = (20.0 / spacing).into_usize();
+    let cutoff = (15_000.0 / spacing).into_usize();
+
     self.frequencies.clear();
     self.frequencies.extend(
       self
@@ -112,16 +114,14 @@ impl Analyzer {
         .iter()
         .enumerate()
         .skip(threshold)
-        .take(cutoff.saturating_sub(threshold))
-        .map(|(i, complex)| {
-          let frequency = i as f32 * (self.config.sample_rate.0 as f32 / n as f32);
-          let weight = fundsp::math::a_weight(frequency);
-          let level = if i == 0 || i == n {
-            complex.norm()
+        .take(cutoff.min(half).saturating_sub(threshold))
+        .map(|(i, c)| {
+          let level = if i == 0 || i == half {
+            c.norm()
           } else {
-            complex.norm() * 2.0
+            c.norm() * 2.0
           };
-          level * weight
+          level
         }),
     );
   }
