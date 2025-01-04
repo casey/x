@@ -6,8 +6,8 @@ watch +args='lcheck':
 run *args:
   #!/usr/bin/env bash
   set -euo pipefail
-  cargo build
-  ./target/debug/x "$@" 2> >(grep -Ev 'IMKClient|IMKInputSession' >&2)
+  cargo build --release
+  ./target/release/x "$@" 2> >(grep -Ev 'IMKClient|IMKInputSession' >&2)
 
 forbid:
   ./bin/forbid
@@ -24,3 +24,6 @@ outdated:
 
 unused:
   cargo +nightly udeps --workspace
+
+doc:
+  cargo doc --workspace --open

@@ -8,6 +8,13 @@ impl IntoUsize for u32 {
   }
 }
 
+impl IntoUsize for f32 {
+  fn into_usize(self) -> usize {
+    #![allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    self as usize
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

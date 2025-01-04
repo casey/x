@@ -7,6 +7,7 @@ pub(crate) struct Uniforms {
   pub(crate) field: Field,
   pub(crate) filters: u32,
   pub(crate) fit: bool,
+  pub(crate) frequency_range: f32,
   pub(crate) image_read: bool,
   pub(crate) index: u32,
   pub(crate) offset: Vec2f,
@@ -29,6 +30,7 @@ impl Uniforms {
     self.field.write(dst, &mut i, &mut a);
     self.filters.write(dst, &mut i, &mut a);
     self.fit.write(dst, &mut i, &mut a);
+    self.frequency_range.write(dst, &mut i, &mut a);
     self.image_read.write(dst, &mut i, &mut a);
     self.index.write(dst, &mut i, &mut a);
     self.offset.write(dst, &mut i, &mut a);

@@ -1,16 +1,13 @@
 use super::*;
 
 pub(crate) struct App {
+  analyzer: Analyzer,
   error: Option<Error>,
   filters: Vec<Filter>,
-  #[allow(unused)]
-  input: cpal::Stream,
   makro: Vec<Key>,
   options: Options,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
-  sample_queue: Arc<Mutex<VecDeque<f32>>>,
-  samples: Vec<f32>,
   window: Option<Arc<Window>>,
 }
 
@@ -20,61 +17,14 @@ impl App {
   }
 
   pub(crate) fn new(options: Options) -> Result<Self> {
-    let device = cpal::default_host()
-      .default_input_device()
-      .context(error::DefaultAudioInputDevice)?;
-
-    let supported_stream_config = device
-      .supported_input_configs()
-      .context(error::SupportedStreamConfigs)?
-      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::SupportedStreamConfig)?
-      .with_max_sample_rate();
-
-    let buffer_size = match supported_stream_config.buffer_size() {
-      SupportedBufferSize::Range { min, .. } => {
-        log::info!("input audio buffer size: {min}");
-        Some(*min)
-      }
-      SupportedBufferSize::Unknown => {
-        log::info!("input audio buffer size: unknown");
-        None
-      }
-    };
-
-    let mut stream_config = supported_stream_config.config();
-
-    if let Some(buffer_size) = buffer_size {
-      stream_config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
-    }
-
-    let sample_queue = Arc::new(Mutex::new(VecDeque::new()));
-
-    let write = sample_queue.clone();
-
-    let input = device
-      .build_input_stream(
-        &stream_config,
-        move |data: &[f32], _| {
-          write.lock().unwrap().extend(data);
-        },
-        move |err| {
-          eprintln!("audio error: {err}");
-        },
-        None,
-      )
-      .context(error::BuildAudioInputStream)?;
-
     Ok(Self {
+      analyzer: Analyzer::new()?,
       error: None,
       filters: Vec::new(),
-      input,
       makro: Vec::new(),
       options,
       recording: None,
       renderer: None,
-      sample_queue,
-      samples: Vec::new(),
       window: None,
     })
   }
@@ -110,6 +60,12 @@ impl App {
         "f" => {
           self.options.fit = !self.options.fit;
         }
+        "l" => self.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Frequencies,
+          wrap: self.options.wrap,
+          ..default()
+        }),
         "n" => self.filters.push(Filter {
           field: Field::None,
           wrap: self.options.wrap,
@@ -179,6 +135,23 @@ impl App {
     }
   }
 
+  fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+    self.analyzer.update();
+
+    if let Err(err) =
+      self
+        .renderer
+        .as_mut()
+        .unwrap()
+        .render(&self.options, &self.analyzer, &self.filters)
+    {
+      self.error = Some(err);
+      event_loop.exit();
+      return;
+    }
+    self.window().request_redraw();
+  }
+
   fn window(&self) -> &Window {
     self.window.as_ref().unwrap()
   }
@@ -241,23 +214,7 @@ impl ApplicationHandler for App {
         self.press(event.logical_key);
       }
       WindowEvent::RedrawRequested => {
-        self.samples.clear();
-        self
-          .samples
-          .extend(self.sample_queue.lock().unwrap().drain(..));
-
-        if let Err(err) =
-          self
-            .renderer
-            .as_mut()
-            .unwrap()
-            .render(&self.options, &self.filters, &self.samples)
-        {
-          self.error = Some(err);
-          event_loop.exit();
-          return;
-        }
-        self.window().request_redraw();
+        self.redraw(event_loop);
       }
       WindowEvent::Resized(size) => {
         self.renderer.as_mut().unwrap().resize(&self.options, size);

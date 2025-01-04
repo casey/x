@@ -8,6 +8,8 @@ pub struct Renderer {
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
   frame: u64,
   frame_times: VecDeque<Instant>,
+  frequencies: Texture,
+  frequency_view: TextureView,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -23,52 +25,6 @@ pub struct Renderer {
 }
 
 impl Renderer {
-  fn bind_group(
-    &self,
-    image_view: &TextureView,
-    sample_view: &TextureView,
-    source_view: &TextureView,
-  ) -> BindGroup {
-    self.device.create_bind_group(&BindGroupDescriptor {
-      layout: &self.bind_group_layout,
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(image_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::TextureView(sample_view),
-        },
-        BindGroupEntry {
-          binding: 4,
-          resource: BindingResource::TextureView(source_view),
-        },
-        BindGroupEntry {
-          binding: 5,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-      ],
-      label: label!(),
-    })
-  }
-
-  fn bindings(&self) -> &Bindings {
-    self.bindings.as_ref().unwrap()
-  }
-
   pub async fn new(options: &Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
@@ -121,63 +77,7 @@ impl Renderer {
       u32::try_from(Uniforms::default().write(&mut buffer)).unwrap()
     };
 
-    let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-      entries: &[
-        BindGroupLayoutEntry {
-          binding: 0,
-          count: None,
-          ty: BindingType::Sampler(SamplerBindingType::Filtering),
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: 1,
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: 2,
-          count: None,
-          ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: 3,
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: false },
-            view_dimension: TextureViewDimension::D1,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: 4,
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: 5,
-          count: None,
-          ty: BindingType::Buffer {
-            has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
-            ty: BufferBindingType::Uniform,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-      ],
-      label: label!(),
-    });
+    let bind_group_layout = Self::bind_group_layout(&device, uniform_buffer_size);
 
     let sampler = device.create_sampler(&SamplerDescriptor {
       address_mode_u: AddressMode::Repeat,
@@ -243,6 +143,23 @@ impl Renderer {
 
     let sample_view = samples.create_view(&TextureViewDescriptor::default());
 
+    let frequencies = device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D1,
+      format: TextureFormat::R32Float,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: 1,
+        width: limits.max_texture_dimension_1d,
+      },
+      usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[TextureFormat::R32Float],
+    });
+
+    let frequency_view = frequencies.create_view(&TextureViewDescriptor::default());
+
     let resolution = options.resolution(size);
 
     let mut renderer = Renderer {
@@ -253,6 +170,8 @@ impl Renderer {
       error_channel,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
+      frequencies,
+      frequency_view,
       queue,
       render_pipeline,
       resolution,
@@ -272,11 +191,144 @@ impl Renderer {
     Ok(renderer)
   }
 
+  fn bind_group(
+    &self,
+    frequencies: &TextureView,
+    image: &TextureView,
+    samples: &TextureView,
+    source: &TextureView,
+  ) -> BindGroup {
+    let mut i = 0;
+    let mut binding = || {
+      let binding = i;
+      i += 1;
+      binding
+    };
+    self.device.create_bind_group(&BindGroupDescriptor {
+      layout: &self.bind_group_layout,
+      entries: &[
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(frequencies),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(image),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(samples),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(source),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+      ],
+      label: label!(),
+    })
+  }
+
+  fn bind_group_layout(device: &Device, uniform_buffer_size: u32) -> BindGroupLayout {
+    let mut i = 0;
+    let mut binding = || {
+      let binding = i;
+      i += 1;
+      binding
+    };
+    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+      entries: &[
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D1,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D1,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Buffer {
+            has_dynamic_offset: true,
+            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
+            ty: BufferBindingType::Uniform,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+      ],
+      label: label!(),
+    })
+  }
+
+  fn bindings(&self) -> &Bindings {
+    self.bindings.as_ref().unwrap()
+  }
+
   pub(crate) fn render(
     &mut self,
     options: &Options,
+    analyzer: &Analyzer,
     filters: &[Filter],
-    samples: &[f32],
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
@@ -313,32 +365,21 @@ impl Renderer {
       size: tiling_size,
     };
 
-    let samples = &samples[0..samples.len().min(self.samples.width().into_usize())];
+    let sample_count = analyzer
+      .samples()
+      .len()
+      .min(self.samples.width().into_usize());
+    let samples = &analyzer.samples()[..sample_count];
+    let sample_range = sample_count as f32 / self.samples.width() as f32;
+    self.write_texture(samples, &self.samples);
 
-    let sample_range = samples.len() as f32 / self.samples.width() as f32;
-
-    self.queue.write_texture(
-      wgpu::ImageCopyTexture {
-        texture: &self.samples,
-        mip_level: 0,
-        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
-        aspect: TextureAspect::All,
-      },
-      &samples
-        .iter()
-        .flat_map(|sample| sample.to_le_bytes())
-        .collect::<Vec<u8>>(),
-      wgpu::ImageDataLayout {
-        offset: 0,
-        bytes_per_row: None,
-        rows_per_image: None,
-      },
-      Extent3d {
-        width: samples.len().try_into().unwrap(),
-        height: 1,
-        depth_or_array_layers: 1,
-      },
-    );
+    let frequency_count = analyzer
+      .frequencies()
+      .len()
+      .min(self.frequencies.width().into_usize());
+    let frequencies = &analyzer.frequencies()[..frequency_count];
+    let frequency_range = frequency_count as f32 / self.frequencies.width() as f32;
+    self.write_texture(frequencies, &self.frequencies);
 
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
@@ -348,6 +389,7 @@ impl Renderer {
         field: filter.field,
         filters: filters.len().try_into().unwrap(),
         fit: false,
+        frequency_range,
         image_read: false,
         index: i,
         offset: tiling.offset(i),
@@ -371,6 +413,7 @@ impl Renderer {
         field: Field::None,
         filters,
         fit: options.fit,
+        frequency_range,
         image_read: tiling.image_read(filters),
         index: filters,
         offset: Vec2f::default(),
@@ -518,6 +561,7 @@ impl Renderer {
     let targets = [self.target(&image_view), self.target(&image_view)];
 
     let bind_group = self.bind_group(
+      &self.frequency_view,
       &targets[0].texture_view,
       &self.sample_view,
       &targets[1].texture_view,
@@ -547,40 +591,12 @@ impl Renderer {
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
-    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(image_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::TextureView(&self.sample_view),
-        },
-        BindGroupEntry {
-          binding: 4,
-          resource: BindingResource::TextureView(&texture_view),
-        },
-        BindGroupEntry {
-          binding: 5,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-      ],
-      label: label!(),
-      layout: &self.bind_group_layout,
-    });
+    let bind_group = self.bind_group(
+      &self.frequency_view,
+      image_view,
+      &self.sample_view,
+      &texture_view,
+    );
 
     Target {
       bind_group,
@@ -607,5 +623,30 @@ impl Renderer {
     {
       uniforms.write(dst);
     }
+  }
+
+  fn write_texture(&self, data: &[f32], destination: &Texture) {
+    self.queue.write_texture(
+      wgpu::ImageCopyTexture {
+        texture: destination,
+        mip_level: 0,
+        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+        aspect: TextureAspect::All,
+      },
+      &data
+        .iter()
+        .flat_map(|value| value.to_le_bytes())
+        .collect::<Vec<u8>>(),
+      wgpu::ImageDataLayout {
+        offset: 0,
+        bytes_per_row: None,
+        rows_per_image: None,
+      },
+      Extent3d {
+        width: data.len().try_into().unwrap(),
+        height: 1,
+        depth_or_array_layers: 1,
+      },
+    );
   }
 }
