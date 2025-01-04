@@ -198,40 +198,46 @@ impl Renderer {
     source: &TextureView,
     frequencies: &TextureView,
   ) -> BindGroup {
+    let mut i = 0;
+    let mut binding = || {
+      let binding = i;
+      i += 1;
+      binding
+    };
     self.device.create_bind_group(&BindGroupDescriptor {
       layout: &self.bind_group_layout,
       entries: &[
         BindGroupEntry {
-          binding: 0,
+          binding: binding(),
           resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
-          binding: 1,
+          binding: binding(),
+          resource: BindingResource::TextureView(frequencies),
+        },
+        BindGroupEntry {
+          binding: binding(),
           resource: BindingResource::TextureView(image),
         },
         BindGroupEntry {
-          binding: 2,
+          binding: binding(),
           resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
-          binding: 3,
+          binding: binding(),
           resource: BindingResource::TextureView(samples),
         },
         BindGroupEntry {
-          binding: 4,
+          binding: binding(),
           resource: BindingResource::TextureView(source),
         },
         BindGroupEntry {
-          binding: 5,
+          binding: binding(),
           resource: BindingResource::Buffer(BufferBinding {
             buffer: &self.uniform_buffer,
             offset: 0,
             size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
           }),
-        },
-        BindGroupEntry {
-          binding: 6,
-          resource: BindingResource::TextureView(frequencies),
         },
       ],
       label: label!(),
@@ -239,16 +245,32 @@ impl Renderer {
   }
 
   fn bind_group_layout(device: &Device, uniform_buffer_size: u32) -> BindGroupLayout {
+    let mut i = 0;
+    let mut binding = || {
+      let binding = i;
+      i += 1;
+      binding
+    };
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       entries: &[
         BindGroupLayoutEntry {
-          binding: 0,
+          binding: binding(),
           count: None,
           ty: BindingType::Sampler(SamplerBindingType::Filtering),
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 1,
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D1,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
           count: None,
           ty: BindingType::Texture {
             multisampled: false,
@@ -258,13 +280,13 @@ impl Renderer {
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 2,
+          binding: binding(),
           count: None,
           ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 3,
+          binding: binding(),
           count: None,
           ty: BindingType::Texture {
             multisampled: false,
@@ -274,7 +296,7 @@ impl Renderer {
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 4,
+          binding: binding(),
           count: None,
           ty: BindingType::Texture {
             multisampled: false,
@@ -284,22 +306,12 @@ impl Renderer {
           visibility: ShaderStages::FRAGMENT,
         },
         BindGroupLayoutEntry {
-          binding: 5,
+          binding: binding(),
           count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
             min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
             ty: BufferBindingType::Uniform,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: 6,
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: false },
-            view_dimension: TextureViewDimension::D1,
           },
           visibility: ShaderStages::FRAGMENT,
         },
