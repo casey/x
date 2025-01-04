@@ -105,8 +105,8 @@ impl Analyzer {
 
     let n = self.complex_frequencies.len() / 2;
     let divisor = self.config.sample_rate.0 as f32 / self.complex_frequencies.len() as f32;
-    let threshold = (20.0 / divisor) as usize;
-    let cutoff = (15_000.0 / divisor) as usize;
+    let threshold = (20.0 / divisor).into_usize();
+    let cutoff = (15_000.0 / divisor).into_usize();
     self.frequencies.clear();
     self.frequencies.extend(
       self
