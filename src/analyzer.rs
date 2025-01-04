@@ -116,12 +116,8 @@ impl Analyzer {
         .skip(threshold)
         .take(cutoff.min(half).saturating_sub(threshold))
         .map(|(i, c)| {
-          let level = if i == 0 || i == half {
-            c.norm()
-          } else {
-            c.norm() * 2.0
-          };
-          level
+          let weight = if i == 0 || i == half { 1.0 } else { 2.0 };
+          c.norm() * weight
         }),
     );
   }
