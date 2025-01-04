@@ -575,44 +575,12 @@ impl Renderer {
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
-    let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
-      entries: &[
-        BindGroupEntry {
-          binding: 0,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 1,
-          resource: BindingResource::TextureView(image_view),
-        },
-        BindGroupEntry {
-          binding: 2,
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: 3,
-          resource: BindingResource::TextureView(&self.sample_view),
-        },
-        BindGroupEntry {
-          binding: 4,
-          resource: BindingResource::TextureView(&texture_view),
-        },
-        BindGroupEntry {
-          binding: 5,
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-        BindGroupEntry {
-          binding: 6,
-          resource: BindingResource::TextureView(&self.frequency_view),
-        },
-      ],
-      label: label!(),
-      layout: &self.bind_group_layout,
-    });
+    let bind_group = self.bind_group(
+      image_view,
+      &self.sample_view,
+      &texture_view,
+      &self.frequency_view,
+    );
 
     Target {
       bind_group,
