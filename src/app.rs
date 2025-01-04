@@ -138,13 +138,13 @@ impl App {
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
     self.analyzer.update();
 
-    if let Err(err) = self.renderer.as_mut().unwrap().render(
-      &self.options,
-      &self.filters,
-      &self.analyzer,
-      // self.analyzer.samples(),
-      // self.analyzer.dba() / 1000.0,
-    ) {
+    if let Err(err) =
+      self
+        .renderer
+        .as_mut()
+        .unwrap()
+        .render(&self.options, &self.analyzer, &self.filters)
+    {
       self.error = Some(err);
       event_loop.exit();
       return;

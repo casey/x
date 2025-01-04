@@ -311,8 +311,8 @@ impl Renderer {
   pub(crate) fn render(
     &mut self,
     options: &Options,
-    filters: &[Filter],
     analyzer: &Analyzer,
+    filters: &[Filter],
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
