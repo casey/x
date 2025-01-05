@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct Renderer {
-  vello_renderer: vello::Renderer,
+  font: peniko::Font,
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
   config: SurfaceConfiguration,
@@ -23,6 +23,7 @@ pub struct Renderer {
   uniform_buffer: Buffer,
   uniform_buffer_size: u32,
   uniform_buffer_stride: u32,
+  vello_renderer: vello::Renderer,
 }
 
 impl Renderer {
@@ -63,7 +64,14 @@ impl Renderer {
 
     device.on_uncaptured_error(Box::new(move |error| tx.send(error).unwrap()));
 
-    let texture_format = surface.get_capabilities(&adapter).formats[0];
+    let texture_format = TextureFormat::Bgra8Unorm;
+
+    assert!(surface
+      .get_capabilities(&adapter)
+      .formats
+      .iter()
+      .position(|x| *x == texture_format)
+      .is_some());
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
@@ -168,20 +176,34 @@ impl Renderer {
     let vello_renderer = vello::Renderer::new(
       &device,
       vello::RendererOptions {
-        surface_format: None,
-        use_cpu: false,
         antialiasing_support: vello::AaSupport::all(),
         num_init_threads: NonZeroUsize::new(1),
+        surface_format: Some(texture_format),
+        use_cpu: false,
       },
     )
     .expect("Failed to create renderer");
 
+    let font = font_kit::source::SystemSource::new()
+      .select_by_postscript_name("Helvetica Neue")
+      .unwrap();
+
+    let font = match font {
+      font_kit::handle::Handle::Path { path, font_index } => peniko::Font::new(
+        peniko::Blob::new(Arc::new(std::fs::read(path).unwrap())),
+        font_index,
+      ),
+      font_kit::handle::Handle::Memory { bytes, font_index } => {
+        peniko::Font::new(peniko::Blob::new(bytes), font_index)
+      }
+    };
+
     let mut renderer = Renderer {
-      vello_renderer,
       bind_group_layout,
       bindings: None,
       config,
       device,
+      font,
       error_channel,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
@@ -199,6 +221,7 @@ impl Renderer {
       uniform_buffer,
       uniform_buffer_size,
       uniform_buffer_stride,
+      vello_renderer,
     };
 
     renderer.resize(options, size);
@@ -535,13 +558,41 @@ impl Renderer {
 
     let mut scene = vello::Scene::new();
 
-    scene.fill(
-      vello::peniko::Fill::NonZero,
-      vello::kurbo::Affine::IDENTITY,
-      vello::peniko::Color::from_rgba8(242, 140, 168, 255),
-      None,
-      &vello::kurbo::Circle::new((420.0, 200.0), 120.0),
-    );
+    let font_size = 64.0;
+
+    let file_ref = skrifa::raw::FileRef::new(self.font.data.as_ref()).unwrap();
+
+    let font_ref = match file_ref {
+      skrifa::raw::FileRef::Font(f) => Some(f),
+      skrifa::raw::FileRef::Collection(c) => c.get(self.font.index).ok(),
+    }
+    .unwrap();
+
+    let charmap = font_ref.charmap();
+    let settings: Vec<(&str, f32)> = Vec::new();
+    let var_loc = font_ref.axes().location(settings.iter().copied());
+    let metrics = font_ref.glyph_metrics(skrifa::instance::Size::new(font_size), &var_loc);
+    let mut pen_x = 0f32;
+    let pen_y = 0f32;
+    scene
+      .draw_glyphs(&self.font)
+      .font_size(font_size)
+      .brush(&peniko::Brush::Solid(peniko::Color::WHITE))
+      .transform(kurbo::Affine::translate((110.0, 700.0)))
+      .glyph_transform(None)
+      .draw(
+        peniko::Fill::NonZero,
+        "hello world".chars().map(|c| {
+          let x = pen_x;
+          let gid = charmap.map(c).unwrap_or_default();
+          pen_x += metrics.advance_width(gid).unwrap_or_default();
+          vello::Glyph {
+            id: gid.into(),
+            x,
+            y: pen_y,
+          }
+        }),
+      );
 
     self
       .vello_renderer

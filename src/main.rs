@@ -21,6 +21,10 @@ use {
     sync::{mpsc, Arc, Mutex},
     time::Instant,
   },
+  vello::{
+    kurbo, peniko,
+    skrifa::{self, MetadataProvider},
+  },
   wgpu::{
     include_wgsl, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
