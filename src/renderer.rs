@@ -1,6 +1,7 @@
 use super::*;
 
 pub struct Renderer {
+  vello_renderer: vello::Renderer,
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
   config: SurfaceConfiguration,
@@ -66,9 +67,11 @@ impl Renderer {
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
-    let config = surface
+    let mut config = surface
       .get_default_config(&adapter, size.width, size.height)
       .context(error::DefaultConfig)?;
+
+    config.format = texture_format;
 
     surface.configure(&device, &config);
 
@@ -162,7 +165,19 @@ impl Renderer {
 
     let resolution = options.resolution(size);
 
+    let vello_renderer = vello::Renderer::new(
+      &device,
+      vello::RendererOptions {
+        surface_format: None,
+        use_cpu: false,
+        antialiasing_support: vello::AaSupport::all(),
+        num_init_threads: NonZeroUsize::new(1),
+      },
+    )
+    .expect("Failed to create renderer");
+
     let mut renderer = Renderer {
+      vello_renderer,
       bind_group_layout,
       bindings: None,
       config,
@@ -517,6 +532,32 @@ impl Renderer {
     }
 
     self.queue.submit([encoder.finish()]);
+
+    let mut scene = vello::Scene::new();
+
+    scene.fill(
+      vello::peniko::Fill::NonZero,
+      vello::kurbo::Affine::IDENTITY,
+      vello::peniko::Color::from_rgba8(242, 140, 168, 255),
+      None,
+      &vello::kurbo::Circle::new((420.0, 200.0), 120.0),
+    );
+
+    self
+      .vello_renderer
+      .render_to_surface(
+        &self.device,
+        &self.queue,
+        &scene,
+        &frame,
+        &vello::RenderParams {
+          base_color: vello::peniko::color::palette::css::BLACK,
+          width: self.size.x,
+          height: self.size.y,
+          antialiasing_method: vello::AaConfig::Msaa16,
+        },
+      )
+      .expect("Failed to render to surface");
 
     frame.present();
 

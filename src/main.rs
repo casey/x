@@ -16,6 +16,7 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    num::NonZeroUsize,
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
