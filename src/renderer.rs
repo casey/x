@@ -430,13 +430,15 @@ impl Renderer {
     let frequency_range = frequency_count as f32 / self.frequencies.width() as f32;
     self.write_texture(frequencies, &self.frequencies);
 
+    let filter_count = u32::try_from(filters.len()).unwrap();
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
         color: filter.color,
         coordinates: filter.coordinates,
         field: filter.field,
-        filters: filters.len().try_into().unwrap(),
+        filters: filter_count,
         fit: false,
         frequency_range,
         image_read: false,
@@ -454,24 +456,22 @@ impl Renderer {
     }
 
     {
-      let filters = filters.len().try_into().unwrap();
-
       uniforms.push(Uniforms {
         color: Mat4f::identity(),
         coordinates: false,
         field: Field::None,
-        filters,
+        filters: filter_count,
         fit: options.fit,
         frequency_range,
-        image_read: tiling.image_read(filters),
-        index: filters,
+        image_read: tiling.image_read(filter_count),
+        index: filter_count,
         offset: Vec2f::default(),
         position: Mat3f::identity(),
         repeat: options.repeat,
         resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
         sample_range,
         source_offset: Vec2f::new(0.0, 0.0),
-        source_read: tiling.source_read(filters),
+        source_read: tiling.source_read(filter_count),
         tiling: 1,
         wrap: false,
       });
@@ -480,11 +480,11 @@ impl Renderer {
         color: Mat4f::identity(),
         coordinates: false,
         field: Field::None,
-        filters,
+        filters: filter_count,
         fit: options.fit,
         frequency_range,
         image_read: true,
-        index: filters,
+        index: filter_count,
         offset: Vec2f::default(),
         position: Mat3f::identity(),
         repeat: options.repeat,
@@ -523,18 +523,16 @@ impl Renderer {
 
     let mut source = 0;
     let mut destination = 1;
-    let mut uniforms = 0;
 
     for i in 0..filters.len() {
+      let i = u32::try_from(i).unwrap();
       self.draw(
         &self.bindings().targets[source].bind_group,
         &mut encoder,
-        Some((tiling, i.try_into().unwrap())),
-        uniforms,
+        Some((tiling, i)),
+        i,
         &self.bindings().targets[destination].texture_view,
       );
-
-      uniforms += 1;
 
       (source, destination) = (destination, source);
     }
@@ -543,11 +541,9 @@ impl Renderer {
       &self.bindings().tiling_bind_group,
       &mut encoder,
       None,
-      uniforms,
+      filter_count,
       &self.bindings().image,
     );
-
-    uniforms += 1;
 
     let mut scene = vello::Scene::new();
 
@@ -607,7 +603,7 @@ impl Renderer {
       &self.bindings().overlay_bind_group,
       &mut encoder,
       None,
-      uniforms,
+      filter_count + 1,
       &frame.texture.create_view(&TextureViewDescriptor::default()),
     );
 
