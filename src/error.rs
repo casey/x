@@ -61,6 +61,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::PlayStreamError,
   },
+  #[snafu(display("failed to render overlay"))]
+  RenderOverlay {
+    backtrace: Option<Backtrace>,
+    source: vello::Error,
+  },
   #[snafu(display("failed to run app"))]
   RunApp {
     backtrace: Option<Backtrace>,

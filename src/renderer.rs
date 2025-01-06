@@ -541,6 +541,35 @@ impl Renderer {
       &self.bindings().tiling,
     );
 
+    self.render_overlay()?;
+
+    self.draw(
+      &self.bindings().overlay_bind_group,
+      &mut encoder,
+      None,
+      filter_count + 1,
+      &frame.texture.create_view(&TextureViewDescriptor::default()),
+    );
+
+    self.queue.submit([encoder.finish()]);
+
+    frame.present();
+
+    info!(
+      "{}",
+      Frame {
+        filters: filters.len(),
+        fps,
+        number: self.frame,
+      }
+    );
+
+    self.frame += 1;
+
+    Ok(())
+  }
+
+  pub(crate) fn render_overlay(&mut self) -> Result {
     let mut scene = vello::Scene::new();
 
     let font_size = 64.0;
@@ -593,30 +622,7 @@ impl Renderer {
           antialiasing_method: vello::AaConfig::Msaa16,
         },
       )
-      .expect("Failed to render to surface");
-
-    self.draw(
-      &self.bindings().overlay_bind_group,
-      &mut encoder,
-      None,
-      filter_count + 1,
-      &frame.texture.create_view(&TextureViewDescriptor::default()),
-    );
-
-    self.queue.submit([encoder.finish()]);
-
-    frame.present();
-
-    info!(
-      "{}",
-      Frame {
-        filters: filters.len(),
-        fps,
-        number: self.frame,
-      }
-    );
-
-    self.frame += 1;
+      .context(error::RenderOverlay)?;
 
     Ok(())
   }
