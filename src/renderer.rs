@@ -434,7 +434,7 @@ impl Renderer {
         offset: Vec2f::default(),
         position: Mat3f::identity(),
         repeat: options.repeat,
-        resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+        resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
         sample_range,
         source_offset: Vec2f::new(0.0, 0.0),
         source_read: tiling.source_read(filters),
