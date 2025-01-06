@@ -64,22 +64,13 @@ impl Renderer {
 
     device.on_uncaptured_error(Box::new(move |error| tx.send(error).unwrap()));
 
-    let texture_format = TextureFormat::Bgra8Unorm;
-
-    assert!(surface
-      .get_capabilities(&adapter)
-      .formats
-      .iter()
-      .position(|x| *x == texture_format)
-      .is_some());
+    let texture_format = surface.get_capabilities(&adapter).formats[0];
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
-    let mut config = surface
+    let config = surface
       .get_default_config(&adapter, size.width, size.height)
       .context(error::DefaultConfig)?;
-
-    config.format = texture_format;
 
     surface.configure(&device, &config);
 
@@ -178,7 +169,7 @@ impl Renderer {
       vello::RendererOptions {
         antialiasing_support: vello::AaSupport::all(),
         num_init_threads: NonZeroUsize::new(1),
-        surface_format: Some(texture_format),
+        surface_format: None,
         use_cpu: false,
       },
     )
@@ -464,6 +455,26 @@ impl Renderer {
         tiling: 1,
         wrap: false,
       });
+
+      uniforms.push(Uniforms {
+        color: Mat4f::identity(),
+        coordinates: false,
+        field: Field::None,
+        filters,
+        fit: options.fit,
+        frequency_range,
+        image_read: true,
+        index: filters,
+        offset: Vec2f::default(),
+        position: Mat3f::identity(),
+        repeat: options.repeat,
+        resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+        sample_range,
+        source_offset: Vec2f::new(0.0, 0.0),
+        source_read: true,
+        tiling: 1,
+        wrap: false,
+      });
     }
 
     self.write_uniform_buffer(&uniforms);
@@ -527,6 +538,9 @@ impl Renderer {
       (source, destination) = (destination, source);
     }
 
+    // final pass composites textures and renders to screen
+    // instead render to texture and blit to screen
+    // will also help for screenshots, since i can download texture
     {
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         color_attachments: &[Some(RenderPassColorAttachment {
@@ -535,7 +549,7 @@ impl Renderer {
             store: StoreOp::Store,
           },
           resolve_target: None,
-          view: &frame.texture.create_view(&TextureViewDescriptor::default()),
+          view: &self.bindings().image_view,
         })],
         depth_stencil_attachment: None,
         label: label!(),
@@ -552,9 +566,9 @@ impl Renderer {
       pass.set_pipeline(&self.render_pipeline);
 
       pass.draw(0..3, 0..1);
-    }
 
-    self.queue.submit([encoder.finish()]);
+      uniforms += 1;
+    }
 
     let mut scene = vello::Scene::new();
 
@@ -596,19 +610,48 @@ impl Renderer {
 
     self
       .vello_renderer
-      .render_to_surface(
+      .render_to_texture(
         &self.device,
         &self.queue,
         &scene,
-        &frame,
+        &self.bindings.as_ref().unwrap().overlay_view,
         &vello::RenderParams {
-          base_color: vello::peniko::color::palette::css::BLACK,
-          width: self.size.x,
-          height: self.size.y,
+          base_color: vello::peniko::color::palette::css::TRANSPARENT,
+          width: self.resolution,
+          height: self.resolution,
           antialiasing_method: vello::AaConfig::Msaa16,
         },
       )
       .expect("Failed to render to surface");
+
+    {
+      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        color_attachments: &[Some(RenderPassColorAttachment {
+          ops: Operations {
+            load: LoadOp::Load,
+            store: StoreOp::Store,
+          },
+          resolve_target: None,
+          view: &frame.texture.create_view(&TextureViewDescriptor::default()),
+        })],
+        depth_stencil_attachment: None,
+        label: label!(),
+        occlusion_query_set: None,
+        timestamp_writes: None,
+      });
+
+      pass.set_bind_group(
+        0,
+        Some(&self.bindings().composite_bind_group),
+        &[self.uniform_buffer_stride * uniforms],
+      );
+
+      pass.set_pipeline(&self.render_pipeline);
+
+      pass.draw(0..3, 0..1);
+    }
+
+    self.queue.submit([encoder.finish()]);
 
     frame.present();
 
@@ -644,7 +687,7 @@ impl Renderer {
         height: self.resolution,
         width: self.resolution,
       },
-      usage: TextureUsages::TEXTURE_BINDING,
+      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
       view_formats: &[self.texture_format],
     });
 
@@ -659,9 +702,36 @@ impl Renderer {
       &targets[1].texture_view,
     );
 
+    let overlay_texture = self.device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D2,
+      format: TextureFormat::Rgba8Unorm,
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
+      usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+      view_formats: &[TextureFormat::Rgba8Unorm],
+    });
+
+    let overlay_view = overlay_texture.create_view(&TextureViewDescriptor::default());
+
+    let composite_bind_group = self.bind_group(
+      &self.frequency_view,
+      &image_view,
+      &self.sample_view,
+      &overlay_view,
+    );
+
     self.bindings = Some(Bindings {
       bind_group,
       targets,
+      image_view,
+      overlay_view,
+      composite_bind_group,
     });
   }
 

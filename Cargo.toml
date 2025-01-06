@@ -24,6 +24,7 @@ cast-precision-loss = "allow"
 pedantic = { level = "deny", priority = -1 }
 similar-names = "allow"
 struct-excessive-bools = "allow"
+struct_field_names = "allow"
 too-many-arguments = "allow"
 too-many-lines = "allow"
 wildcard-imports = "allow"
