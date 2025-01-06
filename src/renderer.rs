@@ -224,14 +224,6 @@ impl Renderer {
       entries: &[
         BindGroupEntry {
           binding: binding(),
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::TextureView(frequencies),
-        },
-        BindGroupEntry {
-          binding: binding(),
           resource: BindingResource::TextureView(back),
         },
         BindGroupEntry {
@@ -240,11 +232,19 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: binding(),
-          resource: BindingResource::TextureView(samples),
+          resource: BindingResource::TextureView(frequencies),
         },
         BindGroupEntry {
           binding: binding(),
           resource: BindingResource::TextureView(front),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(samples),
         },
         BindGroupEntry {
           binding: binding(),
@@ -268,6 +268,16 @@ impl Renderer {
     };
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       entries: &[
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
         BindGroupLayoutEntry {
           binding: binding(),
           count: None,
@@ -307,16 +317,6 @@ impl Renderer {
             multisampled: false,
             sample_type: TextureSampleType::Float { filterable: false },
             view_dimension: TextureViewDimension::D1,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
           },
           visibility: ShaderStages::FRAGMENT,
         },
