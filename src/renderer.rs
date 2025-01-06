@@ -339,6 +339,40 @@ impl Renderer {
     self.bindings.as_ref().unwrap()
   }
 
+  fn draw(
+    &self,
+    bind_group: &BindGroup,
+    encoder: &mut CommandEncoder,
+    tiling: Option<(Tiling, u32)>,
+    uniform: u32,
+    view: &TextureView,
+  ) {
+    let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+      color_attachments: &[Some(RenderPassColorAttachment {
+        ops: Operations {
+          load: LoadOp::Load,
+          store: StoreOp::Store,
+        },
+        resolve_target: None,
+        view,
+      })],
+      depth_stencil_attachment: None,
+      label: label!(),
+      occlusion_query_set: None,
+      timestamp_writes: None,
+    });
+
+    pass.set_bind_group(0, Some(bind_group), &[self.uniform_buffer_stride * uniform]);
+
+    pass.set_pipeline(&self.render_pipeline);
+
+    if let Some((tiling, filter)) = tiling {
+      tiling.set_viewport(&mut pass, filter);
+    }
+
+    pass.draw(0..3, 0..1);
+  }
+
   pub(crate) fn render(
     &mut self,
     options: &Options,
@@ -492,66 +526,28 @@ impl Renderer {
     let mut uniforms = 0;
 
     for i in 0..filters.len() {
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        color_attachments: &[Some(RenderPassColorAttachment {
-          ops: Operations {
-            load: LoadOp::Load,
-            store: StoreOp::Store,
-          },
-          resolve_target: None,
-          view: &self.bindings().targets[destination].texture_view,
-        })],
-        depth_stencil_attachment: None,
-        label: label!(),
-        occlusion_query_set: None,
-        timestamp_writes: None,
-      });
-
-      pass.set_bind_group(
-        0,
-        Some(&self.bindings().targets[source].bind_group),
-        &[self.uniform_buffer_stride * uniforms],
+      self.draw(
+        &self.bindings().targets[source].bind_group,
+        &mut encoder,
+        Some((tiling, i.try_into().unwrap())),
+        uniforms,
+        &self.bindings().targets[destination].texture_view,
       );
-
-      pass.set_pipeline(&self.render_pipeline);
-
-      tiling.set_viewport(&mut pass, i.try_into().unwrap());
-
-      pass.draw(0..3, 0..1);
 
       uniforms += 1;
 
       (source, destination) = (destination, source);
     }
 
-    {
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        color_attachments: &[Some(RenderPassColorAttachment {
-          ops: Operations {
-            load: LoadOp::Load,
-            store: StoreOp::Store,
-          },
-          resolve_target: None,
-          view: &self.bindings().image,
-        })],
-        depth_stencil_attachment: None,
-        label: label!(),
-        occlusion_query_set: None,
-        timestamp_writes: None,
-      });
+    self.draw(
+      &self.bindings().tiling_bind_group,
+      &mut encoder,
+      None,
+      uniforms,
+      &self.bindings().image,
+    );
 
-      pass.set_bind_group(
-        0,
-        Some(&self.bindings().tiling_bind_group),
-        &[self.uniform_buffer_stride * uniforms],
-      );
-
-      pass.set_pipeline(&self.render_pipeline);
-
-      pass.draw(0..3, 0..1);
-
-      uniforms += 1;
-    }
+    uniforms += 1;
 
     let mut scene = vello::Scene::new();
 
@@ -607,32 +603,13 @@ impl Renderer {
       )
       .expect("Failed to render to surface");
 
-    {
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        color_attachments: &[Some(RenderPassColorAttachment {
-          ops: Operations {
-            load: LoadOp::Load,
-            store: StoreOp::Store,
-          },
-          resolve_target: None,
-          view: &frame.texture.create_view(&TextureViewDescriptor::default()),
-        })],
-        depth_stencil_attachment: None,
-        label: label!(),
-        occlusion_query_set: None,
-        timestamp_writes: None,
-      });
-
-      pass.set_bind_group(
-        0,
-        Some(&self.bindings().overlay_bind_group),
-        &[self.uniform_buffer_stride * uniforms],
-      );
-
-      pass.set_pipeline(&self.render_pipeline);
-
-      pass.draw(0..3, 0..1);
-    }
+    self.draw(
+      &self.bindings().overlay_bind_group,
+      &mut encoder,
+      None,
+      uniforms,
+      &frame.texture.create_view(&TextureViewDescriptor::default()),
+    );
 
     self.queue.submit([encoder.finish()]);
 
