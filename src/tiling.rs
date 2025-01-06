@@ -7,7 +7,7 @@ pub(crate) struct Tiling {
 }
 
 impl Tiling {
-  pub(crate) fn image_read(self, filters: u32) -> bool {
+  pub(crate) fn back_read(self, filters: u32) -> bool {
     if self.size == 1 {
       filters % 2 == 0
     } else {
@@ -66,7 +66,7 @@ impl Tiling {
     Vec2f::new(col as f32 / self.size as f32, row as f32 / self.size as f32)
   }
 
-  pub(crate) fn source_read(self, filters: u32) -> bool {
+  pub(crate) fn front_read(self, filters: u32) -> bool {
     if self.size == 1 {
       filters % 2 == 1
     } else {

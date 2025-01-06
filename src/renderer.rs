@@ -209,9 +209,9 @@ impl Renderer {
   fn bind_group(
     &self,
     frequencies: &TextureView,
-    image: &TextureView,
+    back: &TextureView,
     samples: &TextureView,
-    source: &TextureView,
+    front: &TextureView,
   ) -> BindGroup {
     let mut i = 0;
     let mut binding = || {
@@ -232,7 +232,7 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: binding(),
-          resource: BindingResource::TextureView(image),
+          resource: BindingResource::TextureView(back),
         },
         BindGroupEntry {
           binding: binding(),
@@ -244,7 +244,7 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: binding(),
-          resource: BindingResource::TextureView(source),
+          resource: BindingResource::TextureView(front),
         },
         BindGroupEntry {
           binding: binding(),
@@ -435,67 +435,65 @@ impl Renderer {
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
+        back_read: false,
         color: filter.color,
         coordinates: filter.coordinates,
         field: filter.field,
         filters: filter_count,
         fit: false,
         frequency_range,
-        image_read: false,
+        front_offset: tiling.source_offset(i),
         index: i,
         offset: tiling.offset(i),
         position: filter.position,
         repeat: false,
         resolution: tiling.resolution(),
         sample_range,
-        source_offset: tiling.source_offset(i),
-        source_read: true,
+        front_read: true,
         tiling: tiling.size,
         wrap: filter.wrap,
       });
     }
 
-    {
-      uniforms.push(Uniforms {
-        color: Mat4f::identity(),
-        coordinates: false,
-        field: Field::None,
-        filters: filter_count,
-        fit: options.fit,
-        frequency_range,
-        image_read: tiling.image_read(filter_count),
-        index: filter_count,
-        offset: Vec2f::default(),
-        position: Mat3f::identity(),
-        repeat: options.repeat,
-        resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
-        sample_range,
-        source_offset: Vec2f::new(0.0, 0.0),
-        source_read: tiling.source_read(filter_count),
-        tiling: 1,
-        wrap: false,
-      });
+    uniforms.push(Uniforms {
+      back_read: tiling.back_read(filter_count),
+      color: Mat4f::identity(),
+      coordinates: false,
+      field: Field::None,
+      filters: filter_count,
+      fit: options.fit,
+      frequency_range,
+      front_offset: Vec2f::new(0.0, 0.0),
+      index: filter_count,
+      offset: Vec2f::default(),
+      position: Mat3f::identity(),
+      repeat: options.repeat,
+      resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
+      sample_range,
+      front_read: tiling.front_read(filter_count),
+      tiling: 1,
+      wrap: false,
+    });
 
-      uniforms.push(Uniforms {
-        color: Mat4f::identity(),
-        coordinates: false,
-        field: Field::None,
-        filters: filter_count,
-        fit: options.fit,
-        frequency_range,
-        image_read: true,
-        index: filter_count,
-        offset: Vec2f::default(),
-        position: Mat3f::identity(),
-        repeat: options.repeat,
-        resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
-        sample_range,
-        source_offset: Vec2f::new(0.0, 0.0),
-        source_read: true,
-        tiling: 1,
-        wrap: false,
-      });
-    }
+    uniforms.push(Uniforms {
+      back_read: true,
+      color: Mat4f::identity(),
+      coordinates: false,
+      field: Field::None,
+      filters: filter_count,
+      fit: options.fit,
+      frequency_range,
+      front_offset: Vec2f::new(0.0, 0.0),
+      index: filter_count,
+      offset: Vec2f::default(),
+      position: Mat3f::identity(),
+      repeat: options.repeat,
+      resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+      sample_range,
+      front_read: true,
+      tiling: 1,
+      wrap: false,
+    });
 
     self.write_uniform_buffer(&uniforms);
 
@@ -523,7 +521,6 @@ impl Renderer {
 
     let mut source = 0;
     let mut destination = 1;
-
     for i in 0..filters.len() {
       let i = u32::try_from(i).unwrap();
       self.draw(
@@ -533,7 +530,6 @@ impl Renderer {
         i,
         &self.bindings().targets[destination].texture_view,
       );
-
       (source, destination) = (destination, source);
     }
 
@@ -689,7 +685,7 @@ impl Renderer {
     });
   }
 
-  fn target(&self, image_view: &TextureView) -> Target {
+  fn target(&self, back: &TextureView) -> Target {
     let texture = self.device.create_texture(&TextureDescriptor {
       dimension: TextureDimension::D2,
       format: self.texture_format,
@@ -707,12 +703,7 @@ impl Renderer {
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
-    let bind_group = self.bind_group(
-      &self.frequency_view,
-      image_view,
-      &self.sample_view,
-      &texture_view,
-    );
+    let bind_group = self.bind_group(&self.frequency_view, back, &self.sample_view, &texture_view);
 
     Target {
       bind_group,
