@@ -586,8 +586,10 @@ impl Renderer {
     let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
 
     let font = match file {
-      FileRef::Collection(c) => c.get(self.font.index).context(error::FontRead)?,
-      FileRef::Font(f) => f,
+      FileRef::Collection(collection) => {
+        collection.get(self.font.index).context(error::FontRead)?
+      }
+      FileRef::Font(font) => font,
     };
 
     let charmap = font.charmap();
