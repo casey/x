@@ -581,18 +581,17 @@ impl Renderer {
 
     let font_size = 64.0;
 
-    let file_ref = FileRef::new(self.font.data.as_ref()).unwrap();
+    let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
 
-    let font_ref = match file_ref {
-      FileRef::Font(f) => Some(f),
-      FileRef::Collection(c) => c.get(self.font.index).ok(),
-    }
-    .unwrap();
+    let font = match file {
+      FileRef::Collection(c) => c.get(self.font.index).context(error::FontRead)?,
+      FileRef::Font(f) => f,
+    };
 
-    let charmap = font_ref.charmap();
+    let charmap = font.charmap();
     let settings: [(&str, f32); 0] = [];
-    let location = font_ref.axes().location(settings.iter().copied());
-    let metrics = font_ref.glyph_metrics(Size::new(font_size), &location);
+    let location = font.axes().location(settings.iter().copied());
+    let metrics = font.glyph_metrics(Size::new(font_size), &location);
     let mut x = 0.0;
     scene
       .draw_glyphs(&self.font)

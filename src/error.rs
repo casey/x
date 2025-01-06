@@ -44,6 +44,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("failed to read font"))]
+  FontRead {
+    backtrace: Option<Backtrace>,
+    source: skrifa::outline::error::ReadError,
+  },
   #[snafu(display("failed to select font `{name}`"))]
   FontSelection {
     backtrace: Option<Backtrace>,
