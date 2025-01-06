@@ -570,41 +570,50 @@ impl Renderer {
   }
 
   pub(crate) fn render_overlay(&mut self) -> Result {
-    let mut scene = vello::Scene::new();
+    use {
+      kurbo::Affine,
+      peniko::{Brush, Color, Fill},
+      skrifa::{instance::Size, raw::FileRef},
+      vello::{AaConfig, Glyph, RenderParams, Scene},
+    };
+
+    let mut scene = Scene::new();
 
     let font_size = 64.0;
 
-    let file_ref = skrifa::raw::FileRef::new(self.font.data.as_ref()).unwrap();
+    let file_ref = FileRef::new(self.font.data.as_ref()).unwrap();
 
     let font_ref = match file_ref {
-      skrifa::raw::FileRef::Font(f) => Some(f),
-      skrifa::raw::FileRef::Collection(c) => c.get(self.font.index).ok(),
+      FileRef::Font(f) => Some(f),
+      FileRef::Collection(c) => c.get(self.font.index).ok(),
     }
     .unwrap();
 
     let charmap = font_ref.charmap();
-    let settings: Vec<(&str, f32)> = Vec::new();
-    let var_loc = font_ref.axes().location(settings.iter().copied());
-    let metrics = font_ref.glyph_metrics(skrifa::instance::Size::new(font_size), &var_loc);
-    let mut pen_x = 0f32;
-    let pen_y = 0f32;
+    let settings: [(&str, f32); 0] = [];
+    let location = font_ref.axes().location(settings.iter().copied());
+    let metrics = font_ref.glyph_metrics(Size::new(font_size), &location);
+    let mut x = 0f32;
     scene
       .draw_glyphs(&self.font)
       .font_size(font_size)
-      .brush(&peniko::Brush::Solid(peniko::Color::WHITE))
-      .transform(kurbo::Affine::translate((110.0, 700.0)))
+      .brush(&Brush::Solid(Color::WHITE))
+      .transform(Affine::translate((110.0, 700.0)))
       .glyph_transform(None)
       .draw(
-        peniko::Fill::NonZero,
+        Fill::NonZero,
         "hello world".chars().map(|c| {
-          let x = pen_x;
           let gid = charmap.map(c).unwrap_or_default();
-          pen_x += metrics.advance_width(gid).unwrap_or_default();
-          vello::Glyph {
+
+          let glyph = Glyph {
             id: gid.into(),
             x,
-            y: pen_y,
-          }
+            y: 0.0,
+          };
+
+          x += metrics.advance_width(gid).unwrap_or_default();
+
+          glyph
         }),
       );
 
@@ -615,11 +624,11 @@ impl Renderer {
         &self.queue,
         &scene,
         &self.bindings.as_ref().unwrap().overlay,
-        &vello::RenderParams {
-          base_color: peniko::Color::TRANSPARENT,
+        &RenderParams {
+          base_color: Color::TRANSPARENT,
           width: self.resolution,
           height: self.resolution,
-          antialiasing_method: vello::AaConfig::Msaa16,
+          antialiasing_method: AaConfig::Msaa16,
         },
       )
       .context(error::RenderOverlay)?;
