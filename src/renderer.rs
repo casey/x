@@ -395,7 +395,7 @@ impl Renderer {
 
     let fps = if self.frame_times.len() >= 2 {
       let elapsed = *self.frame_times.back().unwrap() - *self.frame_times.front().unwrap();
-      Some(1000.0 / (elapsed.as_millis() as f64 / self.frame_times.len() as f64))
+      Some(1000.0 / (elapsed.as_millis() as f32 / self.frame_times.len() as f32))
     } else {
       None
     };
@@ -541,7 +541,9 @@ impl Renderer {
       &self.bindings().tiling,
     );
 
-    self.render_overlay()?;
+    if let Some(fps) = fps {
+      self.render_overlay(fps)?;
+    }
 
     self.draw(
       &self.bindings().overlay_bind_group,
@@ -569,7 +571,7 @@ impl Renderer {
     Ok(())
   }
 
-  pub(crate) fn render_overlay(&mut self) -> Result {
+  pub(crate) fn render_overlay(&mut self, fps: f32) -> Result {
     use {
       kurbo::Affine,
       peniko::{Brush, Color, Fill},
@@ -594,7 +596,9 @@ impl Renderer {
     let metrics = font.glyph_metrics(Size::new(font_size), &location);
     let mut x = 0.0;
 
-    let glyphs = "hello world"
+    let glyphs = fps
+      .floor()
+      .to_string()
       .chars()
       .map(|character| {
         let id = charmap
