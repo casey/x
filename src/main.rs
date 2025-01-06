@@ -16,13 +16,15 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
-    num::NonZeroUsize,
+    io,
+    path::PathBuf,
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
   },
   vello::{
-    kurbo, peniko,
+    kurbo,
+    peniko::{self, Font},
     skrifa::{self, MetadataProvider},
   },
   wgpu::{
@@ -81,6 +83,8 @@ type Vec4f = nalgebra::Vector4<f32>;
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;
 
+const FONT: &str = "Helvetica Neue";
+
 fn default<T: Default>() -> T {
   T::default()
 }
@@ -92,6 +96,24 @@ fn invert_color() -> Mat4f {
 fn pad(i: usize, alignment: usize) -> usize {
   assert!(alignment.is_power_of_two());
   (i + alignment - 1) & !(alignment - 1)
+}
+
+fn load_font(name: &str) -> Result<Font> {
+  use font_kit::handle::Handle;
+
+  let font = font_kit::source::SystemSource::new()
+    .select_by_postscript_name(name)
+    .context(error::FontSelection { name })?;
+
+  let (font_data, font_index) = match font {
+    Handle::Memory { bytes, font_index } => (bytes, font_index),
+    Handle::Path { path, font_index } => (
+      Arc::new(std::fs::read(&path).context(error::FilesystemIo { path })?),
+      font_index,
+    ),
+  };
+
+  Ok(Font::new(peniko::Blob::new(font_data), font_index))
 }
 
 fn run() -> Result<(), Error> {

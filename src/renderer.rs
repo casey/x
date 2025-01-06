@@ -1,16 +1,17 @@
 use super::*;
 
 pub struct Renderer {
-  font: peniko::Font,
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
   config: SurfaceConfiguration,
   device: Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
+  font: Font,
   frame: u64,
   frame_times: VecDeque<Instant>,
   frequencies: Texture,
   frequency_view: TextureView,
+  overlay_renderer: vello::Renderer,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -23,7 +24,6 @@ pub struct Renderer {
   uniform_buffer: Buffer,
   uniform_buffer_size: u32,
   uniform_buffer_stride: u32,
-  vello_renderer: vello::Renderer,
 }
 
 impl Renderer {
@@ -164,42 +164,29 @@ impl Renderer {
 
     let resolution = options.resolution(size);
 
-    let vello_renderer = vello::Renderer::new(
+    let overlay_renderer = vello::Renderer::new(
       &device,
       vello::RendererOptions {
         antialiasing_support: vello::AaSupport::all(),
-        num_init_threads: NonZeroUsize::new(1),
+        num_init_threads: Some(1.try_into().unwrap()),
         surface_format: None,
         use_cpu: false,
       },
     )
-    .expect("Failed to create renderer");
-
-    let font = font_kit::source::SystemSource::new()
-      .select_by_postscript_name("Helvetica Neue")
-      .unwrap();
-
-    let font = match font {
-      font_kit::handle::Handle::Path { path, font_index } => peniko::Font::new(
-        peniko::Blob::new(Arc::new(std::fs::read(path).unwrap())),
-        font_index,
-      ),
-      font_kit::handle::Handle::Memory { bytes, font_index } => {
-        peniko::Font::new(peniko::Blob::new(bytes), font_index)
-      }
-    };
+    .context(error::CreateOverlayRenderer)?;
 
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
       config,
       device,
-      font,
       error_channel,
+      font: load_font(FONT)?,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       frequencies,
       frequency_view,
+      overlay_renderer,
       queue,
       render_pipeline,
       resolution,
@@ -212,7 +199,6 @@ impl Renderer {
       uniform_buffer,
       uniform_buffer_size,
       uniform_buffer_stride,
-      vello_renderer,
     };
 
     renderer.resize(options, size);
@@ -609,14 +595,14 @@ impl Renderer {
       );
 
     self
-      .vello_renderer
+      .overlay_renderer
       .render_to_texture(
         &self.device,
         &self.queue,
         &scene,
         &self.bindings.as_ref().unwrap().overlay_view,
         &vello::RenderParams {
-          base_color: vello::peniko::color::palette::css::TRANSPARENT,
+          base_color: peniko::Color::TRANSPARENT,
           width: self.resolution,
           height: self.resolution,
           antialiasing_method: vello::AaConfig::Msaa16,
