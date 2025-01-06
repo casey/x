@@ -44,6 +44,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("could not retrieve glyph for character `{character}`"))]
+  FontGlyph {
+    backtrace: Option<Backtrace>,
+    character: char,
+  },
   #[snafu(display("failed to read font"))]
   FontRead {
     backtrace: Option<Backtrace>,

@@ -593,28 +593,33 @@ impl Renderer {
     let location = font.axes().location(settings.iter().copied());
     let metrics = font.glyph_metrics(Size::new(font_size), &location);
     let mut x = 0.0;
+
+    let glyphs = "hello world"
+      .chars()
+      .map(|character| {
+        let id = charmap
+          .map(character)
+          .context(error::FontGlyph { character })?;
+
+        let glyph = Glyph {
+          id: id.into(),
+          x,
+          y: 0.0,
+        };
+
+        x += metrics.advance_width(id).unwrap_or_default();
+
+        Ok(glyph)
+      })
+      .collect::<Result<Vec<Glyph>>>()?;
+
     scene
       .draw_glyphs(&self.font)
       .font_size(font_size)
       .brush(&Brush::Solid(Color::WHITE))
       .transform(Affine::translate((110.0, 700.0)))
       .glyph_transform(None)
-      .draw(
-        Fill::NonZero,
-        "hello world".chars().map(|c| {
-          let id = charmap.map(c).unwrap_or_default();
-
-          let glyph = Glyph {
-            id: id.into(),
-            x,
-            y: 0.0,
-          };
-
-          x += metrics.advance_width(id).unwrap_or_default();
-
-          glyph
-        }),
-      );
+      .draw(Fill::NonZero, glyphs.into_iter());
 
     self
       .overlay_renderer
