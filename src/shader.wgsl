@@ -27,7 +27,7 @@ var samples: texture_1d<f32>;
 var<uniform> uniforms: Uniforms;
 
 const ERROR_COLOR = vec4(0.0, 1.0, 0.0, 1.0);
-const BLACK = vec4(0.0, 0.0, 0.0, 1.0);
+const TRANSPARENT = vec4(0.0, 0.0, 0.0, 1.0);
 
 const FIELD_ALL: u32 = 0;
 const FIELD_CIRCLE: u32 = 1;
@@ -141,28 +141,34 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     uv = fract(uv);
   }
 
-  var input = BLACK;
+  var front_color = TRANSPARENT;
 
-  if bool(uniforms.coordinates) {
-    input = vec4(uv, 1.0, 1.0);
-  } else if bool(uniforms.front_read) && read(uv) {
-    // convert uv coordinates to tile source coordinates
-    var tile_uv = uv / f32(uniforms.tiling) + uniforms.front_offset;
+  if bool(uniforms.front_read) && read(uv) {
+    if bool(uniforms.coordinates) {
+      front_color = vec4(uv, 1.0, 1.0);
+    } else {
+      // convert uv coordinates to tile source coordinates
+      var tile_uv = uv / f32(uniforms.tiling) + uniforms.front_offset;
 
-    if uniforms.index < uniforms.filters {
-      // scale to compensate for tiles not taking up full front texture
-      let scale = uniforms.resolution * f32(uniforms.tiling)
-        / vec2f(textureDimensions(front, 0));
-      tile_uv *= scale;
+      if uniforms.index < uniforms.filters {
+        // scale to compensate for tiles not taking up full front texture
+        let scale = uniforms.resolution * f32(uniforms.tiling)
+          / vec2f(textureDimensions(front, 0));
+        tile_uv *= scale;
+      }
+
+      // read the input color
+      front_color = textureSample(front, filtering_sampler, tile_uv);
     }
-
-    // read the input color
-    input = textureSample(front, filtering_sampler, tile_uv);
   }
+
+  var back_color = TRANSPARENT;
 
   if bool(uniforms.back_read) && read(uv) {
-    input += textureSample(back, filtering_sampler, uv);
+    back_color = textureSample(back, filtering_sampler, uv);
   }
+
+  let input = vec4(front_color.rgb * front_color.a + back_color.rgb * (1 - front_color.a), 1.0);
 
   var on: bool;
 
