@@ -524,9 +524,6 @@ impl Renderer {
       (source, destination) = (destination, source);
     }
 
-    // final pass composites textures and renders to screen
-    // instead render to texture and blit to screen
-    // will also help for screenshots, since i can download texture
     {
       let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
         color_attachments: &[Some(RenderPassColorAttachment {
