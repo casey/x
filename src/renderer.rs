@@ -728,10 +728,10 @@ impl Renderer {
 
     self.bindings = Some(Bindings {
       bind_group,
-      targets,
+      composite_bind_group,
       image_view,
       overlay_view,
-      composite_bind_group,
+      targets,
     });
   }
 
