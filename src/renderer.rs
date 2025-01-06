@@ -591,8 +591,7 @@ impl Renderer {
     };
 
     let charmap = font.charmap();
-    let settings: [(&str, f32); 0] = [];
-    let location = font.axes().location(settings.iter().copied());
+    let location = font.axes().location(Vec::<(&str, f32)>::new());
     let metrics = font.glyph_metrics(Size::new(font_size), &location);
     let mut x = 0.0;
 
