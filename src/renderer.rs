@@ -532,7 +532,7 @@ impl Renderer {
             store: StoreOp::Store,
           },
           resolve_target: None,
-          view: &self.bindings().image_view,
+          view: &self.bindings().image,
         })],
         depth_stencil_attachment: None,
         label: label!(),
@@ -597,7 +597,7 @@ impl Renderer {
         &self.device,
         &self.queue,
         &scene,
-        &self.bindings.as_ref().unwrap().overlay_view,
+        &self.bindings.as_ref().unwrap().overlay,
         &vello::RenderParams {
           base_color: peniko::Color::TRANSPARENT,
           width: self.resolution,
@@ -659,24 +659,25 @@ impl Renderer {
     self.size = Vec2u::new(size.width, size.height);
     self.surface.configure(&self.device, &self.config);
 
-    let image_texture = self.device.create_texture(&TextureDescriptor {
-      dimension: TextureDimension::D2,
-      format: self.texture_format,
-      label: label!(),
-      mip_level_count: 1,
-      sample_count: 1,
-      size: Extent3d {
-        depth_or_array_layers: 1,
-        height: self.resolution,
-        width: self.resolution,
-      },
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      view_formats: &[self.texture_format],
-    });
+    let image = self
+      .device
+      .create_texture(&TextureDescriptor {
+        dimension: TextureDimension::D2,
+        format: self.texture_format,
+        label: label!(),
+        mip_level_count: 1,
+        sample_count: 1,
+        size: Extent3d {
+          depth_or_array_layers: 1,
+          height: self.resolution,
+          width: self.resolution,
+        },
+        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[self.texture_format],
+      })
+      .create_view(&TextureViewDescriptor::default());
 
-    let image_view = image_texture.create_view(&TextureViewDescriptor::default());
-
-    let targets = [self.target(&image_view), self.target(&image_view)];
+    let targets = [self.target(&image), self.target(&image)];
 
     let bind_group = self.bind_group(
       &self.frequency_view,
@@ -685,35 +686,32 @@ impl Renderer {
       &targets[1].texture_view,
     );
 
-    let overlay_texture = self.device.create_texture(&TextureDescriptor {
-      dimension: TextureDimension::D2,
-      format: TextureFormat::Rgba8Unorm,
-      label: label!(),
-      mip_level_count: 1,
-      sample_count: 1,
-      size: Extent3d {
-        depth_or_array_layers: 1,
-        height: self.resolution,
-        width: self.resolution,
-      },
-      usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-      view_formats: &[TextureFormat::Rgba8Unorm],
-    });
+    let overlay = self
+      .device
+      .create_texture(&TextureDescriptor {
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Rgba8Unorm,
+        label: label!(),
+        mip_level_count: 1,
+        sample_count: 1,
+        size: Extent3d {
+          depth_or_array_layers: 1,
+          height: self.resolution,
+          width: self.resolution,
+        },
+        usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[TextureFormat::Rgba8Unorm],
+      })
+      .create_view(&TextureViewDescriptor::default());
 
-    let overlay_view = overlay_texture.create_view(&TextureViewDescriptor::default());
-
-    let composite_bind_group = self.bind_group(
-      &self.frequency_view,
-      &image_view,
-      &self.sample_view,
-      &overlay_view,
-    );
+    let composite_bind_group =
+      self.bind_group(&self.frequency_view, &image, &self.sample_view, &overlay);
 
     self.bindings = Some(Bindings {
       bind_group,
       composite_bind_group,
-      image_view,
-      overlay_view,
+      image,
+      overlay,
       targets,
     });
   }
