@@ -655,11 +655,12 @@ impl Renderer {
       &targets[1].texture_view,
     );
 
+    let overlay_format = vello::low_level::ImageFormat::Rgba8.to_wgpu();
     let overlay = self
       .device
       .create_texture(&TextureDescriptor {
         dimension: TextureDimension::D2,
-        format: TextureFormat::Rgba8Unorm,
+        format: overlay_format,
         label: label!(),
         mip_level_count: 1,
         sample_count: 1,
@@ -669,7 +670,7 @@ impl Renderer {
           width: self.resolution,
         },
         usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-        view_formats: &[TextureFormat::Rgba8Unorm],
+        view_formats: &[overlay_format],
       })
       .create_view(&TextureViewDescriptor::default());
 
