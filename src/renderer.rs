@@ -542,7 +542,7 @@ impl Renderer {
 
       pass.set_bind_group(
         0,
-        Some(&self.bindings().bind_group),
+        Some(&self.bindings().tiling_bind_group),
         &[self.uniform_buffer_stride * uniforms],
       );
 
@@ -625,7 +625,7 @@ impl Renderer {
 
       pass.set_bind_group(
         0,
-        Some(&self.bindings().composite_bind_group),
+        Some(&self.bindings().overlay_bind_group),
         &[self.uniform_buffer_stride * uniforms],
       );
 
@@ -679,7 +679,7 @@ impl Renderer {
 
     let targets = [self.target(&image), self.target(&image)];
 
-    let bind_group = self.bind_group(
+    let tiling_bind_group = self.bind_group(
       &self.frequency_view,
       &targets[0].texture_view,
       &self.sample_view,
@@ -704,15 +704,15 @@ impl Renderer {
       })
       .create_view(&TextureViewDescriptor::default());
 
-    let composite_bind_group =
+    let overlay_bind_group =
       self.bind_group(&self.frequency_view, &image, &self.sample_view, &overlay);
 
     self.bindings = Some(Bindings {
-      bind_group,
-      composite_bind_group,
       image,
       overlay,
+      overlay_bind_group,
       targets,
+      tiling_bind_group,
     });
   }
 
