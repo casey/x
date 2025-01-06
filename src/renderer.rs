@@ -593,7 +593,7 @@ impl Renderer {
     let settings: [(&str, f32); 0] = [];
     let location = font_ref.axes().location(settings.iter().copied());
     let metrics = font_ref.glyph_metrics(Size::new(font_size), &location);
-    let mut x = 0f32;
+    let mut x = 0.0;
     scene
       .draw_glyphs(&self.font)
       .font_size(font_size)
@@ -603,15 +603,15 @@ impl Renderer {
       .draw(
         Fill::NonZero,
         "hello world".chars().map(|c| {
-          let gid = charmap.map(c).unwrap_or_default();
+          let id = charmap.map(c).unwrap_or_default();
 
           let glyph = Glyph {
-            id: gid.into(),
+            id: id.into(),
             x,
             y: 0.0,
           };
 
-          x += metrics.advance_width(gid).unwrap_or_default();
+          x += metrics.advance_width(id).unwrap_or_default();
 
           glyph
         }),
