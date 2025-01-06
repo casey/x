@@ -542,7 +542,7 @@ impl Renderer {
       &mut encoder,
       None,
       filter_count,
-      &self.bindings().image,
+      &self.bindings().tiling,
     );
 
     let mut scene = vello::Scene::new();
@@ -632,7 +632,7 @@ impl Renderer {
     self.size = Vec2u::new(size.width, size.height);
     self.surface.configure(&self.device, &self.config);
 
-    let image = self
+    let tiling = self
       .device
       .create_texture(&TextureDescriptor {
         dimension: TextureDimension::D2,
@@ -650,7 +650,7 @@ impl Renderer {
       })
       .create_view(&TextureViewDescriptor::default());
 
-    let targets = [self.target(&image), self.target(&image)];
+    let targets = [self.target(&tiling), self.target(&tiling)];
 
     let tiling_bind_group = self.bind_group(
       &self.frequency_view,
@@ -678,13 +678,13 @@ impl Renderer {
       .create_view(&TextureViewDescriptor::default());
 
     let overlay_bind_group =
-      self.bind_group(&self.frequency_view, &image, &self.sample_view, &overlay);
+      self.bind_group(&self.frequency_view, &tiling, &self.sample_view, &overlay);
 
     self.bindings = Some(Bindings {
-      image,
       overlay,
       overlay_bind_group,
       targets,
+      tiling,
       tiling_bind_group,
     });
   }
