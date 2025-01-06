@@ -93,11 +93,6 @@ fn invert_color() -> Mat4f {
   Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0))
 }
 
-fn pad(i: usize, alignment: usize) -> usize {
-  assert!(alignment.is_power_of_two());
-  (i + alignment - 1) & !(alignment - 1)
-}
-
 fn load_font(name: &str) -> Result<Font> {
   use font_kit::handle::Handle;
 
@@ -114,6 +109,11 @@ fn load_font(name: &str) -> Result<Font> {
   };
 
   Ok(Font::new(peniko::Blob::new(font_data), font_index))
+}
+
+fn pad(i: usize, alignment: usize) -> usize {
+  assert!(alignment.is_power_of_two());
+  (i + alignment - 1) & !(alignment - 1)
 }
 
 fn run() -> Result<(), Error> {
