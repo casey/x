@@ -6,10 +6,13 @@ pub struct Renderer {
   config: SurfaceConfiguration,
   device: Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
+  font: Font,
   frame: u64,
   frame_times: VecDeque<Instant>,
   frequencies: Texture,
   frequency_view: TextureView,
+  overlay_renderer: vello::Renderer,
+  overlay_scene: vello::Scene,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -162,16 +165,30 @@ impl Renderer {
 
     let resolution = options.resolution(size);
 
+    let overlay_renderer = vello::Renderer::new(
+      &device,
+      vello::RendererOptions {
+        antialiasing_support: vello::AaSupport::all(),
+        num_init_threads: Some(1.try_into().unwrap()),
+        surface_format: None,
+        use_cpu: false,
+      },
+    )
+    .context(error::CreateOverlayRenderer)?;
+
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
       config,
       device,
       error_channel,
+      font: load_font(FONT)?,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       frequencies,
       frequency_view,
+      overlay_renderer,
+      overlay_scene: vello::Scene::new(),
       queue,
       render_pipeline,
       resolution,
@@ -193,10 +210,10 @@ impl Renderer {
 
   fn bind_group(
     &self,
+    back: &TextureView,
     frequencies: &TextureView,
-    image: &TextureView,
+    front: &TextureView,
     samples: &TextureView,
-    source: &TextureView,
   ) -> BindGroup {
     let mut i = 0;
     let mut binding = || {
@@ -209,6 +226,10 @@ impl Renderer {
       entries: &[
         BindGroupEntry {
           binding: binding(),
+          resource: BindingResource::TextureView(back),
+        },
+        BindGroupEntry {
+          binding: binding(),
           resource: BindingResource::Sampler(&self.sampler),
         },
         BindGroupEntry {
@@ -217,7 +238,7 @@ impl Renderer {
         },
         BindGroupEntry {
           binding: binding(),
-          resource: BindingResource::TextureView(image),
+          resource: BindingResource::TextureView(front),
         },
         BindGroupEntry {
           binding: binding(),
@@ -226,10 +247,6 @@ impl Renderer {
         BindGroupEntry {
           binding: binding(),
           resource: BindingResource::TextureView(samples),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::TextureView(source),
         },
         BindGroupEntry {
           binding: binding(),
@@ -253,6 +270,16 @@ impl Renderer {
     };
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
       entries: &[
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
         BindGroupLayoutEntry {
           binding: binding(),
           count: None,
@@ -298,16 +325,6 @@ impl Renderer {
         BindGroupLayoutEntry {
           binding: binding(),
           count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
           ty: BindingType::Buffer {
             has_dynamic_offset: true,
             min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
@@ -322,6 +339,40 @@ impl Renderer {
 
   fn bindings(&self) -> &Bindings {
     self.bindings.as_ref().unwrap()
+  }
+
+  fn draw(
+    &self,
+    bind_group: &BindGroup,
+    encoder: &mut CommandEncoder,
+    tiling: Option<(Tiling, u32)>,
+    uniform: u32,
+    view: &TextureView,
+  ) {
+    let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+      color_attachments: &[Some(RenderPassColorAttachment {
+        ops: Operations {
+          load: LoadOp::Load,
+          store: StoreOp::Store,
+        },
+        resolve_target: None,
+        view,
+      })],
+      depth_stencil_attachment: None,
+      label: label!(),
+      occlusion_query_set: None,
+      timestamp_writes: None,
+    });
+
+    pass.set_bind_group(0, Some(bind_group), &[self.uniform_buffer_stride * uniform]);
+
+    pass.set_pipeline(&self.render_pipeline);
+
+    if let Some((tiling, filter)) = tiling {
+      tiling.set_viewport(&mut pass, filter);
+    }
+
+    pass.draw(0..3, 0..1);
   }
 
   pub(crate) fn render(
@@ -346,7 +397,7 @@ impl Renderer {
 
     let fps = if self.frame_times.len() >= 2 {
       let elapsed = *self.frame_times.back().unwrap() - *self.frame_times.front().unwrap();
-      Some(1000.0 / (elapsed.as_millis() as f64 / self.frame_times.len() as f64))
+      Some(1000.0 / (elapsed.as_millis() as f32 / self.frame_times.len() as f32))
     } else {
       None
     };
@@ -381,52 +432,70 @@ impl Renderer {
     let frequency_range = frequency_count as f32 / self.frequencies.width() as f32;
     self.write_texture(frequencies, &self.frequencies);
 
+    let filter_count = u32::try_from(filters.len()).unwrap();
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
+        back_read: false,
         color: filter.color,
         coordinates: filter.coordinates,
         field: filter.field,
-        filters: filters.len().try_into().unwrap(),
+        filters: filter_count,
         fit: false,
         frequency_range,
-        image_read: false,
+        front_offset: tiling.source_offset(i),
         index: i,
         offset: tiling.offset(i),
         position: filter.position,
         repeat: false,
         resolution: tiling.resolution(),
         sample_range,
-        source_offset: tiling.source_offset(i),
-        source_read: true,
+        front_read: true,
         tiling: tiling.size,
         wrap: filter.wrap,
       });
     }
 
-    {
-      let filters = filters.len().try_into().unwrap();
+    uniforms.push(Uniforms {
+      back_read: tiling.back_read(filter_count),
+      color: Mat4f::identity(),
+      coordinates: false,
+      field: Field::None,
+      filters: filter_count,
+      fit: options.fit,
+      frequency_range,
+      front_offset: Vec2f::new(0.0, 0.0),
+      index: filter_count,
+      offset: Vec2f::default(),
+      position: Mat3f::identity(),
+      repeat: options.repeat,
+      resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
+      sample_range,
+      front_read: tiling.front_read(filter_count),
+      tiling: 1,
+      wrap: false,
+    });
 
-      uniforms.push(Uniforms {
-        color: Mat4f::identity(),
-        coordinates: false,
-        field: Field::None,
-        filters,
-        fit: options.fit,
-        frequency_range,
-        image_read: tiling.image_read(filters),
-        index: filters,
-        offset: Vec2f::default(),
-        position: Mat3f::identity(),
-        repeat: options.repeat,
-        resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
-        sample_range,
-        source_offset: Vec2f::new(0.0, 0.0),
-        source_read: tiling.source_read(filters),
-        tiling: 1,
-        wrap: false,
-      });
-    }
+    uniforms.push(Uniforms {
+      back_read: true,
+      color: Mat4f::identity(),
+      coordinates: false,
+      field: Field::None,
+      filters: filter_count,
+      fit: options.fit,
+      frequency_range,
+      front_offset: Vec2f::new(0.0, 0.0),
+      index: filter_count,
+      offset: Vec2f::default(),
+      position: Mat3f::identity(),
+      repeat: options.repeat,
+      resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+      sample_range,
+      front_read: true,
+      tiling: 1,
+      wrap: false,
+    });
 
     self.write_uniform_buffer(&uniforms);
 
@@ -454,67 +523,37 @@ impl Renderer {
 
     let mut source = 0;
     let mut destination = 1;
-    let mut uniforms = 0;
-
     for i in 0..filters.len() {
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        color_attachments: &[Some(RenderPassColorAttachment {
-          ops: Operations {
-            load: LoadOp::Load,
-            store: StoreOp::Store,
-          },
-          resolve_target: None,
-          view: &self.bindings().targets[destination].texture_view,
-        })],
-        depth_stencil_attachment: None,
-        label: label!(),
-        occlusion_query_set: None,
-        timestamp_writes: None,
-      });
-
-      pass.set_bind_group(
-        0,
-        Some(&self.bindings().targets[source].bind_group),
-        &[self.uniform_buffer_stride * uniforms],
+      let i = u32::try_from(i).unwrap();
+      self.draw(
+        &self.bindings().targets[source].bind_group,
+        &mut encoder,
+        Some((tiling, i)),
+        i,
+        &self.bindings().targets[destination].texture_view,
       );
-
-      pass.set_pipeline(&self.render_pipeline);
-
-      tiling.set_viewport(&mut pass, i.try_into().unwrap());
-
-      pass.draw(0..3, 0..1);
-
-      uniforms += 1;
-
       (source, destination) = (destination, source);
     }
 
-    {
-      let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-        color_attachments: &[Some(RenderPassColorAttachment {
-          ops: Operations {
-            load: LoadOp::Load,
-            store: StoreOp::Store,
-          },
-          resolve_target: None,
-          view: &frame.texture.create_view(&TextureViewDescriptor::default()),
-        })],
-        depth_stencil_attachment: None,
-        label: label!(),
-        occlusion_query_set: None,
-        timestamp_writes: None,
-      });
+    self.draw(
+      &self.bindings().tiling_bind_group,
+      &mut encoder,
+      None,
+      filter_count,
+      &self.bindings().tiling,
+    );
 
-      pass.set_bind_group(
-        0,
-        Some(&self.bindings().bind_group),
-        &[self.uniform_buffer_stride * uniforms],
-      );
-
-      pass.set_pipeline(&self.render_pipeline);
-
-      pass.draw(0..3, 0..1);
+    if let Some(fps) = fps {
+      self.render_overlay(options, fps)?;
     }
+
+    self.draw(
+      &self.bindings().overlay_bind_group,
+      &mut encoder,
+      None,
+      filter_count + 1,
+      &frame.texture.create_view(&TextureViewDescriptor::default()),
+    );
 
     self.queue.submit([encoder.finish()]);
 
@@ -534,6 +573,115 @@ impl Renderer {
     Ok(())
   }
 
+  pub(crate) fn render_overlay(&mut self, options: &Options, fps: f32) -> Result {
+    use {
+      kurbo::{Affine, Rect, Vec2},
+      peniko::{Brush, Color, Fill},
+      skrifa::{instance::Size, raw::FileRef},
+      vello::{AaConfig, Glyph, RenderParams},
+    };
+
+    self.overlay_scene.reset();
+
+    let text = fps.floor().to_string();
+
+    let bounds = if options.fit {
+      Rect {
+        x0: 0.0,
+        y0: 0.0,
+        x1: self.resolution as f64,
+        y1: self.resolution as f64,
+      }
+    } else {
+      let dy = self
+        .size
+        .x
+        .checked_sub(self.size.y)
+        .map(|dy| dy as f64 / 2.0)
+        .unwrap_or_default();
+
+      let dx = self
+        .size
+        .y
+        .checked_sub(self.size.x)
+        .map(|dx| dx as f64 / 2.0)
+        .unwrap_or_default();
+
+      Rect {
+        x0: dx,
+        y0: dy,
+        x1: self.size.x as f64 + dx,
+        y1: self.size.y as f64 + dy,
+      }
+    };
+
+    let font_size = 32.0;
+
+    let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
+
+    let font = match file {
+      FileRef::Collection(collection) => {
+        collection.get(self.font.index).context(error::FontRead)?
+      }
+      FileRef::Font(font) => font,
+    };
+
+    let charmap = font.charmap();
+    let location = font.axes().location(Vec::<(&str, f32)>::new());
+    let metrics = font.metrics(Size::new(font_size), &location);
+    let glyph_metrics = font.glyph_metrics(Size::new(font_size), &location);
+    let mut x = 0.0;
+
+    let glyphs = text
+      .chars()
+      .map(|character| {
+        let id = charmap
+          .map(character)
+          .context(error::FontGlyph { character })?;
+
+        let glyph = Glyph {
+          id: id.into(),
+          x,
+          y: 0.0,
+        };
+
+        x += glyph_metrics.advance_width(id).unwrap_or_default();
+
+        Ok(glyph)
+      })
+      .collect::<Result<Vec<Glyph>>>()?;
+
+    self
+      .overlay_scene
+      .draw_glyphs(&self.font)
+      .font_size(font_size)
+      .brush(&Brush::Solid(Color::WHITE))
+      .transform(Affine::translate(Vec2 {
+        x: bounds.x0 + 10.0 - metrics.descent as f64,
+        y: bounds.y1 - 10.0 + metrics.descent as f64,
+      }))
+      .glyph_transform(None)
+      .draw(Fill::NonZero, glyphs.into_iter());
+
+    self
+      .overlay_renderer
+      .render_to_texture(
+        &self.device,
+        &self.queue,
+        &self.overlay_scene,
+        &self.bindings.as_ref().unwrap().overlay,
+        &RenderParams {
+          base_color: Color::TRANSPARENT,
+          width: self.resolution,
+          height: self.resolution,
+          antialiasing_method: AaConfig::Msaa16,
+        },
+      )
+      .context(error::RenderOverlay)?;
+
+    Ok(())
+  }
+
   pub(crate) fn resize(&mut self, options: &Options, size: PhysicalSize<u32>) {
     self.config.height = size.height.max(1);
     self.config.width = size.width.max(1);
@@ -541,39 +689,64 @@ impl Renderer {
     self.size = Vec2u::new(size.width, size.height);
     self.surface.configure(&self.device, &self.config);
 
-    let image_texture = self.device.create_texture(&TextureDescriptor {
-      dimension: TextureDimension::D2,
-      format: self.texture_format,
-      label: label!(),
-      mip_level_count: 1,
-      sample_count: 1,
-      size: Extent3d {
-        depth_or_array_layers: 1,
-        height: self.resolution,
-        width: self.resolution,
-      },
-      usage: TextureUsages::TEXTURE_BINDING,
-      view_formats: &[self.texture_format],
-    });
+    let tiling = self
+      .device
+      .create_texture(&TextureDescriptor {
+        dimension: TextureDimension::D2,
+        format: self.texture_format,
+        label: label!(),
+        mip_level_count: 1,
+        sample_count: 1,
+        size: Extent3d {
+          depth_or_array_layers: 1,
+          height: self.resolution,
+          width: self.resolution,
+        },
+        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[self.texture_format],
+      })
+      .create_view(&TextureViewDescriptor::default());
 
-    let image_view = image_texture.create_view(&TextureViewDescriptor::default());
+    let targets = [self.target(&tiling), self.target(&tiling)];
 
-    let targets = [self.target(&image_view), self.target(&image_view)];
-
-    let bind_group = self.bind_group(
-      &self.frequency_view,
+    let tiling_bind_group = self.bind_group(
       &targets[0].texture_view,
-      &self.sample_view,
+      &self.frequency_view,
       &targets[1].texture_view,
+      &self.sample_view,
     );
 
+    let overlay = self
+      .device
+      .create_texture(&TextureDescriptor {
+        dimension: TextureDimension::D2,
+        format: TextureFormat::Rgba8Unorm,
+        label: label!(),
+        mip_level_count: 1,
+        sample_count: 1,
+        size: Extent3d {
+          depth_or_array_layers: 1,
+          height: self.resolution,
+          width: self.resolution,
+        },
+        usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+        view_formats: &[TextureFormat::Rgba8Unorm],
+      })
+      .create_view(&TextureViewDescriptor::default());
+
+    let overlay_bind_group =
+      self.bind_group(&tiling, &self.frequency_view, &overlay, &self.sample_view);
+
     self.bindings = Some(Bindings {
-      bind_group,
+      overlay,
+      overlay_bind_group,
       targets,
+      tiling,
+      tiling_bind_group,
     });
   }
 
-  fn target(&self, image_view: &TextureView) -> Target {
+  fn target(&self, back: &TextureView) -> Target {
     let texture = self.device.create_texture(&TextureDescriptor {
       dimension: TextureDimension::D2,
       format: self.texture_format,
@@ -591,12 +764,7 @@ impl Renderer {
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
-    let bind_group = self.bind_group(
-      &self.frequency_view,
-      image_view,
-      &self.sample_view,
-      &texture_view,
-    );
+    let bind_group = self.bind_group(back, &self.frequency_view, &texture_view, &self.sample_view);
 
     Target {
       bind_group,

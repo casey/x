@@ -16,22 +16,29 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    io,
+    path::PathBuf,
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
   },
+  vello::{
+    kurbo,
+    peniko::{self, Font},
+    skrifa::{self, MetadataProvider},
+  },
   wgpu::{
     include_wgsl, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoderDescriptor,
-    Device, DeviceDescriptor, Extent3d, Features, FragmentState, ImageSubresourceRange, Instance,
-    Limits, LoadOp, MemoryHints, MultisampleState, Operations, PipelineCompilationOptions,
-    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
-    Surface, SurfaceConfiguration, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-    TextureViewDimension, VertexState,
+    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoder,
+    CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
+    ImageSubresourceRange, Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
+    PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue,
+    RenderPass, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerBindingType,
+    SamplerDescriptor, ShaderStages, StoreOp, Surface, SurfaceConfiguration, Texture,
+    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension, VertexState,
   },
   winit::{
     application::ApplicationHandler,
@@ -76,12 +83,32 @@ type Vec4f = nalgebra::Vector4<f32>;
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;
 
+const FONT: &str = "Helvetica Neue";
+
 fn default<T: Default>() -> T {
   T::default()
 }
 
 fn invert_color() -> Mat4f {
   Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0))
+}
+
+fn load_font(name: &str) -> Result<Font> {
+  use font_kit::handle::Handle;
+
+  let font = font_kit::source::SystemSource::new()
+    .select_by_postscript_name(name)
+    .context(error::FontSelection { name })?;
+
+  let (font_data, font_index) = match font {
+    Handle::Memory { bytes, font_index } => (bytes, font_index),
+    Handle::Path { path, font_index } => (
+      Arc::new(std::fs::read(&path).context(error::FilesystemIo { path })?),
+      font_index,
+    ),
+  };
+
+  Ok(Font::new(peniko::Blob::new(font_data), font_index))
 }
 
 fn pad(i: usize, alignment: usize) -> usize {
