@@ -12,6 +12,7 @@ pub struct Renderer {
   frequencies: Texture,
   frequency_view: TextureView,
   overlay_renderer: vello::Renderer,
+  overlay_scene: vello::Scene,
   queue: Queue,
   render_pipeline: RenderPipeline,
   resolution: u32,
@@ -187,6 +188,7 @@ impl Renderer {
       frequencies,
       frequency_view,
       overlay_renderer,
+      overlay_scene: vello::Scene::new(),
       queue,
       render_pipeline,
       resolution,
@@ -576,12 +578,12 @@ impl Renderer {
       kurbo::{Affine, Rect, Vec2},
       peniko::{Brush, Color, Fill},
       skrifa::{instance::Size, raw::FileRef},
-      vello::{AaConfig, Glyph, RenderParams, Scene},
+      vello::{AaConfig, Glyph, RenderParams},
     };
 
-    let text = fps.floor().to_string();
+    self.overlay_scene.reset();
 
-    let mut scene = Scene::new();
+    let text = fps.floor().to_string();
 
     let bounds = if options.fit {
       Rect {
@@ -649,7 +651,8 @@ impl Renderer {
       })
       .collect::<Result<Vec<Glyph>>>()?;
 
-    scene
+    self
+      .overlay_scene
       .draw_glyphs(&self.font)
       .font_size(font_size)
       .brush(&Brush::Solid(Color::WHITE))
@@ -665,7 +668,7 @@ impl Renderer {
       .render_to_texture(
         &self.device,
         &self.queue,
-        &scene,
+        &self.overlay_scene,
         &self.bindings.as_ref().unwrap().overlay,
         &RenderParams {
           base_color: Color::TRANSPARENT,
