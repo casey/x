@@ -208,10 +208,10 @@ impl Renderer {
 
   fn bind_group(
     &self,
-    frequencies: &TextureView,
     back: &TextureView,
-    samples: &TextureView,
+    frequencies: &TextureView,
     front: &TextureView,
+    samples: &TextureView,
   ) -> BindGroup {
     let mut i = 0;
     let mut binding = || {
@@ -707,10 +707,10 @@ impl Renderer {
     let targets = [self.target(&tiling), self.target(&tiling)];
 
     let tiling_bind_group = self.bind_group(
-      &self.frequency_view,
       &targets[0].texture_view,
-      &self.sample_view,
+      &self.frequency_view,
       &targets[1].texture_view,
+      &self.sample_view,
     );
 
     let overlay = self
@@ -732,7 +732,7 @@ impl Renderer {
       .create_view(&TextureViewDescriptor::default());
 
     let overlay_bind_group =
-      self.bind_group(&self.frequency_view, &tiling, &self.sample_view, &overlay);
+      self.bind_group(&tiling, &self.frequency_view, &overlay, &self.sample_view);
 
     self.bindings = Some(Bindings {
       overlay,
@@ -761,7 +761,7 @@ impl Renderer {
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
 
-    let bind_group = self.bind_group(&self.frequency_view, back, &self.sample_view, &texture_view);
+    let bind_group = self.bind_group(back, &self.frequency_view, &texture_view, &self.sample_view);
 
     Target {
       bind_group,
