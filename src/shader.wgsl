@@ -26,8 +26,8 @@ var samples: texture_1d<f32>;
 @binding(6)
 var<uniform> uniforms: Uniforms;
 
-const BLACK = vec4(0.0, 0.0, 0.0, 1.0);
 const ERROR = vec4(0.0, 1.0, 0.0, 1.0);
+const TRANSPARENT = vec4(0.0, 0.0, 0.0, 0.0);
 
 const FIELD_ALL: u32 = 0;
 const FIELD_CIRCLE: u32 = 1;
@@ -141,7 +141,7 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     uv = fract(uv);
   }
 
-  var front_color = BLACK;
+  var front_color = TRANSPARENT;
 
   if bool(uniforms.front_read) && read(uv) {
     if bool(uniforms.coordinates) {
@@ -162,7 +162,7 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     }
   }
 
-  var back_color = BLACK;
+  var back_color = TRANSPARENT;
 
   if bool(uniforms.back_read) && read(uv) {
     back_color = textureSample(back, filtering_sampler, uv);
