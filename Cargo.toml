@@ -20,6 +20,7 @@ winit = "0.30.5"
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
+cast-lossless = "allow"
 cast-precision-loss = "allow"
 pedantic = { level = "deny", priority = -1 }
 similar-names = "allow"
