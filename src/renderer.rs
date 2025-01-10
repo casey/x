@@ -579,9 +579,6 @@ impl Renderer {
       vello::{AaConfig, Glyph, RenderParams, Scene},
     };
 
-    // todo:
-    // - if doing options.fit, need to add interpolation
-
     let text = fps.floor().to_string();
 
     let mut scene = Scene::new();
