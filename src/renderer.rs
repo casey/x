@@ -542,7 +542,7 @@ impl Renderer {
     );
 
     if let Some(fps) = fps {
-      self.render_overlay(fps)?;
+      self.render_overlay(options, fps)?;
     }
 
     self.draw(
@@ -571,87 +571,97 @@ impl Renderer {
     Ok(())
   }
 
-  pub(crate) fn render_overlay(&mut self, fps: f32) -> Result {
+  pub(crate) fn render_overlay(&mut self, options: &Options, fps: f32) -> Result {
     use {
-      kurbo::{Affine, Rect, Stroke, Vec2},
+      kurbo::{Affine, Rect, Vec2},
       peniko::{Brush, Color, Fill},
       skrifa::{instance::Size, raw::FileRef},
       vello::{AaConfig, Glyph, RenderParams, Scene},
     };
 
     // todo:
-    // - maybe first draw a box and make it fit?
-    // - first, fit to upper left corner
-    // - should respect options.fit
-    // - font should resize
-    // - lower to bottom
+    // - if doing options.fit, need to add interpolation
 
     let text = fps.floor().to_string();
 
     let mut scene = Scene::new();
 
-    let stroke = Stroke::new(1.0);
-    let stroke_color = Color::new([1.0, 1.0, 1.0, 1.0]);
-
-    scene.stroke(
-      &stroke,
-      Affine::IDENTITY,
-      stroke_color,
-      None,
-      &Rect {
+    let bounds = if options.fit {
+      Rect {
         x0: 0.0,
         y0: 0.0,
-        x1: self.size.x as f64,
-        y1: self.size.y as f64,
-      },
-    );
+        x1: self.resolution as f64,
+        y1: self.resolution as f64,
+      }
+    } else {
+      let dy = self
+        .size
+        .x
+        .checked_sub(self.size.y)
+        .map(|dy| dy as f64 / 2.0)
+        .unwrap_or_default();
 
-    // let font_size = self.size.x.min(self.size.y) as f32 * 0.10;
+      let dx = self
+        .size
+        .y
+        .checked_sub(self.size.x)
+        .map(|dx| dx as f64 / 2.0)
+        .unwrap_or_default();
 
-    // let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
+      Rect {
+        x0: dx,
+        y0: dy,
+        x1: self.size.x as f64 + dx,
+        y1: self.size.y as f64 + dy,
+      }
+    };
 
-    // let font = match file {
-    //   FileRef::Collection(collection) => {
-    //     collection.get(self.font.index).context(error::FontRead)?
-    //   }
-    //   FileRef::Font(font) => font,
-    // };
+    let font_size = 32.0;
 
-    // let charmap = font.charmap();
-    // let location = font.axes().location(Vec::<(&str, f32)>::new());
-    // let metrics = font.metrics(Size::new(font_size), &location);
-    // let glyph_metrics = font.glyph_metrics(Size::new(font_size), &location);
-    // let mut x = 0.0;
+    let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
 
-    // let glyphs = text
-    //   .chars()
-    //   .map(|character| {
-    //     let id = charmap
-    //       .map(character)
-    //       .context(error::FontGlyph { character })?;
+    let font = match file {
+      FileRef::Collection(collection) => {
+        collection.get(self.font.index).context(error::FontRead)?
+      }
+      FileRef::Font(font) => font,
+    };
 
-    //     let glyph = Glyph {
-    //       id: id.into(),
-    //       x,
-    //       y: 0.0,
-    //     };
+    let charmap = font.charmap();
+    let location = font.axes().location(Vec::<(&str, f32)>::new());
+    let metrics = font.metrics(Size::new(font_size), &location);
+    let glyph_metrics = font.glyph_metrics(Size::new(font_size), &location);
+    let mut x = 0.0;
 
-    //     x += glyph_metrics.advance_width(id).unwrap_or_default();
+    let glyphs = text
+      .chars()
+      .map(|character| {
+        let id = charmap
+          .map(character)
+          .context(error::FontGlyph { character })?;
 
-    //     Ok(glyph)
-    //   })
-    //   .collect::<Result<Vec<Glyph>>>()?;
+        let glyph = Glyph {
+          id: id.into(),
+          x,
+          y: 0.0,
+        };
 
-    // scene
-    //   .draw_glyphs(&self.font)
-    //   .font_size(font_size)
-    //   .brush(&Brush::Solid(Color::WHITE))
-    //   .transform(Affine::translate(Vec2 {
-    //     x: 0.0,
-    //     y: metrics.ascent as f64,
-    //   }))
-    //   .glyph_transform(None)
-    //   .draw(Fill::NonZero, glyphs.into_iter());
+        x += glyph_metrics.advance_width(id).unwrap_or_default();
+
+        Ok(glyph)
+      })
+      .collect::<Result<Vec<Glyph>>>()?;
+
+    scene
+      .draw_glyphs(&self.font)
+      .font_size(font_size)
+      .brush(&Brush::Solid(Color::WHITE))
+      .transform(Affine::translate(Vec2 {
+        x: bounds.x0 + 10.0 - metrics.descent as f64,
+        y: bounds.y1 - 10.0 + metrics.descent as f64,
+      }))
+      .glyph_transform(None)
+      .draw(Fill::NonZero, glyphs.into_iter());
 
     self
       .overlay_renderer
