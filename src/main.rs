@@ -16,8 +16,9 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    fs::File,
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
@@ -136,7 +137,44 @@ fn run() -> Result<(), Error> {
   Ok(())
 }
 
+fn play() {
+  use symphonia::core::{io::MediaSourceStream, probe::Hint};
+
+  let path = Path::new("/Users/rodarmor/Music/Music/Media.localized/Music/seagaia/Anodyne/49 Old Generic Boss _The Street_ (Extra).mp3");
+
+  let mut hint = Hint::new();
+
+  if let Some(extension) = path.extension().and_then(|extension| extension.to_str()) {
+    hint.with_extension(extension);
+  }
+
+  let file = File::open(path).unwrap();
+
+  let mss = MediaSourceStream::new(Box::new(file), default());
+
+  let symphonia::core::probe::ProbeResult {
+    format: mut reader,
+    metadata: _metadata,
+  } = symphonia::default::get_probe()
+    .format(&hint, mss, &default(), &default())
+    .unwrap();
+
+  let track = &reader.tracks()[0];
+
+  let mut decoder = symphonia::default::get_codecs()
+    .make(&track.codec_params, &default())
+    .unwrap();
+
+  loop {
+    let packet = reader.next_packet().unwrap();
+    let samples = decoder.decode(&packet).unwrap();
+    dbg!(samples.frames());
+  }
+}
+
 fn main() {
+  play();
+
   if let Err(err) = run() {
     eprintln!("error: {err}");
 

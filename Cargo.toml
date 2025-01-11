@@ -14,6 +14,7 @@ nalgebra = "0.33.2"
 pollster = "0.4.0"
 rustfft = "6.2.0"
 snafu = "0.8.5"
+symphonia = { version = "0.5.4", features = [ "all-codecs", "all-formats" ] }
 vello = { git = "https://github.com/linebender/vello.git" }
 wgpu = "23.0.0"
 winit = "0.30.5"
