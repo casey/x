@@ -795,17 +795,17 @@ impl Renderer {
 
   fn write_texture(&self, data: &[f32], destination: &Texture) {
     self.queue.write_texture(
-      wgpu::ImageCopyTexture {
+      TexelCopyTextureInfo {
         texture: destination,
         mip_level: 0,
-        origin: wgpu::Origin3d { x: 0, y: 0, z: 0 },
+        origin: Origin3d { x: 0, y: 0, z: 0 },
         aspect: TextureAspect::All,
       },
       &data
         .iter()
         .flat_map(|value| value.to_le_bytes())
         .collect::<Vec<u8>>(),
-      wgpu::ImageDataLayout {
+      TexelCopyBufferLayout {
         offset: 0,
         bytes_per_row: None,
         rows_per_image: None,
