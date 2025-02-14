@@ -170,7 +170,6 @@ impl Renderer {
       vello::RendererOptions {
         antialiasing_support: vello::AaSupport::all(),
         num_init_threads: Some(1.try_into().unwrap()),
-        surface_format: None,
         use_cpu: false,
       },
     )

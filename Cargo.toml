@@ -13,7 +13,7 @@ log = "0.4.22"
 nalgebra = "0.33.2"
 pollster = "0.4.0"
 rustfft = "6.2.0"
-skrifa = "0.26.5"
+skrifa = "0.28.0"
 snafu = "0.8.5"
 vello = { git = "https://github.com/linebender/vello.git" }
 wgpu = "24.0.1"
