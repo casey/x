@@ -3,10 +3,12 @@ use super::*;
 pub struct Renderer {
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
+  capture: Vec<u8>,
   config: SurfaceConfiguration,
   device: Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
   font: Font,
+  format: Format,
   frame: u64,
   frame_times: VecDeque<Instant>,
   frequencies: Texture,
@@ -21,7 +23,6 @@ pub struct Renderer {
   samples: Texture,
   size: Vec2u,
   surface: Surface<'static>,
-  texture_format: TextureFormat,
   uniform_buffer: Buffer,
   uniform_buffer_size: u32,
   uniform_buffer_stride: u32,
@@ -65,7 +66,7 @@ impl Renderer {
 
     device.on_uncaptured_error(Box::new(move |error| tx.send(error).unwrap()));
 
-    let texture_format = surface.get_capabilities(&adapter).formats[0];
+    let format = Format::try_from(surface.get_capabilities(&adapter).formats[0])?;
 
     let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
 
@@ -114,7 +115,7 @@ impl Renderer {
         compilation_options: PipelineCompilationOptions::default(),
         entry_point: Some("fragment"),
         module: &shader,
-        targets: &[Some(texture_format.into())],
+        targets: &[Some(TextureFormat::from(format).into())],
       }),
       label: label!(),
       layout: Some(&pipeline_layout),
@@ -178,10 +179,12 @@ impl Renderer {
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
+      capture: Vec::new(),
       config,
       device,
       error_channel,
       font: load_font(FONT)?,
+      format,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       frequencies,
@@ -196,7 +199,6 @@ impl Renderer {
       samples,
       size: Vec2u::new(size.width, size.height),
       surface,
-      texture_format,
       uniform_buffer,
       uniform_buffer_size,
       uniform_buffer_stride,
@@ -338,6 +340,82 @@ impl Renderer {
 
   fn bindings(&self) -> &Bindings {
     self.bindings.as_ref().unwrap()
+  }
+
+  pub(crate) async fn capture(&mut self) -> Result {
+    let mut encoder = self
+      .device
+      .create_command_encoder(&CommandEncoderDescriptor::default());
+
+    encoder.copy_texture_to_buffer(
+      TexelCopyTextureInfo {
+        texture: &self.bindings().tiling_texture,
+        mip_level: 0,
+        origin: Origin3d::ZERO,
+        aspect: TextureAspect::All,
+      },
+      TexelCopyBufferInfo {
+        buffer: &self.bindings().capture,
+        layout: TexelCopyBufferLayout {
+          bytes_per_row: Some(self.resolution * 4), // todo: must be a multiple of 256
+          rows_per_image: None,
+          offset: 0,
+        },
+      },
+      Extent3d {
+        width: self.resolution,
+        height: self.resolution,
+        depth_or_array_layers: 1,
+      },
+    );
+
+    self.queue.submit([encoder.finish()]);
+
+    let (tx, rx) = flume::bounded(1);
+
+    let capture = &self.bindings.as_mut().unwrap().capture;
+
+    let slice = capture.slice(..);
+
+    slice.map_async(MapMode::Read, move |result| {
+      tx.send(result).unwrap();
+    });
+
+    assert!(matches!(
+      self.device.poll(Maintain::wait()),
+      MaintainResult::SubmissionQueueEmpty
+    ));
+
+    rx.recv_async()
+      .await
+      .unwrap()
+      .context(error::CaptureBufferMap)?;
+
+    let view = slice.get_mapped_range();
+
+    self.capture.resize(view.len(), 0);
+    let size = self.format.size().into_usize();
+    for (src, dst) in view.chunks(size).zip(self.capture.chunks_mut(size)) {
+      self.format.swizzle(src, dst);
+    }
+
+    let file = File::create("capture.png").unwrap();
+
+    let writer = BufWriter::new(file);
+
+    let mut encoder = png::Encoder::new(writer, self.resolution, self.resolution);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+
+    let mut writer = encoder.write_header().unwrap();
+
+    writer.write_image_data(&self.capture).unwrap();
+
+    drop(view);
+
+    capture.unmap();
+
+    Ok(())
   }
 
   fn draw(
@@ -542,9 +620,7 @@ impl Renderer {
       &self.bindings().tiling,
     );
 
-    if let Some(fps) = fps {
-      self.render_overlay(options, fps)?;
-    }
+    self.render_overlay(options, fps)?;
 
     self.draw(
       &self.bindings().overlay_bind_group,
@@ -572,7 +648,7 @@ impl Renderer {
     Ok(())
   }
 
-  pub(crate) fn render_overlay(&mut self, options: &Options, fps: f32) -> Result {
+  pub(crate) fn render_overlay(&mut self, options: &Options, fps: Option<f32>) -> Result {
     use {
       kurbo::{Affine, Rect, Vec2},
       peniko::{Brush, Color, Fill},
@@ -582,7 +658,7 @@ impl Renderer {
 
     self.overlay_scene.reset();
 
-    let text = fps.floor().to_string();
+    let text = fps.map(|fps| fps.floor().to_string()).unwrap_or_default();
 
     let bounds = if options.fit {
       Rect {
@@ -688,23 +764,24 @@ impl Renderer {
     self.size = Vec2u::new(size.width, size.height);
     self.surface.configure(&self.device, &self.config);
 
-    let tiling = self
-      .device
-      .create_texture(&TextureDescriptor {
-        dimension: TextureDimension::D2,
-        format: self.texture_format,
-        label: label!(),
-        mip_level_count: 1,
-        sample_count: 1,
-        size: Extent3d {
-          depth_or_array_layers: 1,
-          height: self.resolution,
-          width: self.resolution,
-        },
-        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-        view_formats: &[self.texture_format],
-      })
-      .create_view(&TextureViewDescriptor::default());
+    let tiling_texture = self.device.create_texture(&TextureDescriptor {
+      dimension: TextureDimension::D2,
+      format: self.format.into(),
+      label: label!(),
+      mip_level_count: 1,
+      sample_count: 1,
+      size: Extent3d {
+        depth_or_array_layers: 1,
+        height: self.resolution,
+        width: self.resolution,
+      },
+      usage: TextureUsages::RENDER_ATTACHMENT
+        | TextureUsages::TEXTURE_BINDING
+        | TextureUsages::COPY_SRC,
+      view_formats: &[self.format.into()],
+    });
+
+    let tiling = tiling_texture.create_view(&TextureViewDescriptor::default());
 
     let targets = [self.target(&tiling), self.target(&tiling)];
 
@@ -736,19 +813,28 @@ impl Renderer {
     let overlay_bind_group =
       self.bind_group(&tiling, &self.frequency_view, &overlay, &self.sample_view);
 
+    let capture = self.device.create_buffer(&BufferDescriptor {
+      label: label!(),
+      mapped_at_creation: false,
+      size: (self.resolution * self.resolution * self.format.size()).into(),
+      usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+    });
+
     self.bindings = Some(Bindings {
+      capture,
       overlay,
       overlay_bind_group,
       targets,
       tiling,
       tiling_bind_group,
+      tiling_texture,
     });
   }
 
   fn target(&self, back: &TextureView) -> Target {
     let texture = self.device.create_texture(&TextureDescriptor {
       dimension: TextureDimension::D2,
-      format: self.texture_format,
+      format: self.format.into(),
       label: label!(),
       mip_level_count: 1,
       sample_count: 1,
@@ -758,7 +844,7 @@ impl Renderer {
         width: self.resolution,
       },
       usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
-      view_formats: &[self.texture_format],
+      view_formats: &[self.format.into()],
     });
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
@@ -797,7 +883,7 @@ impl Renderer {
       TexelCopyTextureInfo {
         texture: destination,
         mip_level: 0,
-        origin: Origin3d { x: 0, y: 0, z: 0 },
+        origin: Origin3d::ZERO,
         aspect: TextureAspect::All,
       },
       &data

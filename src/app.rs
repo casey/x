@@ -20,7 +20,10 @@ impl App {
     Ok(Self {
       analyzer: Analyzer::new()?,
       error: None,
-      filters: Vec::new(),
+      filters: vec![Filter {
+        coordinates: true,
+        ..default()
+      }],
       makro: Vec::new(),
       options,
       recording: None,
@@ -29,14 +32,20 @@ impl App {
     })
   }
 
-  fn press(&mut self, key: Key) {
+  fn press(&mut self, event_loop: &ActiveEventLoop, key: Key) {
     let mut capture = true;
 
     match key {
       Key::Character(ref c) => match c.as_str() {
+        ">" => {
+          if let Err(err) = pollster::block_on(self.renderer.as_mut().unwrap().capture()) {
+            self.error = Some(err);
+            event_loop.exit();
+          }
+        }
         "@" => {
           for key in self.makro.clone() {
-            self.press(key);
+            self.press(event_loop, key);
           }
           capture = false;
         }
@@ -149,6 +158,7 @@ impl App {
       event_loop.exit();
       return;
     }
+
     self.window().request_redraw();
   }
 
@@ -211,7 +221,7 @@ impl ApplicationHandler for App {
         event_loop.exit();
       }
       WindowEvent::KeyboardInput { event, .. } if event.state == ElementState::Pressed => {
-        self.press(event.logical_key);
+        self.press(event_loop, event.logical_key);
       }
       WindowEvent::RedrawRequested => {
         self.redraw(event_loop);

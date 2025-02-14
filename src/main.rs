@@ -1,8 +1,8 @@
 use {
   self::{
     analyzer::Analyzer, app::App, bindings::Bindings, error::Error, field::Field, filter::Filter,
-    frame::Frame, into_usize::IntoUsize, options::Options, renderer::Renderer, shared::Shared,
-    tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
+    format::Format, frame::Frame, into_usize::IntoUsize, options::Options, renderer::Renderer,
+    shared::Shared, tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
   },
   clap::Parser,
   cpal::{
@@ -17,7 +17,8 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
-    io,
+    fs::File,
+    io::{self, BufWriter},
     path::PathBuf,
     process,
     sync::{mpsc, Arc, Mutex},
@@ -32,11 +33,12 @@ use {
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
     BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoder,
     CommandEncoderDescriptor, Device, DeviceDescriptor, Extent3d, Features, FragmentState,
-    ImageSubresourceRange, Instance, Limits, LoadOp, MemoryHints, MultisampleState, Operations,
-    Origin3d, PipelineCompilationOptions, PipelineLayoutDescriptor, PowerPreference,
-    PrimitiveState, Queue, RenderPass, RenderPassColorAttachment, RenderPassDescriptor,
-    RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerBindingType,
-    SamplerDescriptor, ShaderStages, StoreOp, Surface, SurfaceConfiguration, TexelCopyBufferLayout,
+    ImageSubresourceRange, Instance, Limits, LoadOp, Maintain, MaintainResult, MapMode,
+    MemoryHints, MultisampleState, Operations, Origin3d, PipelineCompilationOptions,
+    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
+    Surface, SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyBufferLayout,
     TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension,
     TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
     TextureViewDimension, VertexState,
@@ -63,6 +65,7 @@ mod bindings;
 mod error;
 mod field;
 mod filter;
+mod format;
 mod frame;
 mod into_usize;
 mod options;

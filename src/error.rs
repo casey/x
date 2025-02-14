@@ -10,6 +10,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::BuildStreamError,
   },
+  #[snafu(display("failed to map capture buffer"))]
+  CaptureBufferMap {
+    backtrace: Option<Backtrace>,
+    source: wgpu::BufferAsyncError,
+  },
   #[snafu(display("failed to create overlay renderer"))]
   CreateOverlayRenderer {
     backtrace: Option<Backtrace>,
@@ -87,6 +92,11 @@ pub(crate) enum Error {
   SupportedStreamConfigs {
     backtrace: Option<Backtrace>,
     source: cpal::SupportedStreamConfigsError,
+  },
+  #[snafu(display("default texture format {texture_format:?} not supported"))]
+  UnsupportedTextureFormat {
+    backtrace: Option<Backtrace>,
+    texture_format: TextureFormat,
   },
   #[snafu(display("validation failed"))]
   Validation {
