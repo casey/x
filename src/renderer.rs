@@ -392,12 +392,12 @@ impl Renderer {
       .unwrap()
       .context(error::CaptureBufferMap)?;
 
-    let bytes_per_row = (self.resolution * CHANNELS).into_usize();
+    let channels = CHANNELS.into_usize();
+    let bytes_per_row = self.resolution.into_usize() * channels;
     self
       .capture
       .resize(self.resolution.into_usize() * bytes_per_row, 0);
     let view = slice.get_mapped_range();
-    let channels = CHANNELS.into_usize();
     let resolution = self.resolution.into_usize();
     for (src, dst) in view
       .chunks(bytes_per_row_with_padding.into_usize())
