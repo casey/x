@@ -640,7 +640,7 @@ impl Renderer {
       &mut encoder,
       None,
       filter_count,
-      &self.bindings().tiling,
+      &self.bindings().tiling_view,
     );
 
     self.render_overlay(options, fps)?;
@@ -767,7 +767,7 @@ impl Renderer {
         &self.device,
         &self.queue,
         &self.overlay_scene,
-        &self.bindings.as_ref().unwrap().overlay,
+        &self.bindings.as_ref().unwrap().overlay_view,
         &RenderParams {
           base_color: Color::TRANSPARENT,
           width: self.resolution,
@@ -804,9 +804,9 @@ impl Renderer {
       view_formats: &[self.format.into()],
     });
 
-    let tiling = tiling_texture.create_view(&TextureViewDescriptor::default());
+    let tiling_view = tiling_texture.create_view(&TextureViewDescriptor::default());
 
-    let targets = [self.target(&tiling), self.target(&tiling)];
+    let targets = [self.target(&tiling_view), self.target(&tiling_view)];
 
     let tiling_bind_group = self.bind_group(
       &targets[0].texture_view,
@@ -815,7 +815,7 @@ impl Renderer {
       &self.sample_view,
     );
 
-    let overlay = self
+    let overlay_view = self
       .device
       .create_texture(&TextureDescriptor {
         dimension: TextureDimension::D2,
@@ -833,8 +833,12 @@ impl Renderer {
       })
       .create_view(&TextureViewDescriptor::default());
 
-    let overlay_bind_group =
-      self.bind_group(&tiling, &self.frequency_view, &overlay, &self.sample_view);
+    let overlay_bind_group = self.bind_group(
+      &tiling_view,
+      &self.frequency_view,
+      &overlay_view,
+      &self.sample_view,
+    );
 
     let capture = self.device.create_buffer(&BufferDescriptor {
       label: label!(),
@@ -845,12 +849,12 @@ impl Renderer {
 
     self.bindings = Some(Bindings {
       capture,
-      overlay,
       overlay_bind_group,
+      overlay_view,
       targets,
-      tiling,
       tiling_bind_group,
       tiling_texture,
+      tiling_view,
     });
   }
 
