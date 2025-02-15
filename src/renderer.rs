@@ -343,6 +343,8 @@ impl Renderer {
   }
 
   pub(crate) async fn capture(&mut self, path: &Path) -> Result {
+    let bytes_per_row = self.bytes_per_row();
+
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
@@ -357,7 +359,7 @@ impl Renderer {
       TexelCopyBufferInfo {
         buffer: &self.bindings().capture,
         layout: TexelCopyBufferLayout {
-          bytes_per_row: Some(self.bytes_per_row()),
+          bytes_per_row: Some(bytes_per_row),
           rows_per_image: None,
           offset: 0,
         },
@@ -372,8 +374,6 @@ impl Renderer {
     self.queue.submit([encoder.finish()]);
 
     let (tx, rx) = flume::bounded(1);
-
-    let bytes_per_row = self.bytes_per_row().into_usize();
 
     let capture = &self.bindings.as_mut().unwrap().capture;
 
@@ -401,7 +401,7 @@ impl Renderer {
     let channels = CHANNELS.into_usize();
     let resolution = self.resolution.into_usize();
     for (src, dst) in view
-      .chunks(bytes_per_row)
+      .chunks(bytes_per_row.into_usize())
       .zip(self.capture.chunks_mut(resolution * channels))
       .take(resolution)
     {
