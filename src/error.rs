@@ -71,6 +71,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: io::Error,
   },
+  #[snafu(display("internal error: {message}"))]
+  Internal {
+    backtrace: Option<Backtrace>,
+    message: String,
+  },
   #[snafu(display("failed to play audio input stream"))]
   PlayStream {
     backtrace: Option<Backtrace>,
@@ -109,4 +114,10 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: wgpu::Error,
   },
+}
+
+impl Error {
+  pub(crate) fn internal(message: impl Into<String>) -> Self {
+    Internal { message }.build()
+  }
 }

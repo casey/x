@@ -383,10 +383,9 @@ impl Renderer {
       tx.send(result).unwrap();
     });
 
-    assert!(matches!(
-      self.device.poll(Maintain::wait()),
-      MaintainResult::SubmissionQueueEmpty
-    ));
+    let MaintainResult::SubmissionQueueEmpty = self.device.poll(Maintain::wait()) else {
+      return Err(Error::internal("unexpected maintain result"));
+    };
 
     rx.recv_async()
       .await
