@@ -398,7 +398,6 @@ impl Renderer {
       .capture
       .resize(self.resolution.into_usize() * bytes_per_row, 0);
     let view = slice.get_mapped_range();
-    let resolution = self.resolution.into_usize();
     for (src, dst) in view
       .chunks(bytes_per_row_with_padding.into_usize())
       .map(|src| &src[..bytes_per_row])
