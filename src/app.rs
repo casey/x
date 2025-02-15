@@ -20,10 +20,7 @@ impl App {
     Ok(Self {
       analyzer: Analyzer::new()?,
       error: None,
-      filters: vec![Filter {
-        coordinates: true,
-        ..default()
-      }],
+      filters: Vec::new(),
       makro: Vec::new(),
       options,
       recording: None,
