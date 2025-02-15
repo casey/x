@@ -427,6 +427,8 @@ impl Renderer {
       .write_image_data(&self.capture)
       .context(error::PngEncode { path })?;
 
+    writer.finish().context(error::PngEncode { path })?;
+
     drop(view);
 
     capture.unmap();
