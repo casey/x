@@ -342,10 +342,15 @@ impl Renderer {
     self.bindings.as_ref().unwrap()
   }
 
-  pub(crate) async fn capture(&mut self) -> Result {
+  pub(crate) async fn capture(&mut self, path: &Path) -> Result {
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
+
+    // wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
+    //
+    // - buffer must be made larger so that each row has necessary padding
+    // - when copying from buffer, must skip padding bytes
 
     encoder.copy_texture_to_buffer(
       TexelCopyTextureInfo {
@@ -357,7 +362,7 @@ impl Renderer {
       TexelCopyBufferInfo {
         buffer: &self.bindings().capture,
         layout: TexelCopyBufferLayout {
-          bytes_per_row: Some(self.resolution * 4), // todo: must be a multiple of 256
+          bytes_per_row: Some(self.bytes_per_row()),
           rows_per_image: None,
           offset: 0,
         },
@@ -372,6 +377,8 @@ impl Renderer {
     self.queue.submit([encoder.finish()]);
 
     let (tx, rx) = flume::bounded(1);
+
+    let bytes_per_row = self.bytes_per_row().into_usize();
 
     let capture = &self.bindings.as_mut().unwrap().capture;
 
@@ -391,15 +398,27 @@ impl Renderer {
       .unwrap()
       .context(error::CaptureBufferMap)?;
 
+    self.capture.resize(
+      (self.resolution * self.resolution * CHANNELS).into_usize(),
+      0,
+    );
     let view = slice.get_mapped_range();
-
-    self.capture.resize(view.len(), 0);
-    let size = self.format.size().into_usize();
-    for (src, dst) in view.chunks(size).zip(self.capture.chunks_mut(size)) {
-      self.format.swizzle(src, dst);
+    let channels = CHANNELS.into_usize();
+    let resolution = self.resolution.into_usize();
+    for (src, dst) in view
+      .chunks(bytes_per_row)
+      .zip(self.capture.chunks_mut(resolution * channels))
+      .take(resolution)
+    {
+      for (src, dst) in src[..resolution * channels]
+        .chunks(channels)
+        .zip(dst.chunks_mut(channels))
+      {
+        self.format.swizzle(src, dst);
+      }
     }
 
-    let file = File::create("capture.png").unwrap();
+    let file = File::create(path).context(error::FilesystemIo { path })?;
 
     let writer = BufWriter::new(file);
 
@@ -407,15 +426,22 @@ impl Renderer {
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
 
-    let mut writer = encoder.write_header().unwrap();
+    let mut writer = encoder.write_header().context(error::PngEncode { path })?;
 
-    writer.write_image_data(&self.capture).unwrap();
+    writer
+      .write_image_data(&self.capture)
+      .context(error::PngEncode { path })?;
 
     drop(view);
 
     capture.unmap();
 
     Ok(())
+  }
+
+  fn bytes_per_row(&self) -> u32 {
+    const MASK: u32 = COPY_BYTES_PER_ROW_ALIGNMENT - 1;
+    (self.resolution * CHANNELS + MASK) & !MASK
   }
 
   fn draw(
@@ -816,7 +842,7 @@ impl Renderer {
     let capture = self.device.create_buffer(&BufferDescriptor {
       label: label!(),
       mapped_at_creation: false,
-      size: (self.resolution * self.resolution * self.format.size()).into(),
+      size: (self.bytes_per_row() * self.resolution).into(),
       usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
     });
 

@@ -35,7 +35,13 @@ impl App {
     match key {
       Key::Character(ref c) => match c.as_str() {
         ">" => {
-          if let Err(err) = pollster::block_on(self.renderer.as_mut().unwrap().capture()) {
+          if let Err(err) = pollster::block_on(
+            self
+              .renderer
+              .as_mut()
+              .unwrap()
+              .capture("capture.png".as_ref()),
+          ) {
             self.error = Some(err);
             event_loop.exit();
           }

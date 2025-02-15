@@ -6,12 +6,6 @@ pub(crate) enum Format {
 }
 
 impl Format {
-  pub(crate) fn size(self) -> u32 {
-    match self {
-      Self::Bgra8UnormSrgb => 4,
-    }
-  }
-
   pub(crate) fn swizzle(self, src: &[u8], dst: &mut [u8]) {
     match self {
       Self::Bgra8UnormSrgb => {

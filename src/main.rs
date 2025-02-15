@@ -19,7 +19,7 @@ use {
     fmt::{self, Display, Formatter},
     fs::File,
     io::{self, BufWriter},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process,
     sync::{mpsc, Arc, Mutex},
     time::Instant,
@@ -41,7 +41,7 @@ use {
     Surface, SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyBufferLayout,
     TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension,
     TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-    TextureViewDimension, VertexState,
+    TextureViewDimension, VertexState, COPY_BYTES_PER_ROW_ALIGNMENT,
   },
   winit::{
     application::ApplicationHandler,
@@ -87,6 +87,7 @@ type Vec4f = nalgebra::Vector4<f32>;
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;
 
+const CHANNELS: u32 = 4;
 const FONT: &str = "Helvetica Neue";
 
 fn default<T: Default>() -> T {

@@ -76,6 +76,12 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::PlayStreamError,
   },
+  #[snafu(display("failed to encode png at {}", path.display()))]
+  PngEncode {
+    backtrace: Option<Backtrace>,
+    path: PathBuf,
+    source: png::EncodingError,
+  },
   #[snafu(display("failed to render overlay"))]
   RenderOverlay {
     backtrace: Option<Backtrace>,
