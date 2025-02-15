@@ -10,6 +10,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::BuildStreamError,
   },
+  #[snafu(display("failed to map capture buffer"))]
+  CaptureBufferMap {
+    backtrace: Option<Backtrace>,
+    source: wgpu::BufferAsyncError,
+  },
   #[snafu(display("failed to create overlay renderer"))]
   CreateOverlayRenderer {
     backtrace: Option<Backtrace>,
@@ -66,10 +71,21 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: io::Error,
   },
+  #[snafu(display("internal error: {message}"))]
+  Internal {
+    backtrace: Option<Backtrace>,
+    message: String,
+  },
   #[snafu(display("failed to play audio input stream"))]
   PlayStream {
     backtrace: Option<Backtrace>,
     source: cpal::PlayStreamError,
+  },
+  #[snafu(display("failed to encode png at {}", path.display()))]
+  PngEncode {
+    backtrace: Option<Backtrace>,
+    path: PathBuf,
+    source: png::EncodingError,
   },
   #[snafu(display("failed to render overlay"))]
   RenderOverlay {
@@ -88,9 +104,20 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::SupportedStreamConfigsError,
   },
+  #[snafu(display("default texture format {texture_format:?} not supported"))]
+  UnsupportedTextureFormat {
+    backtrace: Option<Backtrace>,
+    texture_format: TextureFormat,
+  },
   #[snafu(display("validation failed"))]
   Validation {
     backtrace: Option<Backtrace>,
     source: wgpu::Error,
   },
+}
+
+impl Error {
+  pub(crate) fn internal(message: impl Into<String>) -> Self {
+    Internal { message }.build()
+  }
 }
