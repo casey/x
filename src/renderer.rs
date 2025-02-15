@@ -343,7 +343,7 @@ impl Renderer {
   }
 
   pub(crate) async fn capture(&mut self, path: &Path) -> Result {
-    let bytes_per_row = self.bytes_per_row();
+    let bytes_per_row_with_padding = self.bytes_per_row_with_padding();
 
     let mut encoder = self
       .device
@@ -359,7 +359,7 @@ impl Renderer {
       TexelCopyBufferInfo {
         buffer: &self.bindings().capture,
         layout: TexelCopyBufferLayout {
-          bytes_per_row: Some(bytes_per_row),
+          bytes_per_row: Some(bytes_per_row_with_padding),
           rows_per_image: None,
           offset: 0,
         },
@@ -392,19 +392,19 @@ impl Renderer {
       .unwrap()
       .context(error::CaptureBufferMap)?;
 
-    self.capture.resize(
-      (self.resolution * self.resolution * CHANNELS).into_usize(),
-      0,
-    );
+    let bytes_per_row = (self.resolution * CHANNELS).into_usize();
+    self
+      .capture
+      .resize(self.resolution.into_usize() * bytes_per_row, 0);
     let view = slice.get_mapped_range();
     let channels = CHANNELS.into_usize();
     let resolution = self.resolution.into_usize();
     for (src, dst) in view
-      .chunks(bytes_per_row.into_usize())
-      .zip(self.capture.chunks_mut(resolution * channels))
+      .chunks(bytes_per_row_with_padding.into_usize())
+      .zip(self.capture.chunks_mut(bytes_per_row))
       .take(resolution)
     {
-      for (src, dst) in src[..resolution * channels]
+      for (src, dst) in src[..bytes_per_row]
         .chunks(channels)
         .zip(dst.chunks_mut(channels))
       {
@@ -435,7 +435,7 @@ impl Renderer {
     Ok(())
   }
 
-  fn bytes_per_row(&self) -> u32 {
+  fn bytes_per_row_with_padding(&self) -> u32 {
     const MASK: u32 = COPY_BYTES_PER_ROW_ALIGNMENT - 1;
     (self.resolution * CHANNELS + MASK) & !MASK
   }
@@ -842,7 +842,7 @@ impl Renderer {
     let capture = self.device.create_buffer(&BufferDescriptor {
       label: label!(),
       mapped_at_creation: false,
-      size: (self.bytes_per_row() * self.resolution).into(),
+      size: (self.bytes_per_row_with_padding() * self.resolution).into(),
       usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
     });
 

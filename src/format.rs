@@ -23,7 +23,7 @@ impl TryFrom<TextureFormat> for Format {
   fn try_from(texture_format: TextureFormat) -> Result<Self> {
     match texture_format {
       TextureFormat::Bgra8UnormSrgb => Ok(Self::Bgra8UnormSrgb),
-      _ => return Err(error::UnsupportedTextureFormat { texture_format }.build()),
+      _ => Err(error::UnsupportedTextureFormat { texture_format }.build()),
     }
   }
 }
