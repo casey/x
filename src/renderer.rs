@@ -401,13 +401,10 @@ impl Renderer {
     let resolution = self.resolution.into_usize();
     for (src, dst) in view
       .chunks(bytes_per_row_with_padding.into_usize())
+      .map(|src| &src[..bytes_per_row])
       .zip(self.capture.chunks_mut(bytes_per_row))
-      .take(resolution)
     {
-      for (src, dst) in src[..bytes_per_row]
-        .chunks(channels)
-        .zip(dst.chunks_mut(channels))
-      {
+      for (src, dst) in src.chunks(channels).zip(dst.chunks_mut(channels)) {
         self.format.swizzle(src, dst);
       }
     }
