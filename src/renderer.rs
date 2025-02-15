@@ -347,11 +347,6 @@ impl Renderer {
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
 
-    // wgpu::COPY_BYTES_PER_ROW_ALIGNMENT
-    //
-    // - buffer must be made larger so that each row has necessary padding
-    // - when copying from buffer, must skip padding bytes
-
     encoder.copy_texture_to_buffer(
       TexelCopyTextureInfo {
         texture: &self.bindings().tiling_texture,
