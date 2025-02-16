@@ -34,7 +34,8 @@ const FIELD_CIRCLE: u32 = 1;
 const FIELD_FREQUENCIES: u32 = 2;
 const FIELD_NONE: u32 = 3;
 const FIELD_SAMPLES: u32 = 4;
-const FIELD_X: u32 = 5;
+const FIELD_TOP: u32 = 5;
+const FIELD_X: u32 = 6;
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
@@ -84,6 +85,10 @@ fn field_samples(p: vec2f) -> bool {
   let x = (p.x + 1) * 0.5 * uniforms.sample_range;
   let level = textureSample(samples, non_filtering_sampler, x).x;
   return level < p.y;
+}
+
+fn field_top(p: vec2f) -> bool {
+  return p.y < 0;
 }
 
 fn field_x(p: vec2f) -> bool {
@@ -187,6 +192,9 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
     }
     case FIELD_SAMPLES {
       on = field_samples(transformed);
+    }
+    case FIELD_TOP {
+      on = field_top(transformed);
     }
     case FIELD_X {
       on = field_x(transformed);

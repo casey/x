@@ -2,8 +2,10 @@ use super::*;
 
 pub(crate) struct App {
   analyzer: Analyzer,
+  capture: Image,
   error: Option<Error>,
   filters: Vec<Filter>,
+  input: Input,
   makro: Vec<Key>,
   options: Options,
   recording: Option<Vec<Key>>,
@@ -11,16 +13,17 @@ pub(crate) struct App {
   window: Option<Arc<Window>>,
 }
 
-impl App {
-  pub(crate) fn error(self) -> Option<Error> {
-    self.error
-  }
+// what?
+// - can i make it render nicely when even resolution?
 
+impl App {
   pub(crate) fn new(options: Options) -> Result<Self> {
     Ok(Self {
-      analyzer: Analyzer::new()?,
+      analyzer: Analyzer::new(),
+      capture: Image::default(),
       error: None,
-      filters: Vec::new(),
+      filters: options.program.map(Program::filters).unwrap_or_default(),
+      input: Input::new()?,
       makro: Vec::new(),
       options,
       recording: None,
@@ -29,19 +32,23 @@ impl App {
     })
   }
 
+  fn capture(&mut self) -> Result {
+    pollster::block_on(self.renderer.as_mut().unwrap().capture(&mut self.capture))?;
+    self.capture.save("capture.png".as_ref())?;
+    Ok(())
+  }
+
+  pub(crate) fn error(self) -> Option<Error> {
+    self.error
+  }
+
   fn press(&mut self, event_loop: &ActiveEventLoop, key: Key) {
     let mut capture = true;
 
     match key {
       Key::Character(ref c) => match c.as_str() {
         ">" => {
-          if let Err(err) = pollster::block_on(
-            self
-              .renderer
-              .as_mut()
-              .unwrap()
-              .capture("capture.png".as_ref()),
-          ) {
+          if let Err(err) = self.capture() {
             self.error = Some(err);
             event_loop.exit();
           }
@@ -148,7 +155,7 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
-    self.analyzer.update();
+    self.analyzer.update(&self.input);
 
     if let Err(err) =
       self

@@ -7,5 +7,6 @@ pub(crate) enum Field {
   #[default]
   None,
   Samples,
+  Top,
   X,
 }

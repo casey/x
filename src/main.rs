@@ -1,10 +1,12 @@
 use {
   self::{
-    analyzer::Analyzer, app::App, bindings::Bindings, error::Error, field::Field, filter::Filter,
-    format::Format, frame::Frame, into_usize::IntoUsize, options::Options, renderer::Renderer,
-    shared::Shared, tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
+    analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, chain::Chain,
+    error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
+    input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
+    shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
+    tiling::Tiling, uniforms::Uniforms,
   },
-  clap::Parser,
+  clap::{Parser, ValueEnum},
   cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
@@ -61,16 +63,23 @@ macro_rules! label {
 
 mod analyzer;
 mod app;
+mod arguments;
 mod bindings;
+mod chain;
 mod error;
 mod field;
 mod filter;
 mod format;
 mod frame;
+mod image;
+mod input;
 mod into_usize;
 mod options;
+mod program;
 mod renderer;
 mod shared;
+mod stream;
+mod subcommand;
 mod tally;
 mod target;
 mod tiling;
@@ -121,28 +130,10 @@ fn pad(i: usize, alignment: usize) -> usize {
   (i + alignment - 1) & !(alignment - 1)
 }
 
-fn run() -> Result<(), Error> {
+fn main() {
   env_logger::init();
 
-  let options = Options::parse();
-
-  let mut app = App::new(options)?;
-
-  EventLoop::with_user_event()
-    .build()
-    .context(error::EventLoopBuild)?
-    .run_app(&mut app)
-    .context(error::RunApp)?;
-
-  if let Some(err) = app.error() {
-    return Err(err);
-  }
-
-  Ok(())
-}
-
-fn main() {
-  if let Err(err) = run() {
+  if let Err(err) = Arguments::parse().run() {
     eprintln!("error: {err}");
 
     for (i, err) in err.iter_chain().skip(1).enumerate() {

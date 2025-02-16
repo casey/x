@@ -3,7 +3,7 @@ use {
   clap::builder::styling::{AnsiColor, Effects, Styles},
 };
 
-#[derive(Clone, Parser)]
+#[derive(Clone, Default, Parser)]
 #[command(
   version,
   styles = Styles::styled()
@@ -18,6 +18,8 @@ use {
 pub(crate) struct Options {
   #[arg(long)]
   pub(crate) fit: bool,
+  #[arg(long)]
+  pub(crate) program: Option<Program>,
   #[arg(long)]
   pub(crate) repeat: bool,
   #[arg(long)]

@@ -3,7 +3,6 @@ use super::*;
 pub struct Renderer {
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
-  capture: Vec<u8>,
   config: SurfaceConfiguration,
   device: Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
@@ -179,7 +178,6 @@ impl Renderer {
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
-      capture: Vec::new(),
       config,
       device,
       error_channel,
@@ -342,7 +340,7 @@ impl Renderer {
     self.bindings.as_ref().unwrap()
   }
 
-  pub(crate) async fn capture(&mut self, path: &Path) -> Result {
+  pub(crate) async fn capture(&mut self, image: &mut Image) -> Result {
     let bytes_per_row_with_padding = self.bytes_per_row_with_padding();
 
     let mut encoder = self
@@ -395,33 +393,17 @@ impl Renderer {
     let channels = CHANNELS.into_usize();
     let resolution = self.resolution.into_usize();
     let bytes_per_row = resolution * channels;
-    self.capture.resize(resolution * bytes_per_row, 0);
+    image.resize(self.resolution, self.resolution);
     let view = slice.get_mapped_range();
     for (src, dst) in view
       .chunks(bytes_per_row_with_padding.into_usize())
       .map(|src| &src[..bytes_per_row])
-      .zip(self.capture.chunks_mut(bytes_per_row))
+      .zip(image.data_mut().chunks_mut(bytes_per_row))
     {
       for (src, dst) in src.chunks(channels).zip(dst.chunks_mut(channels)) {
         self.format.swizzle(src, dst);
       }
     }
-
-    let file = File::create(path).context(error::FilesystemIo { path })?;
-
-    let writer = BufWriter::new(file);
-
-    let mut encoder = png::Encoder::new(writer, self.resolution, self.resolution);
-    encoder.set_color(png::ColorType::Rgba);
-    encoder.set_depth(png::BitDepth::Eight);
-
-    let mut writer = encoder.write_header().context(error::PngEncode { path })?;
-
-    writer
-      .write_image_data(&self.capture)
-      .context(error::PngEncode { path })?;
-
-    writer.finish().context(error::PngEncode { path })?;
 
     drop(view);
 
