@@ -54,17 +54,29 @@ impl Track {
         output
       };
 
+      let spec = buffer.spec();
+
       match sample_rate {
         Some(sample_rate) => {
-          if buffer.spec().rate != sample_rate {
+          if spec.rate != sample_rate {
             return Err(error::SampleRateMismatch { path }.build());
           }
         }
-        None => sample_rate = Some(buffer.spec().rate),
+        None => sample_rate = Some(spec.rate),
       }
 
-      // todo: use all channels
-      samples.extend(buffer.chan(0));
+      let base = samples.len();
+      let channels = spec.channels.count();
+      let frames = buffer.frames();
+
+      samples.resize(base + frames, 0.0);
+
+      for channel in 0..channels {
+        let channel = buffer.chan(channel);
+        for sample in 0..buffer.frames() {
+          samples[base + sample] += channel[sample] / channels as f32;
+        }
+      }
     }
 
     Ok(Self {
@@ -112,6 +124,81 @@ mod tests {
     };
   }
 
+  // todo:
+  // - test that stereo is summed and divided correctly
+
+  #[test]
+  fn zero() {
+    use tempfile::TempDir;
+
+    let temp = TempDir::new().unwrap();
+
+    let path = temp.path().join("sine.wav");
+
+    use hound;
+    use std::f32::consts::PI;
+    use std::i16;
+
+    let spec = hound::WavSpec {
+      channels: 1,
+      sample_rate: 44100,
+      bits_per_sample: 16,
+      sample_format: hound::SampleFormat::Int,
+    };
+
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+
+    for i in 0..100 {
+      writer.write_sample(0);
+    }
+
+    writer.finalize().unwrap();
+
+    let track = Track::load(&path).unwrap();
+
+    assert_eq!(track.samples.len(), 100);
+
+    for (i, actual) in track.samples.into_iter().enumerate() {
+      assert_eq!(actual, 0.0);
+    }
+  }
+
+  #[test]
+  fn one() {
+    use tempfile::TempDir;
+
+    let temp = TempDir::new().unwrap();
+
+    let path = temp.path().join("sine.wav");
+
+    use hound;
+    use std::f32::consts::PI;
+    use std::i16;
+
+    let spec = hound::WavSpec {
+      channels: 1,
+      sample_rate: 44100,
+      bits_per_sample: 16,
+      sample_format: hound::SampleFormat::Int,
+    };
+
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+
+    for i in 0..100 {
+      writer.write_sample(i16::MAX);
+    }
+
+    writer.finalize().unwrap();
+
+    let track = Track::load(&path).unwrap();
+
+    assert_eq!(track.samples.len(), 100);
+
+    for (i, actual) in track.samples.into_iter().enumerate() {
+      assert_eq!(actual, 0.9999695);
+    }
+  }
+
   #[test]
   fn load() {
     use tempfile::TempDir;
@@ -137,6 +224,47 @@ mod tests {
       let sample = (t * 440.0 * 2.0 * PI).sin();
       let amplitude = i16::MAX as f32;
       writer.write_sample((sample * amplitude) as i16).unwrap();
+    }
+
+    writer.finalize().unwrap();
+
+    let track = Track::load(&path).unwrap();
+
+    assert_eq!(track.samples.len(), 44100);
+
+    for (i, actual) in track.samples.into_iter().enumerate() {
+      let expected = (i as f32 / 44100.0 * 440.0 * 2.0 * PI).sin();
+      assert_delta!(actual, expected, 0.0001);
+    }
+  }
+
+  #[test]
+  fn downmix() {
+    use tempfile::TempDir;
+
+    let temp = TempDir::new().unwrap();
+
+    let path = temp.path().join("sine.wav");
+
+    use hound;
+    use std::f32::consts::PI;
+    use std::i16;
+
+    let spec = hound::WavSpec {
+      channels: 2,
+      sample_rate: 44100,
+      bits_per_sample: 16,
+      sample_format: hound::SampleFormat::Int,
+    };
+
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+
+    for t in (0..44100).map(|x| x as f32 / 44100.0) {
+      let value = (t * 440.0 * 2.0 * PI).sin();
+      let amplitude = i16::MAX as f32;
+      let sample = (value * amplitude) as i16;
+      writer.write_sample(sample).unwrap();
+      writer.write_sample(sample).unwrap();
     }
 
     writer.finalize().unwrap();
