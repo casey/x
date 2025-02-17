@@ -33,3 +33,7 @@ struct_field_names = "allow"
 too-many-arguments = "allow"
 too-many-lines = "allow"
 wildcard-imports = "allow"
+
+[dev-dependencies]
+hound = "3.5.1"
+tempfile = "3.17.1"

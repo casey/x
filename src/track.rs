@@ -47,10 +47,12 @@ impl Track {
         result => result.context(error::Track { path })?,
       };
 
-      dbg!(samples.len());
-
-      let buffer = decoder.decode(&packet).context(error::Track { path })?;
-      let buffer = buffer.make_equivalent::<f32>();
+      let buffer = {
+        let input = decoder.decode(&packet).context(error::Track { path })?;
+        let mut output = input.make_equivalent::<f32>();
+        input.convert(&mut output);
+        output
+      };
 
       match sample_rate {
         Some(sample_rate) => {
@@ -61,8 +63,7 @@ impl Track {
         None => sample_rate = Some(buffer.spec().rate),
       }
 
-      dbg!(buffer.chan(0).len());
-
+      // todo: use all channels
       samples.extend(buffer.chan(0));
     }
 
@@ -96,5 +97,57 @@ impl Stream for Track {
 
   fn sample_rate(&self) -> u32 {
     self.sample_rate
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  macro_rules! assert_delta {
+    ($x:expr, $y:expr, $d:expr) => {
+      if !($x - $y < $d || $y - $x < $d) {
+        panic!();
+      }
+    };
+  }
+
+  #[test]
+  fn load() {
+    use tempfile::TempDir;
+
+    let temp = TempDir::new().unwrap();
+
+    let path = temp.path().join("sine.wav");
+
+    use hound;
+    use std::f32::consts::PI;
+    use std::i16;
+
+    let spec = hound::WavSpec {
+      channels: 1,
+      sample_rate: 44100,
+      bits_per_sample: 16,
+      sample_format: hound::SampleFormat::Int,
+    };
+
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+
+    for t in (0..44100).map(|x| x as f32 / 44100.0) {
+      let sample = (t * 440.0 * 2.0 * PI).sin();
+      let amplitude = i16::MAX as f32;
+      writer.write_sample((sample * amplitude) as i16).unwrap();
+    }
+
+    writer.finalize().unwrap();
+
+    let track = Track::load(&path).unwrap();
+
+    assert_eq!(track.samples.len(), 44100);
+
+    for (i, actual) in track.samples.into_iter().enumerate() {
+      let expected = (i as f32 / 44100.0 * 440.0 * 2.0 * PI).sin();
+      assert_delta!(actual, expected, 0.0001);
+    }
   }
 }
