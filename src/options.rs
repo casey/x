@@ -27,6 +27,8 @@ pub(crate) struct Options {
   #[arg(long)]
   pub(crate) tile: bool,
   #[arg(long)]
+  pub(crate) track: Option<PathBuf>,
+  #[arg(long)]
   pub(crate) wrap: bool,
 }
 

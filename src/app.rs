@@ -5,29 +5,35 @@ pub(crate) struct App {
   capture: Image,
   error: Option<Error>,
   filters: Vec<Filter>,
-  input: Input,
   makro: Vec<Key>,
   options: Options,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
+  stream: Box<dyn Stream>,
   window: Option<Arc<Window>>,
 }
 
 // what?
-// - can i make it render nicely when even resolution?
+// - render nicely when resolution is even
 
 impl App {
   pub(crate) fn new(options: Options) -> Result<Self> {
+    let stream: Box<dyn Stream> = if let Some(track) = &options.track {
+      Box::new(Track::load(track)?)
+    } else {
+      Box::new(Input::new()?)
+    };
+
     Ok(Self {
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
       filters: options.program.map(Program::filters).unwrap_or_default(),
-      input: Input::new()?,
       makro: Vec::new(),
       options,
       recording: None,
       renderer: None,
+      stream,
       window: None,
     })
   }
@@ -155,7 +161,7 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
-    self.analyzer.update(&self.input);
+    self.analyzer.update(self.stream.as_mut());
 
     if let Err(err) =
       self

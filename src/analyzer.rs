@@ -27,12 +27,8 @@ impl Analyzer {
     &self.samples
   }
 
-  // todo:
-  // - how to abstract over input types?
-  // - an input can advance the clock or
-  // - make `Input` a trait, implement it for an audio file, or a
-
-  pub(crate) fn update(&mut self, input: &dyn Stream) {
+  pub(crate) fn update(&mut self, input: &mut dyn Stream) {
+    self.samples.clear();
     input.drain(&mut self.samples);
 
     let samples = &self.samples[..self.samples.len() & !1];

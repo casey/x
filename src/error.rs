@@ -44,6 +44,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: wgpu::RequestDeviceError,
   },
+  #[snafu(display("empty track: {}", path.display()))]
+  EmptyTrack {
+    backtrace: Option<Backtrace>,
+    path: PathBuf,
+  },
   #[snafu(display("failed to build event loop"))]
   EventLoopBuild {
     backtrace: Option<Backtrace>,
@@ -97,12 +102,23 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("track packet sample rate mismatch: {}", path.display()))]
+  SampleRateMismatch {
+    backtrace: Option<Backtrace>,
+    path: PathBuf,
+  },
   #[snafu(display("failed to get supported stream config"))]
   SupportedStreamConfig { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get supported stream configs"))]
   SupportedStreamConfigs {
     backtrace: Option<Backtrace>,
     source: cpal::SupportedStreamConfigsError,
+  },
+  #[snafu(display("failed to decode track"))]
+  Track {
+    backtrace: Option<Backtrace>,
+    path: PathBuf,
+    source: symphonia::core::errors::Error,
   },
   #[snafu(display("default texture format {texture_format:?} not supported"))]
   UnsupportedTextureFormat {

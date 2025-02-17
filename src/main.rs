@@ -4,7 +4,7 @@ use {
     error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
     input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
     shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
-    tiling::Tiling, uniforms::Uniforms,
+    tiling::Tiling, track::Track, uniforms::Uniforms,
   },
   clap::{Parser, ValueEnum},
   cpal::{
@@ -24,7 +24,7 @@ use {
     path::{Path, PathBuf},
     process,
     sync::{mpsc, Arc, Mutex},
-    time::Instant,
+    time::{Duration, Instant},
   },
   vello::{
     kurbo,
@@ -83,6 +83,7 @@ mod subcommand;
 mod tally;
 mod target;
 mod tiling;
+mod track;
 mod uniforms;
 
 type Result<T = (), E = Error> = std::result::Result<T, E>;
@@ -130,45 +131,8 @@ fn pad(i: usize, alignment: usize) -> usize {
   (i + alignment - 1) & !(alignment - 1)
 }
 
-fn play() {
-  use symphonia::core::{io::MediaSourceStream, probe::Hint};
-
-  let path = Path::new("/Users/rodarmor/Music/Music/Media.localized/Music/seagaia/Anodyne/49 Old Generic Boss _The Street_ (Extra).mp3");
-
-  let mut hint = Hint::new();
-
-  if let Some(extension) = path.extension().and_then(|extension| extension.to_str()) {
-    hint.with_extension(extension);
-  }
-
-  let file = File::open(path).unwrap();
-
-  let mss = MediaSourceStream::new(Box::new(file), default());
-
-  let symphonia::core::probe::ProbeResult {
-    format: mut reader,
-    metadata: _metadata,
-  } = symphonia::default::get_probe()
-    .format(&hint, mss, &default(), &default())
-    .unwrap();
-
-  let track = &reader.tracks()[0];
-
-  let mut decoder = symphonia::default::get_codecs()
-    .make(&track.codec_params, &default())
-    .unwrap();
-
-  loop {
-    let packet = reader.next_packet().unwrap();
-    let samples = decoder.decode(&packet).unwrap();
-    dbg!(samples.frames());
-  }
-}
-
 fn main() {
   env_logger::init();
-
-  play();
 
   if let Err(err) = Arguments::parse().run() {
     eprintln!("error: {err}");
