@@ -95,9 +95,9 @@ impl Track {
 
 impl Stream for Track {
   fn drain(&mut self, samples: &mut Vec<f32>) {
-    let end = Instant::now();
+    let now = Instant::now();
 
-    let elapsed = end - self.start;
+    let elapsed = now - self.start;
 
     let index = self.index(elapsed);
 

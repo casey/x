@@ -13,9 +13,6 @@ pub(crate) struct App {
   window: Option<Arc<Window>>,
 }
 
-// what?
-// - render nicely when resolution is even
-
 impl App {
   pub(crate) fn new(options: Options) -> Result<Self> {
     let stream: Box<dyn Stream> = if let Some(track) = &options.track {
