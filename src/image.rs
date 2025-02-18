@@ -13,10 +13,12 @@ impl Image {
   }
 
   pub(crate) fn load(path: &Path) -> Result<Self> {
-    let decoder = png::Decoder::new(File::open(path).unwrap());
-    let mut reader = decoder.read_info().unwrap();
+    let decoder = png::Decoder::new(File::open(path).context(error::FilesystemIo { path })?);
+    let mut reader = decoder.read_info().context(error::PngDecode { path })?;
     let mut buf = vec![0; reader.output_buffer_size()];
-    let info = reader.next_frame(&mut buf).unwrap();
+    let info = reader
+      .next_frame(&mut buf)
+      .context(error::PngDecode { path })?;
     let data = &buf[..info.buffer_size()];
     let info = reader.info();
 
