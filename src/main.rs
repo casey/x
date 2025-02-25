@@ -9,7 +9,7 @@ use {
   clap::{Parser, ValueEnum},
   cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
+    SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
   rustfft::{num_complex::Complex, FftPlanner},
@@ -26,6 +26,7 @@ use {
     sync::{mpsc, Arc, Mutex},
     time::{Duration, Instant},
   },
+  tabled::{Table, Tabled},
   vello::{
     kurbo,
     peniko::{self, Font},

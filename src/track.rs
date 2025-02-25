@@ -87,6 +87,87 @@ impl Track {
     })
   }
 
+  fn play(self) -> Result {
+    use rubato::{
+      Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+    };
+    let params = SincInterpolationParameters {
+      sinc_len: 256,
+      f_cutoff: 0.95,
+      interpolation: SincInterpolationType::Linear,
+      oversampling_factor: 256,
+      window: WindowFunction::BlackmanHarris2,
+    };
+    let mut resampler =
+      SincFixedIn::<f64>::new(48000 as f64 / 44100 as f64, 2.0, params, 1024, 2).unwrap();
+
+    let waves_in = vec![vec![0.0f64; 1024]; 2];
+    let waves_out = resampler.process(&waves_in, None).unwrap();
+
+    // todo:
+    // - output format preferences:
+    //   f32
+    //   stereo
+    //   high sample rate
+    //   low buffer size
+    // - do i really resample the whole track?
+    //   - either i resample ahead of time
+    //   - resample in an async thread which runs ahead
+    //   - or resample as i go
+    //   - really need to think about whether or not this is a good idea
+
+    let device = cpal::default_host()
+      .default_output_device()
+      .context(error::DefaultAudioOutputDevice)?;
+
+    let supported_config = device
+      .supported_output_configs()
+      .context(error::SupportedStreamConfigs)?
+      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
+      .context(error::SupportedStreamConfig)?
+      .with_max_sample_rate();
+
+    let buffer_size = match supported_config.buffer_size() {
+      SupportedBufferSize::Range { min, .. } => {
+        log::info!("output audio buffer size: {min}");
+        Some(*min)
+      }
+      SupportedBufferSize::Unknown => {
+        log::info!("output audio buffer size: unknown");
+        None
+      }
+    };
+
+    let mut config = supported_config.config();
+
+    if let Some(buffer_size) = buffer_size {
+      config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
+    }
+
+    let mut start = 0;
+
+    let stream = device
+      .build_output_stream(
+        &config,
+        move |buffer: &mut [f32], _: &cpal::OutputCallbackInfo| {
+          let end = (start + buffer.len()).min(self.samples.len());
+          let samples = end - start;
+          buffer[..samples].copy_from_slice(&self.samples[start..end]);
+        },
+        move |err| {
+          eprintln!("audio output error: {err}");
+        },
+        None,
+      )
+      .context(error::BuildAudioStream)?;
+
+    stream.play().context(error::PlayStream)?;
+
+    loop {}
+
+    Ok(())
+  }
+
   fn index(&self, duration: Duration) -> usize {
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     ((duration.as_secs_f64() * self.sample_rate as f64) as usize).min(self.samples.len())
@@ -100,8 +181,6 @@ impl Stream for Track {
     let elapsed = now - self.start;
 
     let index = self.index(elapsed);
-
-    eprintln!("{index}");
 
     samples.extend(&self.samples[self.index..index]);
 
@@ -239,5 +318,32 @@ mod tests {
     for sample in track.samples {
       assert_eq!(sample, 0.5);
     }
+  }
+
+  #[test]
+  fn play() {
+    let temp = TempDir::new().unwrap();
+
+    let path = temp.path().join("foo.wav");
+
+    let spec = hound::WavSpec {
+      channels: 1,
+      sample_rate: 44100,
+      bits_per_sample: 32,
+      sample_format: hound::SampleFormat::Float,
+    };
+
+    let mut writer = hound::WavWriter::create(&path, spec).unwrap();
+
+    for i in 0..44100 {
+      let t = i as f32 / 44100.0;
+      writer.write_sample((t * 120.0 * TAU).sin()).unwrap();
+    }
+
+    writer.finalize().unwrap();
+
+    let track = Track::load(&path).unwrap();
+
+    track.play().unwrap();
   }
 }

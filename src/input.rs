@@ -52,7 +52,7 @@ impl Input {
         },
         None,
       )
-      .context(error::BuildAudioInputStream)?;
+      .context(error::BuildAudioStream)?;
 
     stream.play().context(error::PlayStream)?;
 

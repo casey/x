@@ -6,7 +6,7 @@ pub(crate) enum Error {
   #[snafu(display("failed to get adapter"))]
   Adapter { backtrace: Option<Backtrace> },
   #[snafu(display("failed to build audio input stream"))]
-  BuildAudioInputStream {
+  BuildAudioStream {
     backtrace: Option<Backtrace>,
     source: cpal::BuildStreamError,
   },
@@ -37,6 +37,8 @@ pub(crate) enum Error {
   },
   #[snafu(display("failed to get default audio input device"))]
   DefaultAudioInputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get default audio output device"))]
+  DefaultAudioOutputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get default config"))]
   DefaultConfig { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get device"))]
