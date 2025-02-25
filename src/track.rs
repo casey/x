@@ -87,6 +87,7 @@ impl Track {
     })
   }
 
+  #[allow(unused)]
   fn play(self) -> Result {
     use rubato::{
       Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
@@ -98,8 +99,7 @@ impl Track {
       oversampling_factor: 256,
       window: WindowFunction::BlackmanHarris2,
     };
-    let mut resampler =
-      SincFixedIn::<f64>::new(48000 as f64 / 44100 as f64, 2.0, params, 1024, 2).unwrap();
+    let mut resampler = SincFixedIn::<f64>::new(48000.0 / 44100.0, 2.0, params, 1024, 2).unwrap();
 
     let waves_in = vec![vec![0.0f64; 1024]; 2];
     let waves_out = resampler.process(&waves_in, None).unwrap();
@@ -118,13 +118,13 @@ impl Track {
 
     let device = cpal::default_host()
       .default_output_device()
-      .context(error::DefaultAudioOutputDevice)?;
+      .context(error::AudioDefaultOutputDevice)?;
 
     let supported_config = device
       .supported_output_configs()
-      .context(error::SupportedStreamConfigs)?
+      .context(error::AudioSupportedStreamConfigs)?
       .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::SupportedStreamConfig)?
+      .context(error::AudioSupportedStreamConfig)?
       .with_max_sample_rate();
 
     let buffer_size = match supported_config.buffer_size() {
@@ -159,11 +159,11 @@ impl Track {
         },
         None,
       )
-      .context(error::BuildAudioStream)?;
+      .context(error::AudioBuildStream)?;
 
-    stream.play().context(error::PlayStream)?;
+    stream.play().context(error::AudioPlayStream)?;
 
-    loop {}
+    std::thread::sleep(Duration::from_secs(1000));
 
     Ok(())
   }

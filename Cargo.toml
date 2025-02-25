@@ -26,6 +26,7 @@ winit = "0.30.5"
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
+arbitrary-source-item-ordering = "deny"
 cast-lossless = "allow"
 cast-precision-loss = "allow"
 float-cmp = "allow"

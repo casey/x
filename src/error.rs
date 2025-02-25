@@ -6,9 +6,30 @@ pub(crate) enum Error {
   #[snafu(display("failed to get adapter"))]
   Adapter { backtrace: Option<Backtrace> },
   #[snafu(display("failed to build audio input stream"))]
-  BuildAudioStream {
+  AudioBuildStream {
     backtrace: Option<Backtrace>,
     source: cpal::BuildStreamError,
+  },
+  #[snafu(display("failed to get default audio input device"))]
+  AudioDefaultInputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get default audio output device"))]
+  AudioDefaultOutputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to enumerate audio devices"))]
+  AudioDevices {
+    backtrace: Option<Backtrace>,
+    source: cpal::DevicesError,
+  },
+  #[snafu(display("failed to play audio input stream"))]
+  AudioPlayStream {
+    backtrace: Option<Backtrace>,
+    source: cpal::PlayStreamError,
+  },
+  #[snafu(display("failed to get supported stream config"))]
+  AudioSupportedStreamConfig { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get supported stream configs"))]
+  AudioSupportedStreamConfigs {
+    backtrace: Option<Backtrace>,
+    source: cpal::SupportedStreamConfigsError,
   },
   #[snafu(display("failed to map capture buffer"))]
   CaptureBufferMap {
@@ -35,10 +56,6 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: wgpu::SurfaceError,
   },
-  #[snafu(display("failed to get default audio input device"))]
-  DefaultAudioInputDevice { backtrace: Option<Backtrace> },
-  #[snafu(display("failed to get default audio output device"))]
-  DefaultAudioOutputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get default config"))]
   DefaultConfig { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get device"))]
@@ -56,6 +73,12 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("I/O error at `{}`", path.display()))]
+  FilesystemIo {
+    path: PathBuf,
+    backtrace: Option<Backtrace>,
+    source: io::Error,
+  },
   #[snafu(display("could not retrieve glyph for character `{character}`"))]
   FontGlyph {
     backtrace: Option<Backtrace>,
@@ -72,21 +95,10 @@ pub(crate) enum Error {
     name: String,
     source: font_kit::error::SelectionError,
   },
-  #[snafu(display("I/O error at `{}`", path.display()))]
-  FilesystemIo {
-    path: PathBuf,
-    backtrace: Option<Backtrace>,
-    source: io::Error,
-  },
   #[snafu(display("internal error: {message}"))]
   Internal {
     backtrace: Option<Backtrace>,
     message: String,
-  },
-  #[snafu(display("failed to play audio input stream"))]
-  PlayStream {
-    backtrace: Option<Backtrace>,
-    source: cpal::PlayStreamError,
   },
   #[snafu(display("failed to decode png at {}", path.display()))]
   PngDecode {
@@ -114,13 +126,6 @@ pub(crate) enum Error {
   SampleRateMismatch {
     backtrace: Option<Backtrace>,
     path: PathBuf,
-  },
-  #[snafu(display("failed to get supported stream config"))]
-  SupportedStreamConfig { backtrace: Option<Backtrace> },
-  #[snafu(display("failed to get supported stream configs"))]
-  SupportedStreamConfigs {
-    backtrace: Option<Backtrace>,
-    source: cpal::SupportedStreamConfigsError,
   },
   #[snafu(display("failed to decode track"))]
   Track {

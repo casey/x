@@ -30,19 +30,23 @@ impl From<SupportedStreamConfigRange> for StreamConfig {
 }
 
 pub(crate) fn run() -> Result {
-  let device = cpal::default_host()
-    .default_output_device()
-    .context(error::DefaultAudioOutputDevice)?;
+  let devices = cpal::default_host()
+    .devices()
+    .context(error::AudioDevices)?;
 
-  let output_configs = device
-    .supported_output_configs()
-    .context(error::SupportedStreamConfigs)?;
+  for device in devices {
+    // let name = device.name()
 
-  println!(
-    "{}",
-    Table::new(output_configs.map(|config| StreamConfig::from(config)))
-      .with(tabled::settings::style::Style::sharp())
-  );
+    let output_configs = device
+      .supported_output_configs()
+      .context(error::AudioSupportedStreamConfigs)?;
+
+    println!(
+      "{}",
+      Table::new(output_configs.map(StreamConfig::from))
+        .with(tabled::settings::style::Style::sharp())
+    );
+  }
 
   Ok(())
 }

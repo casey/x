@@ -11,13 +11,13 @@ impl Input {
   pub(crate) fn new() -> Result<Self> {
     let device = cpal::default_host()
       .default_input_device()
-      .context(error::DefaultAudioInputDevice)?;
+      .context(error::AudioDefaultInputDevice)?;
 
     let supported_config = device
       .supported_input_configs()
-      .context(error::SupportedStreamConfigs)?
+      .context(error::AudioSupportedStreamConfigs)?
       .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::SupportedStreamConfig)?
+      .context(error::AudioSupportedStreamConfig)?
       .with_max_sample_rate();
 
     let buffer_size = match supported_config.buffer_size() {
@@ -52,9 +52,9 @@ impl Input {
         },
         None,
       )
-      .context(error::BuildAudioStream)?;
+      .context(error::AudioBuildStream)?;
 
-    stream.play().context(error::PlayStream)?;
+    stream.play().context(error::AudioPlayStream)?;
 
     Ok(Self {
       config,
