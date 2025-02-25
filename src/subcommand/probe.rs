@@ -1,4 +1,13 @@
-use super::*;
+use {
+  super::*,
+  tabled::{
+    settings::{
+      style::{BorderSpanCorrection, Style},
+      Panel,
+    },
+    Table, Tabled,
+  },
+};
 
 #[derive(Tabled)]
 struct StreamConfig {
@@ -30,21 +39,33 @@ impl From<SupportedStreamConfigRange> for StreamConfig {
 }
 
 pub(crate) fn run() -> Result {
-  let devices = cpal::default_host()
-    .devices()
-    .context(error::AudioDevices)?;
+  let host = cpal::default_host();
 
-  for device in devices {
-    // let name = device.name()
-
-    let output_configs = device
-      .supported_output_configs()
-      .context(error::AudioSupportedStreamConfigs)?;
-
+  fn print_table<T: Into<StreamConfig>, I: Iterator<Item = T>>(name: &str, configs: I) {
     println!(
       "{}",
-      Table::new(output_configs.map(StreamConfig::from))
-        .with(tabled::settings::style::Style::sharp())
+      Table::new(configs.map(|config| config.into()))
+        .with(Style::modern())
+        .with(Panel::header(name))
+        .with(BorderSpanCorrection)
+    );
+  }
+
+  for device in host.output_devices().context(error::AudioDevices)? {
+    print_table(
+      &device.name().context(error::AudioDeviceName)?,
+      device
+        .supported_output_configs()
+        .context(error::AudioSupportedStreamConfigs)?,
+    );
+  }
+
+  for device in host.input_devices().context(error::AudioDevices)? {
+    print_table(
+      &device.name().context(error::AudioDeviceName)?,
+      device
+        .supported_input_configs()
+        .context(error::AudioSupportedStreamConfigs)?,
     );
   }
 

@@ -26,7 +26,6 @@ use {
     sync::{mpsc, Arc, Mutex},
     time::{Duration, Instant},
   },
-  tabled::{Table, Tabled},
   vello::{
     kurbo,
     peniko::{self, Font},

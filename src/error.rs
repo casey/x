@@ -12,6 +12,11 @@ pub(crate) enum Error {
   },
   #[snafu(display("failed to get default audio input device"))]
   AudioDefaultInputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get audio device name"))]
+  AudioDeviceName {
+    backtrace: Option<Backtrace>,
+    source: cpal::DeviceNameError,
+  },
   #[snafu(display("failed to get default audio output device"))]
   AudioDefaultOutputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to enumerate audio devices"))]
