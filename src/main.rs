@@ -87,6 +87,12 @@ mod tiling;
 mod track;
 mod uniforms;
 
+const KIB: usize = 1 << 10;
+const MIB: usize = KIB << 10;
+
+const CHANNELS: u32 = 4;
+const FONT: &str = "Helvetica Neue";
+
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
 type Mat3f = nalgebra::Matrix3<f32>;
@@ -94,12 +100,6 @@ type Mat4f = nalgebra::Matrix4<f32>;
 type Vec2f = nalgebra::Vector2<f32>;
 type Vec2u = nalgebra::Vector2<u32>;
 type Vec4f = nalgebra::Vector4<f32>;
-
-const KIB: usize = 1 << 10;
-const MIB: usize = KIB << 10;
-
-const CHANNELS: u32 = 4;
-const FONT: &str = "Helvetica Neue";
 
 fn default<T: Default>() -> T {
   T::default()
