@@ -141,7 +141,6 @@ impl Track {
           let end = (start + buffer.len()).min(self.samples.len());
           let samples = end - start;
           buffer[..samples].copy_from_slice(&self.samples[start..end]);
-          buffer[samples..].fill(0.0);
           start = end;
         },
         move |err| {
