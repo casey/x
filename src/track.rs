@@ -88,7 +88,7 @@ impl Track {
   }
 
   #[allow(unused)]
-  fn play(self) -> Result {
+  pub(crate) fn play(self) -> Result {
     use rubato::{
       Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
     };
@@ -103,18 +103,6 @@ impl Track {
 
     let waves_in = vec![vec![0.0f64; 1024]; 2];
     let waves_out = resampler.process(&waves_in, None).unwrap();
-
-    // todo:
-    // - output format preferences:
-    //   f32
-    //   stereo
-    //   high sample rate
-    //   low buffer size
-    // - do i really resample the whole track?
-    //   - either i resample ahead of time
-    //   - resample in an async thread which runs ahead
-    //   - or resample as i go
-    //   - really need to think about whether or not this is a good idea
 
     let device = cpal::default_host()
       .default_output_device()
@@ -153,6 +141,8 @@ impl Track {
           let end = (start + buffer.len()).min(self.samples.len());
           let samples = end - start;
           buffer[..samples].copy_from_slice(&self.samples[start..end]);
+          buffer[samples..].fill(0.0);
+          start = end;
         },
         move |err| {
           eprintln!("audio output error: {err}");
