@@ -27,9 +27,3 @@ unused:
 
 doc:
   cargo doc --workspace --open
-
-foo:
-  cargo run --release -- --track '/Users/rodarmor/Music/Music/Media.localized/Music/seagaia/Anodyne/49 Old Generic Boss _The Street_ (Extra).mp3'
-
-bar:
-  cargo run --release -- --track '/Users/rodarmor/Music/Music/Media.localized/Music/t.A.T.u_/200 km_h in the Wrong Lane/02 All The Things She Said.mp3'
