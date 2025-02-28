@@ -24,7 +24,7 @@ use {
     io::{self, BufReader, BufWriter},
     path::{Path, PathBuf},
     process,
-    sync::{mpsc, Arc, Mutex, RwLock},
+    sync::{mpsc, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Instant,
   },
   vello::{
