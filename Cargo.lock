@@ -3615,7 +3615,6 @@ name = "x"
 version = "0.0.0"
 dependencies = [
  "clap",
- "cpal",
  "env_logger",
  "flume",
  "font-kit",

@@ -6,7 +6,6 @@ version = "0.0.0"
 
 [dependencies]
 clap = { version = "4.5.21", features = ["derive"] }
-cpal = "0.15.3"
 env_logger = "0.11.0"
 flume = "0.11.1"
 font-kit = "0.14.2"
@@ -30,6 +29,7 @@ arbitrary-source-item-ordering = "deny"
 cast-lossless = "allow"
 cast-precision-loss = "allow"
 float-cmp = "allow"
+needless-pass-by-value = "allow"
 pedantic = { level = "deny", priority = -1 }
 similar-names = "allow"
 struct-excessive-bools = "allow"

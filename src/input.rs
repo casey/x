@@ -1,26 +1,19 @@
 use super::*;
 
 pub(crate) struct Input {
-  config: StreamConfig,
   queue: Arc<Mutex<VecDeque<f32>>>,
   #[allow(unused)]
   stream: cpal::Stream,
+  stream_config: StreamConfig,
 }
 
 impl Input {
-  pub(crate) fn new() -> Result<Self> {
-    let device = cpal::default_host()
-      .default_input_device()
-      .context(error::AudioDefaultInputDevice)?;
+  pub(crate) fn new(device: rodio::Device, stream_config: SupportedStreamConfig) -> Result<Self> {
+    let queue = Arc::new(Mutex::new(VecDeque::new()));
 
-    let supported_config = device
-      .supported_input_configs()
-      .context(error::AudioSupportedStreamConfigs)?
-      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::AudioSupportedStreamConfig)?
-      .with_max_sample_rate();
+    let clone = queue.clone();
 
-    let buffer_size = match supported_config.buffer_size() {
+    let buffer_size = match stream_config.buffer_size() {
       SupportedBufferSize::Range { min, .. } => {
         log::info!("input audio buffer size: {min}");
         Some(*min)
@@ -31,19 +24,15 @@ impl Input {
       }
     };
 
-    let mut config = supported_config.config();
+    let mut stream_config = stream_config.config();
 
     if let Some(buffer_size) = buffer_size {
-      config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
+      stream_config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
     }
-
-    let queue = Arc::new(Mutex::new(VecDeque::new()));
-
-    let clone = queue.clone();
 
     let stream = device
       .build_input_stream(
-        &config,
+        &stream_config,
         move |data: &[f32], _: &cpal::InputCallbackInfo| {
           clone.lock().unwrap().extend(data);
         },
@@ -52,14 +41,14 @@ impl Input {
         },
         None,
       )
-      .context(error::AudioBuildStream)?;
+      .context(error::AudioBuildInputStream)?;
 
     stream.play().context(error::AudioPlayStream)?;
 
     Ok(Self {
-      config,
       queue,
       stream,
+      stream_config,
     })
   }
 }
@@ -74,6 +63,6 @@ impl Stream for Input {
   }
 
   fn sample_rate(&self) -> u32 {
-    self.config.sample_rate.0
+    self.stream_config.sample_rate.0
   }
 }
