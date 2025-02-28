@@ -15,11 +15,10 @@ nalgebra = "0.33.2"
 png = "0.17.16"
 pollster = "0.4.0"
 rodio = { version = "0.20.1", features = ["symphonia-all"], default-features = false }
-rubato = "0.16.1"
 rustfft = "6.2.0"
 skrifa = "0.28.0"
 snafu = "0.8.5"
-symphonia = { version = "0.5.4", features = [ "all-codecs", "all-formats" ] }
+symphonia = { version = "*", features = [ "all-codecs", "all-formats" ] }
 tabled = { version = "0.18.0", git = "https://github.com/zhiburt/tabled.git" }
 vello = { git = "https://github.com/linebender/vello.git" }
 wgpu = "24.0.1"
