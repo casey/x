@@ -34,10 +34,8 @@ impl Analyzer {
       let old = self.samples.len();
       input.drain(&mut self.samples);
 
-      if self.samples.len() >= 1024 {
-        let extra = self.samples.len() - 1024;
-        let drain = extra.min(old);
-        self.samples.drain(..drain);
+      if let Some(extra) = self.samples.len().checked_sub(1024) {
+        self.samples.drain(..extra.min(old));
       }
     }
 
