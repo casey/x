@@ -19,7 +19,7 @@ rustfft = "6.2.0"
 skrifa = "0.28.0"
 snafu = "0.8.5"
 symphonia = { version = "0.5.4", features = [ "all-codecs", "all-formats" ] }
-tabled = "0.18.0"
+tabled = { version = "0.18.0", git = "https://github.com/zhiburt/tabled.git" }
 vello = { git = "https://github.com/linebender/vello.git" }
 wgpu = "24.0.1"
 winit = "0.30.5"

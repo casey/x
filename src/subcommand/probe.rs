@@ -10,6 +10,7 @@ use {
 };
 
 #[derive(Tabled)]
+#[tabled(rename_all = "Upper Title Case")]
 struct StreamConfig {
   buffer_size: String,
   channels: u16,
