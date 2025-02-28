@@ -26,20 +26,64 @@ impl App {
     self.error
   }
 
+  fn stream_config(
+    configs: impl Iterator<Item = SupportedStreamConfigRange>,
+  ) -> Result<SupportedStreamConfig> {
+    let config = configs
+      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
+      .context(error::AudioSupportedStreamConfig)?;
+
+    Ok(SupportedStreamConfig::new(
+      config.channels(),
+      config.max_sample_rate(),
+      match config.buffer_size() {
+        SupportedBufferSize::Range { min, .. } => SupportedBufferSize::Range {
+          min: *min,
+          max: *min,
+        },
+        SupportedBufferSize::Unknown => SupportedBufferSize::Unknown,
+      },
+      config.sample_format(),
+    ))
+  }
+
   pub(crate) fn new(options: Options) -> Result<Self> {
+    let host = cpal::default_host();
+
+    let output_device = host
+      .default_output_device()
+      .context(error::AudioDefaultOutputDevice)?;
+
+    let stream_config = Self::stream_config(
+      output_device
+        .supported_output_configs()
+        .context(error::AudioSupportedStreamConfigs)?,
+    )?;
+
     let (output_stream, stream_handle) =
-      OutputStream::try_default().context(error::AudioDefaultOutputStream)?;
+      OutputStream::try_from_device_config(&output_device, stream_config)
+        .context(error::AudioBuildOutputStream)?;
 
     let stream: Box<dyn Stream> = if let Some(track) = &options.track {
-      let tap = Track::new(track)?;
+      let track = Track::new(track)?;
 
       stream_handle
-        .play_raw(tap.clone())
+        .play_raw(track.clone())
         .context(error::AudioPlay)?;
 
-      Box::new(tap)
+      Box::new(track)
     } else {
-      Box::new(Input::new()?)
+      let input_device = host
+        .default_input_device()
+        .context(error::AudioDefaultInputDevice)?;
+
+      let stream_config = Self::stream_config(
+        input_device
+          .supported_input_configs()
+          .context(error::AudioSupportedStreamConfigs)?,
+      )?;
+
+      Box::new(Input::new(input_device, stream_config)?)
     };
 
     Ok(Self {

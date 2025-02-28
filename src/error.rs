@@ -6,17 +6,19 @@ pub(crate) enum Error {
   #[snafu(display("failed to get adapter"))]
   Adapter { backtrace: Option<Backtrace> },
   #[snafu(display("failed to build audio input stream"))]
-  AudioBuildStream {
+  AudioBuildInputStream {
     backtrace: Option<Backtrace>,
     source: cpal::BuildStreamError,
   },
-  #[snafu(display("failed to get default audio input device"))]
-  AudioDefaultInputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get default audio output stream"))]
-  AudioDefaultOutputStream {
+  AudioBuildOutputStream {
     backtrace: Option<Backtrace>,
     source: rodio::StreamError,
   },
+  #[snafu(display("failed to get default audio input device"))]
+  AudioDefaultInputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get default audio output device"))]
+  AudioDefaultOutputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to get audio device name"))]
   AudioDeviceName {
     backtrace: Option<Backtrace>,

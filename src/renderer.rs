@@ -4,7 +4,7 @@ pub struct Renderer {
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
   config: SurfaceConfiguration,
-  device: Device,
+  device: wgpu::Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
   font: Font,
   format: Format,
@@ -81,7 +81,7 @@ impl Renderer {
     })
   }
 
-  fn bind_group_layout(device: &Device, uniform_buffer_size: u32) -> BindGroupLayout {
+  fn bind_group_layout(device: &wgpu::Device, uniform_buffer_size: u32) -> BindGroupLayout {
     let mut i = 0;
     let mut binding = || {
       let binding = i;
