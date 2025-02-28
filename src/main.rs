@@ -3,8 +3,8 @@ use {
     analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, chain::Chain,
     error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
     input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
-    shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, tap::Tap, target::Target,
-    tiling::Tiling, uniforms::Uniforms,
+    shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
+    tiling::Tiling, track::Track, uniforms::Uniforms,
   },
   clap::{Parser, ValueEnum},
   cpal::{
@@ -82,9 +82,9 @@ mod shared;
 mod stream;
 mod subcommand;
 mod tally;
-mod tap;
 mod target;
 mod tiling;
+mod track;
 mod uniforms;
 
 const KIB: usize = 1 << 10;

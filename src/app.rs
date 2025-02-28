@@ -21,7 +21,7 @@ impl App {
       OutputStream::try_default().context(error::AudioDefaultOutputStream)?;
 
     let stream: Box<dyn Stream> = if let Some(track) = &options.track {
-      let tap = Tap::new(track)?;
+      let tap = Track::new(track)?;
 
       stream_handle
         .play_raw(tap.clone())

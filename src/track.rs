@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Clone)]
-pub(crate) struct Tap(Arc<RwLock<Inner>>);
+pub(crate) struct Track(Arc<RwLock<Inner>>);
 
 struct Inner {
   buffer: Vec<f32>,
@@ -9,7 +9,7 @@ struct Inner {
   done: bool,
 }
 
-impl Tap {
+impl Track {
   pub(crate) fn new(path: &Path) -> Result<Self> {
     let file = File::open(path).context(error::FilesystemIo { path })?;
     let reader = BufReader::new(file);
@@ -30,7 +30,7 @@ impl Tap {
   }
 }
 
-impl Source for Tap {
+impl Source for Track {
   fn current_frame_len(&self) -> Option<usize> {
     self.read().decoder.current_frame_len()
   }
@@ -48,7 +48,7 @@ impl Source for Tap {
   }
 }
 
-impl Stream for Tap {
+impl Stream for Track {
   fn done(&self) -> bool {
     let inner = self.read();
     inner.done && inner.buffer.is_empty()
@@ -73,7 +73,7 @@ impl Stream for Tap {
   }
 }
 
-impl Iterator for Tap {
+impl Iterator for Track {
   type Item = f32;
 
   fn next(&mut self) -> Option<f32> {
