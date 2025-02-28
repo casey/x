@@ -3,7 +3,7 @@ use {
     analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, chain::Chain,
     error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
     input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
-    shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
+    shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, tap::Tap, target::Target,
     tiling::Tiling, uniforms::Uniforms,
   },
   clap::{Parser, ValueEnum},
@@ -12,7 +12,7 @@ use {
     SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
-  rodio::{cpal::Sample, OutputStream},
+  rodio::{cpal::Sample, Decoder, OutputStream, Source},
   rustfft::{num_complex::Complex, FftPlanner},
   skrifa::MetadataProvider,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
@@ -21,7 +21,7 @@ use {
     collections::VecDeque,
     fmt::{self, Display, Formatter},
     fs::File,
-    io::{self, BufWriter},
+    io::{self, BufReader, BufWriter},
     path::{Path, PathBuf},
     process,
     sync::{mpsc, Arc, Mutex, RwLock},
@@ -82,6 +82,7 @@ mod shared;
 mod stream;
 mod subcommand;
 mod tally;
+mod tap;
 mod target;
 mod tiling;
 mod uniforms;
