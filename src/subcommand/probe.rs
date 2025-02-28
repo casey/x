@@ -40,12 +40,19 @@ impl From<SupportedStreamConfigRange> for StreamConfig {
 }
 
 pub(crate) fn run() -> Result {
-  fn print_table<T: Into<StreamConfig>, I: Iterator<Item = T>>(name: &str, configs: I) {
+  fn print_table<T: Into<StreamConfig>, I: Iterator<Item = T>>(
+    name: &str,
+    input: bool,
+    configs: I,
+  ) {
     println!(
       "{}",
       Table::new(configs.map(Into::into))
         .with(Style::modern())
-        .with(Panel::header(name))
+        .with(Panel::header(format!(
+          "{name} ({})",
+          if input { "input" } else { "output" }
+        )))
         .with(BorderSpanCorrection)
     );
   }
@@ -55,6 +62,7 @@ pub(crate) fn run() -> Result {
   for device in host.output_devices().context(error::AudioDevices)? {
     print_table(
       &device.name().context(error::AudioDeviceName)?,
+      false,
       device
         .supported_output_configs()
         .context(error::AudioSupportedStreamConfigs)?,
@@ -64,6 +72,7 @@ pub(crate) fn run() -> Result {
   for device in host.input_devices().context(error::AudioDevices)? {
     print_table(
       &device.name().context(error::AudioDeviceName)?,
+      true,
       device
         .supported_input_configs()
         .context(error::AudioSupportedStreamConfigs)?,
