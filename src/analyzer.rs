@@ -33,10 +33,9 @@ impl Analyzer {
     } else {
       let old = self.samples.len();
       input.drain(&mut self.samples);
-
-      if let Some(extra) = self.samples.len().checked_sub(1024) {
-        self.samples.drain(..extra.min(old));
-      }
+      self
+        .samples
+        .drain(..self.samples.len().saturating_sub(1024).min(old));
     }
 
     let samples = &self.samples[..self.samples.len() & !1];
