@@ -30,7 +30,6 @@ impl Analyzer {
   pub(crate) fn update(&mut self, input: &mut dyn Stream) {
     if input.done() {
       self.samples.clear();
-      self.samples.resize(1, 0.0);
     } else {
       let old = self.samples.len();
       input.drain(&mut self.samples);
