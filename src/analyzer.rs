@@ -9,6 +9,10 @@ pub(crate) struct Analyzer {
 }
 
 impl Analyzer {
+  pub(crate) fn frequencies(&self) -> &[f32] {
+    &self.frequencies
+  }
+
   pub(crate) fn new() -> Self {
     Self {
       complex_frequencies: Vec::new(),
@@ -17,10 +21,6 @@ impl Analyzer {
       samples: Vec::new(),
       scratch: Vec::new(),
     }
-  }
-
-  pub(crate) fn frequencies(&self) -> &[f32] {
-    &self.frequencies
   }
 
   pub(crate) fn samples(&self) -> &[f32] {

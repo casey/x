@@ -15,6 +15,14 @@ impl Tiling {
     }
   }
 
+  pub(crate) fn front_read(self, filters: u32) -> bool {
+    if self.size == 1 {
+      filters % 2 == 1
+    } else {
+      true
+    }
+  }
+
   pub(crate) fn offset(self, filter: u32) -> Vec2f {
     if self.size == 1 {
       return Vec2f::new(0.0, 0.0);
@@ -64,13 +72,5 @@ impl Tiling {
     let col = filter % self.size;
 
     Vec2f::new(col as f32 / self.size as f32, row as f32 / self.size as f32)
-  }
-
-  pub(crate) fn front_read(self, filters: u32) -> bool {
-    if self.size == 1 {
-      filters % 2 == 1
-    } else {
-      true
-    }
   }
 }

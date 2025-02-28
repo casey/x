@@ -12,13 +12,13 @@ impl Chain {
     self
   }
 
-  pub(crate) fn invert(mut self) -> Self {
-    self.filter.color = invert_color();
+  pub(crate) fn clear(mut self) -> Self {
+    self.filter = Filter::default();
     self
   }
 
-  pub(crate) fn clear(mut self) -> Self {
-    self.filter = Filter::default();
+  pub(crate) fn invert(mut self) -> Self {
+    self.filter.color = invert_color();
     self
   }
 
@@ -32,15 +32,15 @@ impl Chain {
     self
   }
 
-  pub(crate) fn top(mut self) -> Self {
-    self.filter.field = Field::Top;
-    self
-  }
-
   pub(crate) fn times(mut self, n: usize) -> Self {
     for _ in 0..n {
       self = self.push();
     }
+    self
+  }
+
+  pub(crate) fn top(mut self) -> Self {
+    self.filter.field = Field::Top;
     self
   }
 

@@ -20,8 +20,6 @@ pub(crate) fn run() {
 }
 
 impl ApplicationHandler for Test {
-  fn window_event(&mut self, _event_loop: &ActiveEventLoop, _id: WindowId, _event: WindowEvent) {}
-
   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
     let options = Options::default();
 
@@ -65,4 +63,6 @@ impl ApplicationHandler for Test {
 
     event_loop.exit();
   }
+
+  fn window_event(&mut self, _event_loop: &ActiveEventLoop, _id: WindowId, _event: WindowEvent) {}
 }

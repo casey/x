@@ -28,6 +28,250 @@ pub struct Renderer {
 }
 
 impl Renderer {
+  fn bind_group(
+    &self,
+    back: &TextureView,
+    frequencies: &TextureView,
+    front: &TextureView,
+    samples: &TextureView,
+  ) -> BindGroup {
+    let mut i = 0;
+    let mut binding = || {
+      let binding = i;
+      i += 1;
+      binding
+    };
+    self.device.create_bind_group(&BindGroupDescriptor {
+      layout: &self.bind_group_layout,
+      entries: &[
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(back),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(frequencies),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(front),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Sampler(&self.sampler),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::TextureView(samples),
+        },
+        BindGroupEntry {
+          binding: binding(),
+          resource: BindingResource::Buffer(BufferBinding {
+            buffer: &self.uniform_buffer,
+            offset: 0,
+            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
+          }),
+        },
+      ],
+      label: label!(),
+    })
+  }
+
+  fn bind_group_layout(device: &Device, uniform_buffer_size: u32) -> BindGroupLayout {
+    let mut i = 0;
+    let mut binding = || {
+      let binding = i;
+      i += 1;
+      binding
+    };
+    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+      entries: &[
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Sampler(SamplerBindingType::Filtering),
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D1,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: true },
+            view_dimension: TextureViewDimension::D2,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Texture {
+            multisampled: false,
+            sample_type: TextureSampleType::Float { filterable: false },
+            view_dimension: TextureViewDimension::D1,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+        BindGroupLayoutEntry {
+          binding: binding(),
+          count: None,
+          ty: BindingType::Buffer {
+            has_dynamic_offset: true,
+            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
+            ty: BufferBindingType::Uniform,
+          },
+          visibility: ShaderStages::FRAGMENT,
+        },
+      ],
+      label: label!(),
+    })
+  }
+
+  fn bindings(&self) -> &Bindings {
+    self.bindings.as_ref().unwrap()
+  }
+
+  fn bytes_per_row_with_padding(&self) -> u32 {
+    const MASK: u32 = COPY_BYTES_PER_ROW_ALIGNMENT - 1;
+    (self.resolution * CHANNELS + MASK) & !MASK
+  }
+
+  pub(crate) async fn capture(&mut self, image: &mut Image) -> Result {
+    let bytes_per_row_with_padding = self.bytes_per_row_with_padding();
+
+    let mut encoder = self
+      .device
+      .create_command_encoder(&CommandEncoderDescriptor::default());
+
+    encoder.copy_texture_to_buffer(
+      TexelCopyTextureInfo {
+        texture: &self.bindings().tiling_texture,
+        mip_level: 0,
+        origin: Origin3d::ZERO,
+        aspect: TextureAspect::All,
+      },
+      TexelCopyBufferInfo {
+        buffer: &self.bindings().capture,
+        layout: TexelCopyBufferLayout {
+          bytes_per_row: Some(bytes_per_row_with_padding),
+          rows_per_image: None,
+          offset: 0,
+        },
+      },
+      Extent3d {
+        width: self.resolution,
+        height: self.resolution,
+        depth_or_array_layers: 1,
+      },
+    );
+
+    self.queue.submit([encoder.finish()]);
+
+    let (tx, rx) = flume::bounded(1);
+
+    let capture = &self.bindings.as_mut().unwrap().capture;
+
+    let slice = capture.slice(..);
+
+    slice.map_async(MapMode::Read, move |result| {
+      tx.send(result).unwrap();
+    });
+
+    let MaintainResult::SubmissionQueueEmpty = self.device.poll(Maintain::wait()) else {
+      return Err(Error::internal("unexpected maintain result"));
+    };
+
+    rx.recv_async()
+      .await
+      .unwrap()
+      .context(error::CaptureBufferMap)?;
+
+    let channels = CHANNELS.into_usize();
+    let resolution = self.resolution.into_usize();
+    let bytes_per_row = resolution * channels;
+    image.resize(self.resolution, self.resolution);
+    let view = slice.get_mapped_range();
+    for (src, dst) in view
+      .chunks(bytes_per_row_with_padding.into_usize())
+      .map(|src| &src[..bytes_per_row])
+      .zip(image.data_mut().chunks_mut(bytes_per_row))
+    {
+      for (src, dst) in src.chunks(channels).zip(dst.chunks_mut(channels)) {
+        self.format.swizzle(src, dst);
+      }
+    }
+
+    drop(view);
+
+    capture.unmap();
+
+    Ok(())
+  }
+
+  fn draw(
+    &self,
+    bind_group: &BindGroup,
+    encoder: &mut CommandEncoder,
+    tiling: Option<(Tiling, u32)>,
+    uniform: u32,
+    view: &TextureView,
+  ) {
+    let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+      color_attachments: &[Some(RenderPassColorAttachment {
+        ops: Operations {
+          load: LoadOp::Load,
+          store: StoreOp::Store,
+        },
+        resolve_target: None,
+        view,
+      })],
+      depth_stencil_attachment: None,
+      label: label!(),
+      occlusion_query_set: None,
+      timestamp_writes: None,
+    });
+
+    pass.set_bind_group(0, Some(bind_group), &[self.uniform_buffer_stride * uniform]);
+
+    pass.set_pipeline(&self.render_pipeline);
+
+    if let Some((tiling, filter)) = tiling {
+      tiling.set_viewport(&mut pass, filter);
+    }
+
+    pass.draw(0..3, 0..1);
+  }
+
   pub async fn new(options: &Options, window: Arc<Window>) -> Result<Self> {
     let mut size = window.inner_size();
     size.width = size.width.max(1);
@@ -205,250 +449,6 @@ impl Renderer {
     renderer.resize(options, size);
 
     Ok(renderer)
-  }
-
-  fn bind_group(
-    &self,
-    back: &TextureView,
-    frequencies: &TextureView,
-    front: &TextureView,
-    samples: &TextureView,
-  ) -> BindGroup {
-    let mut i = 0;
-    let mut binding = || {
-      let binding = i;
-      i += 1;
-      binding
-    };
-    self.device.create_bind_group(&BindGroupDescriptor {
-      layout: &self.bind_group_layout,
-      entries: &[
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::TextureView(back),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::TextureView(frequencies),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::TextureView(front),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::Sampler(&self.sampler),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::TextureView(samples),
-        },
-        BindGroupEntry {
-          binding: binding(),
-          resource: BindingResource::Buffer(BufferBinding {
-            buffer: &self.uniform_buffer,
-            offset: 0,
-            size: Some(u64::from(self.uniform_buffer_size).try_into().unwrap()),
-          }),
-        },
-      ],
-      label: label!(),
-    })
-  }
-
-  fn bind_group_layout(device: &Device, uniform_buffer_size: u32) -> BindGroupLayout {
-    let mut i = 0;
-    let mut binding = || {
-      let binding = i;
-      i += 1;
-      binding
-    };
-    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-      entries: &[
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Sampler(SamplerBindingType::Filtering),
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: false },
-            view_dimension: TextureViewDimension::D1,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: true },
-            view_dimension: TextureViewDimension::D2,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Texture {
-            multisampled: false,
-            sample_type: TextureSampleType::Float { filterable: false },
-            view_dimension: TextureViewDimension::D1,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-        BindGroupLayoutEntry {
-          binding: binding(),
-          count: None,
-          ty: BindingType::Buffer {
-            has_dynamic_offset: true,
-            min_binding_size: Some(u64::from(uniform_buffer_size).try_into().unwrap()),
-            ty: BufferBindingType::Uniform,
-          },
-          visibility: ShaderStages::FRAGMENT,
-        },
-      ],
-      label: label!(),
-    })
-  }
-
-  fn bindings(&self) -> &Bindings {
-    self.bindings.as_ref().unwrap()
-  }
-
-  pub(crate) async fn capture(&mut self, image: &mut Image) -> Result {
-    let bytes_per_row_with_padding = self.bytes_per_row_with_padding();
-
-    let mut encoder = self
-      .device
-      .create_command_encoder(&CommandEncoderDescriptor::default());
-
-    encoder.copy_texture_to_buffer(
-      TexelCopyTextureInfo {
-        texture: &self.bindings().tiling_texture,
-        mip_level: 0,
-        origin: Origin3d::ZERO,
-        aspect: TextureAspect::All,
-      },
-      TexelCopyBufferInfo {
-        buffer: &self.bindings().capture,
-        layout: TexelCopyBufferLayout {
-          bytes_per_row: Some(bytes_per_row_with_padding),
-          rows_per_image: None,
-          offset: 0,
-        },
-      },
-      Extent3d {
-        width: self.resolution,
-        height: self.resolution,
-        depth_or_array_layers: 1,
-      },
-    );
-
-    self.queue.submit([encoder.finish()]);
-
-    let (tx, rx) = flume::bounded(1);
-
-    let capture = &self.bindings.as_mut().unwrap().capture;
-
-    let slice = capture.slice(..);
-
-    slice.map_async(MapMode::Read, move |result| {
-      tx.send(result).unwrap();
-    });
-
-    let MaintainResult::SubmissionQueueEmpty = self.device.poll(Maintain::wait()) else {
-      return Err(Error::internal("unexpected maintain result"));
-    };
-
-    rx.recv_async()
-      .await
-      .unwrap()
-      .context(error::CaptureBufferMap)?;
-
-    let channels = CHANNELS.into_usize();
-    let resolution = self.resolution.into_usize();
-    let bytes_per_row = resolution * channels;
-    image.resize(self.resolution, self.resolution);
-    let view = slice.get_mapped_range();
-    for (src, dst) in view
-      .chunks(bytes_per_row_with_padding.into_usize())
-      .map(|src| &src[..bytes_per_row])
-      .zip(image.data_mut().chunks_mut(bytes_per_row))
-    {
-      for (src, dst) in src.chunks(channels).zip(dst.chunks_mut(channels)) {
-        self.format.swizzle(src, dst);
-      }
-    }
-
-    drop(view);
-
-    capture.unmap();
-
-    Ok(())
-  }
-
-  fn bytes_per_row_with_padding(&self) -> u32 {
-    const MASK: u32 = COPY_BYTES_PER_ROW_ALIGNMENT - 1;
-    (self.resolution * CHANNELS + MASK) & !MASK
-  }
-
-  fn draw(
-    &self,
-    bind_group: &BindGroup,
-    encoder: &mut CommandEncoder,
-    tiling: Option<(Tiling, u32)>,
-    uniform: u32,
-    view: &TextureView,
-  ) {
-    let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-      color_attachments: &[Some(RenderPassColorAttachment {
-        ops: Operations {
-          load: LoadOp::Load,
-          store: StoreOp::Store,
-        },
-        resolve_target: None,
-        view,
-      })],
-      depth_stencil_attachment: None,
-      label: label!(),
-      occlusion_query_set: None,
-      timestamp_writes: None,
-    });
-
-    pass.set_bind_group(0, Some(bind_group), &[self.uniform_buffer_stride * uniform]);
-
-    pass.set_pipeline(&self.render_pipeline);
-
-    if let Some((tiling, filter)) = tiling {
-      tiling.set_viewport(&mut pass, filter);
-    }
-
-    pass.draw(0..3, 0..1);
   }
 
   pub(crate) fn render(
@@ -878,26 +878,6 @@ impl Renderer {
     }
   }
 
-  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
-    if uniforms.is_empty() {
-      return;
-    }
-
-    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
-
-    let mut buffer = self
-      .queue
-      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
-      .unwrap();
-
-    for (uniforms, dst) in uniforms
-      .iter()
-      .zip(buffer.chunks_mut(self.uniform_buffer_stride.into_usize()))
-    {
-      uniforms.write(dst);
-    }
-  }
-
   fn write_texture(&self, data: &[f32], destination: &Texture) {
     self.queue.write_texture(
       TexelCopyTextureInfo {
@@ -921,5 +901,25 @@ impl Renderer {
         depth_or_array_layers: 1,
       },
     );
+  }
+
+  fn write_uniform_buffer(&mut self, uniforms: &[Uniforms]) {
+    if uniforms.is_empty() {
+      return;
+    }
+
+    let size = u64::from(self.uniform_buffer_stride) * u64::try_from(uniforms.len()).unwrap();
+
+    let mut buffer = self
+      .queue
+      .write_buffer_with(&self.uniform_buffer, 0, size.try_into().unwrap())
+      .unwrap();
+
+    for (uniforms, dst) in uniforms
+      .iter()
+      .zip(buffer.chunks_mut(self.uniform_buffer_stride.into_usize()))
+    {
+      uniforms.write(dst);
+    }
   }
 }

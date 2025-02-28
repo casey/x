@@ -31,12 +31,12 @@ impl Track {
 }
 
 impl Source for Track {
-  fn current_frame_len(&self) -> Option<usize> {
-    self.read().decoder.current_frame_len()
-  }
-
   fn channels(&self) -> u16 {
     self.read().decoder.channels()
+  }
+
+  fn current_frame_len(&self) -> Option<usize> {
+    self.read().decoder.current_frame_len()
   }
 
   fn sample_rate(&self) -> u32 {

@@ -65,15 +65,15 @@ impl Input {
 }
 
 impl Stream for Input {
+  fn done(&self) -> bool {
+    false
+  }
+
   fn drain(&mut self, samples: &mut Vec<f32>) {
     samples.extend(self.queue.lock().unwrap().drain(..));
   }
 
   fn sample_rate(&self) -> u32 {
     self.config.sample_rate.0
-  }
-
-  fn done(&self) -> bool {
-    false
   }
 }

@@ -16,6 +16,16 @@ pub(crate) struct App {
 }
 
 impl App {
+  fn capture(&mut self) -> Result {
+    pollster::block_on(self.renderer.as_mut().unwrap().capture(&mut self.capture))?;
+    self.capture.save("capture.png".as_ref())?;
+    Ok(())
+  }
+
+  pub(crate) fn error(self) -> Option<Error> {
+    self.error
+  }
+
   pub(crate) fn new(options: Options) -> Result<Self> {
     let (output_stream, stream_handle) =
       OutputStream::try_default().context(error::AudioDefaultOutputStream)?;
@@ -45,16 +55,6 @@ impl App {
       stream,
       window: None,
     })
-  }
-
-  fn capture(&mut self) -> Result {
-    pollster::block_on(self.renderer.as_mut().unwrap().capture(&mut self.capture))?;
-    self.capture.save("capture.png".as_ref())?;
-    Ok(())
-  }
-
-  pub(crate) fn error(self) -> Option<Error> {
-    self.error
   }
 
   fn press(&mut self, event_loop: &ActiveEventLoop, key: Key) {
