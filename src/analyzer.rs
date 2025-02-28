@@ -27,12 +27,12 @@ impl Analyzer {
     &self.samples
   }
 
-  pub(crate) fn update(&mut self, input: &mut dyn Stream) {
-    if input.done() {
+  pub(crate) fn update(&mut self, stream: &mut dyn Stream) {
+    if stream.done() {
       self.samples.clear();
     } else {
       let old = self.samples.len();
-      input.drain(&mut self.samples);
+      stream.drain(&mut self.samples);
       self
         .samples
         .drain(..self.samples.len().saturating_sub(1024).min(old));
@@ -56,7 +56,7 @@ impl Analyzer {
 
     let n = self.complex_frequencies.len();
     let half = n / 2;
-    let spacing = input.sample_rate() as f32 / n as f32;
+    let spacing = stream.sample_rate() as f32 / n as f32;
     let threshold = (20.0 / spacing).into_usize();
     let cutoff = (15_000.0 / spacing).into_usize();
 
