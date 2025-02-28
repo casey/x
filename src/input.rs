@@ -1,10 +1,10 @@
 use super::*;
 
 pub(crate) struct Input {
-  stream_config: StreamConfig,
   queue: Arc<Mutex<VecDeque<f32>>>,
   #[allow(unused)]
   stream: cpal::Stream,
+  stream_config: StreamConfig,
 }
 
 impl Input {
@@ -46,9 +46,9 @@ impl Input {
     stream.play().context(error::AudioPlayStream)?;
 
     Ok(Self {
-      stream_config,
       queue,
       stream,
+      stream_config,
     })
   }
 }

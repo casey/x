@@ -26,27 +26,6 @@ impl App {
     self.error
   }
 
-  fn stream_config(
-    configs: impl Iterator<Item = SupportedStreamConfigRange>,
-  ) -> Result<SupportedStreamConfig> {
-    let config = configs
-      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::AudioSupportedStreamConfig)?;
-
-    Ok(SupportedStreamConfig::new(
-      config.channels(),
-      config.max_sample_rate(),
-      match config.buffer_size() {
-        SupportedBufferSize::Range { min, .. } => SupportedBufferSize::Range {
-          min: *min,
-          max: *min,
-        },
-        SupportedBufferSize::Unknown => SupportedBufferSize::Unknown,
-      },
-      config.sample_format(),
-    ))
-  }
-
   pub(crate) fn new(options: Options) -> Result<Self> {
     let host = cpal::default_host();
 
@@ -235,6 +214,27 @@ impl App {
     }
 
     self.window().request_redraw();
+  }
+
+  fn stream_config(
+    configs: impl Iterator<Item = SupportedStreamConfigRange>,
+  ) -> Result<SupportedStreamConfig> {
+    let config = configs
+      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
+      .context(error::AudioSupportedStreamConfig)?;
+
+    Ok(SupportedStreamConfig::new(
+      config.channels(),
+      config.max_sample_rate(),
+      match config.buffer_size() {
+        SupportedBufferSize::Range { min, .. } => SupportedBufferSize::Range {
+          min: *min,
+          max: *min,
+        },
+        SupportedBufferSize::Unknown => SupportedBufferSize::Unknown,
+      },
+      config.sample_format(),
+    ))
   }
 
   fn window(&self) -> &Window {
