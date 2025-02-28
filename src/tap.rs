@@ -6,6 +6,7 @@ pub(crate) struct Tap(Arc<RwLock<Inner>>);
 struct Inner {
   buffer: Vec<f32>,
   decoder: Decoder<BufReader<File>>,
+  done: bool,
 }
 
 impl Tap {
@@ -16,6 +17,7 @@ impl Tap {
     Ok(Self(Arc::new(RwLock::new(Inner {
       buffer: Vec::new(),
       decoder: source,
+      done: false,
     }))))
   }
 
@@ -47,21 +49,20 @@ impl Source for Tap {
 }
 
 impl Stream for Tap {
+  fn done(&self) -> bool {
+    let inner = self.read();
+    inner.done && inner.buffer.is_empty()
+  }
+
   fn drain(&mut self, samples: &mut Vec<f32>) {
     let mut inner = self.write();
-    let channels = inner.decoder.channels() as f32;
+    let channels = inner.decoder.channels();
 
     samples.extend(
       inner
         .buffer
         .chunks(inner.decoder.channels().into())
-        .map(|chunk| {
-          chunk
-            .iter()
-            .map(|sample| sample.to_sample::<f32>())
-            .sum::<f32>()
-            / channels
-        }),
+        .map(|chunk| chunk.iter().sum::<f32>() / channels as f32),
     );
 
     inner.buffer.clear();
@@ -78,7 +79,12 @@ impl Iterator for Tap {
   fn next(&mut self) -> Option<f32> {
     let mut inner = self.write();
 
-    let sample = inner.decoder.next()?.to_sample::<f32>();
+    let Some(sample) = inner.decoder.next() else {
+      inner.done = true;
+      return None;
+    };
+
+    let sample = sample.to_sample();
 
     inner.buffer.push(sample);
 

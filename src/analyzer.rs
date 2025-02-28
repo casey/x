@@ -28,8 +28,19 @@ impl Analyzer {
   }
 
   pub(crate) fn update(&mut self, input: &mut dyn Stream) {
-    self.samples.clear();
-    input.drain(&mut self.samples);
+    if input.done() {
+      self.samples.clear();
+      self.samples.resize(1, 0.0);
+    } else {
+      let old = self.samples.len();
+      input.drain(&mut self.samples);
+
+      if self.samples.len() >= 1024 {
+        let extra = self.samples.len() - 1024;
+        let drain = extra.min(old);
+        self.samples.drain(..drain);
+      }
+    }
 
     let samples = &self.samples[..self.samples.len() & !1];
 

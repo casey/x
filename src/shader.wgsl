@@ -53,6 +53,7 @@ struct Uniforms {
   frequency_range: f32,
   front_offset: vec2f,
   front_read: u32,
+  gain: f32,
   index: u32,
   offset: vec2f,
   position: mat3x3f,
@@ -73,7 +74,7 @@ fn field_circle(p: vec2f) -> bool {
 
 fn field_frequencies(p: vec2f) -> bool {
   let x = (p.x + 1) * 0.5 * uniforms.frequency_range;
-  let level = textureSample(frequencies, non_filtering_sampler, x).x;
+  let level = textureSample(frequencies, non_filtering_sampler, x).x * uniforms.gain;
   return level > (-p.y + 1) * 0.5;
 }
 

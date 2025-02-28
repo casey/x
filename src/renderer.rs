@@ -510,6 +510,8 @@ impl Renderer {
 
     let filter_count = u32::try_from(filters.len()).unwrap();
 
+    let gain = 10f32.powf((options.gain as f32 * 1.0) / 20.0);
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
@@ -521,13 +523,14 @@ impl Renderer {
         fit: false,
         frequency_range,
         front_offset: tiling.source_offset(i),
+        front_read: true,
+        gain,
         index: i,
         offset: tiling.offset(i),
         position: filter.position,
         repeat: false,
         resolution: tiling.resolution(),
         sample_range,
-        front_read: true,
         tiling: tiling.size,
         wrap: filter.wrap,
       });
@@ -542,13 +545,14 @@ impl Renderer {
       fit: options.fit,
       frequency_range,
       front_offset: Vec2f::new(0.0, 0.0),
+      front_read: tiling.front_read(filter_count),
+      gain,
       index: filter_count,
       offset: Vec2f::default(),
       position: Mat3f::identity(),
       repeat: options.repeat,
       resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
       sample_range,
-      front_read: tiling.front_read(filter_count),
       tiling: 1,
       wrap: false,
     });
@@ -562,13 +566,14 @@ impl Renderer {
       fit: options.fit,
       frequency_range,
       front_offset: Vec2f::new(0.0, 0.0),
+      front_read: true,
+      gain,
       index: filter_count,
       offset: Vec2f::default(),
       position: Mat3f::identity(),
       repeat: options.repeat,
       resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
       sample_range,
-      front_read: true,
       tiling: 1,
       wrap: false,
     });
@@ -657,7 +662,19 @@ impl Renderer {
 
     self.overlay_scene.reset();
 
-    let text = fps.map(|fps| fps.floor().to_string()).unwrap_or_default();
+    let mut items = Vec::new();
+
+    if let Some(fps) = fps {
+      items.push(format!("ƒ {}", fps.floor()));
+    }
+
+    items.push(if options.gain >= 0 {
+      format!("+{}", options.gain)
+    } else {
+      options.gain.to_string()
+    });
+
+    let text = items.join(" ");
 
     let bounds = if options.fit {
       Rect {

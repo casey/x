@@ -62,6 +62,12 @@ impl App {
 
     match key {
       Key::Character(ref c) => match c.as_str() {
+        "+" => {
+          self.options.gain += 1;
+        }
+        "-" => {
+          self.options.gain -= 1;
+        }
         ">" => {
           if let Err(err) = self.capture() {
             self.error = Some(err);

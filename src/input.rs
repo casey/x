@@ -72,4 +72,8 @@ impl Stream for Input {
   fn sample_rate(&self) -> u32 {
     self.config.sample_rate.0
   }
+
+  fn done(&self) -> bool {
+    false
+  }
 }
