@@ -4,7 +4,7 @@ use {
     error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
     input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
     shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
-    tiling::Tiling, track::Track, uniforms::Uniforms,
+    tiling::Tiling, uniforms::Uniforms,
   },
   clap::{Parser, ValueEnum},
   cpal::{
@@ -12,6 +12,7 @@ use {
     SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
+  rodio::{cpal::Sample, OutputStream},
   rustfft::{num_complex::Complex, FftPlanner},
   skrifa::MetadataProvider,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
@@ -23,8 +24,8 @@ use {
     io::{self, BufWriter},
     path::{Path, PathBuf},
     process,
-    sync::{mpsc, Arc, Mutex},
-    time::{Duration, Instant},
+    sync::{mpsc, Arc, Mutex, RwLock},
+    time::Instant,
   },
   vello::{
     kurbo,
@@ -83,7 +84,6 @@ mod subcommand;
 mod tally;
 mod target;
 mod tiling;
-mod track;
 mod uniforms;
 
 const KIB: usize = 1 << 10;

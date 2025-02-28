@@ -2084,6 +2084,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
+name = "rodio"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7ceb6607dd738c99bc8cb28eff249b7cd5c8ec88b9db96c0608c1480d140fb1"
+dependencies = [
+ "cpal",
+ "symphonia",
+]
+
+[[package]]
 name = "rubato"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3635,6 +3645,7 @@ dependencies = [
  "nalgebra",
  "png",
  "pollster",
+ "rodio",
  "rubato",
  "rustfft",
  "skrifa 0.28.0",

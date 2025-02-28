@@ -40,17 +40,17 @@ impl From<SupportedStreamConfigRange> for StreamConfig {
 }
 
 pub(crate) fn run() -> Result {
-  let host = cpal::default_host();
-
   fn print_table<T: Into<StreamConfig>, I: Iterator<Item = T>>(name: &str, configs: I) {
     println!(
       "{}",
-      Table::new(configs.map(|config| config.into()))
+      Table::new(configs.map(Into::into))
         .with(Style::modern())
         .with(Panel::header(name))
         .with(BorderSpanCorrection)
     );
   }
+
+  let host = cpal::default_host();
 
   for device in host.output_devices().context(error::AudioDevices)? {
     print_table(

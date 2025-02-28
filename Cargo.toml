@@ -14,6 +14,7 @@ log = "0.4.22"
 nalgebra = "0.33.2"
 png = "0.17.16"
 pollster = "0.4.0"
+rodio = { version = "0.20.1", features = ["symphonia-all"], default-features = false }
 rubato = "0.16.1"
 rustfft = "6.2.0"
 skrifa = "0.28.0"

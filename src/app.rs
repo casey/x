@@ -7,16 +7,98 @@ pub(crate) struct App {
   filters: Vec<Filter>,
   makro: Vec<Key>,
   options: Options,
+  #[allow(unused)]
+  output_stream: OutputStream,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   stream: Box<dyn Stream>,
   window: Option<Arc<Window>>,
 }
 
+// copy output samples to an internal buffer
+// which samples do i want to contribute to visualization?
+// - the samples which have been output to the dac since last frame
+
+struct Core {
+  buffer: Vec<f32>,
+  decoder: rodio::Decoder<std::io::BufReader<std::fs::File>>,
+}
+
+#[derive(Clone)]
+struct Tap(Arc<RwLock<Core>>);
+
+impl Tap {
+  fn new(path: &Path) -> Self {
+    use rodio::Decoder;
+    use std::fs::File;
+    use std::io::BufReader;
+
+    let file = BufReader::new(File::open(path).unwrap());
+    let source = Decoder::new(file).unwrap();
+
+    Self(Arc::new(RwLock::new(Core {
+      buffer: Vec::new(),
+      decoder: source,
+    })))
+  }
+}
+
+impl rodio::Source for Tap {
+  fn current_frame_len(&self) -> Option<usize> {
+    self.0.read().unwrap().decoder.current_frame_len()
+  }
+
+  fn channels(&self) -> u16 {
+    self.0.read().unwrap().decoder.channels()
+  }
+
+  fn sample_rate(&self) -> u32 {
+    self.0.read().unwrap().decoder.sample_rate()
+  }
+
+  fn total_duration(&self) -> Option<std::time::Duration> {
+    self.0.read().unwrap().decoder.total_duration()
+  }
+}
+
+impl Stream for Tap {
+  fn drain(&mut self, samples: &mut Vec<f32>) {
+    samples.append(&mut self.0.write().unwrap().buffer);
+  }
+
+  fn sample_rate(&self) -> u32 {
+    use rodio::Source;
+    self.0.read().unwrap().decoder.sample_rate()
+  }
+}
+
+impl Iterator for Tap {
+  type Item = f32;
+
+  fn next(&mut self) -> Option<f32> {
+    let mut write = self.0.write().unwrap();
+
+    let sample = write.decoder.next()?.to_sample::<f32>();
+
+    write.buffer.push(sample);
+
+    Some(sample)
+  }
+}
+
 impl App {
   pub(crate) fn new(options: Options) -> Result<Self> {
+    let (output_stream, stream_handle) =
+      OutputStream::try_default().context(error::AudioDefaultOutputStream)?;
+
     let stream: Box<dyn Stream> = if let Some(track) = &options.track {
-      Box::new(Track::load(track)?)
+      let tap = Tap::new(track);
+
+      stream_handle
+        .play_raw(tap.clone())
+        .context(error::AudioPlay)?;
+
+      Box::new(tap)
     } else {
       Box::new(Input::new()?)
     };
@@ -28,6 +110,7 @@ impl App {
       filters: options.program.map(Program::filters).unwrap_or_default(),
       makro: Vec::new(),
       options,
+      output_stream,
       recording: None,
       renderer: None,
       stream,

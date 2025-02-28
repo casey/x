@@ -12,17 +12,25 @@ pub(crate) enum Error {
   },
   #[snafu(display("failed to get default audio input device"))]
   AudioDefaultInputDevice { backtrace: Option<Backtrace> },
+  #[snafu(display("failed to get default audio output stream"))]
+  AudioDefaultOutputStream {
+    backtrace: Option<Backtrace>,
+    source: rodio::StreamError,
+  },
   #[snafu(display("failed to get audio device name"))]
   AudioDeviceName {
     backtrace: Option<Backtrace>,
     source: cpal::DeviceNameError,
   },
-  #[snafu(display("failed to get default audio output device"))]
-  AudioDefaultOutputDevice { backtrace: Option<Backtrace> },
   #[snafu(display("failed to enumerate audio devices"))]
   AudioDevices {
     backtrace: Option<Backtrace>,
     source: cpal::DevicesError,
+  },
+  #[snafu(display("failed to play audio"))]
+  AudioPlay {
+    backtrace: Option<Backtrace>,
+    source: rodio::PlayError,
   },
   #[snafu(display("failed to play audio input stream"))]
   AudioPlayStream {
@@ -67,11 +75,6 @@ pub(crate) enum Error {
   Device {
     backtrace: Option<Backtrace>,
     source: wgpu::RequestDeviceError,
-  },
-  #[snafu(display("empty track: {}", path.display()))]
-  EmptyTrack {
-    backtrace: Option<Backtrace>,
-    path: PathBuf,
   },
   #[snafu(display("failed to build event loop"))]
   EventLoopBuild {
@@ -126,17 +129,6 @@ pub(crate) enum Error {
   RunApp {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
-  },
-  #[snafu(display("track packet sample rate mismatch: {}", path.display()))]
-  SampleRateMismatch {
-    backtrace: Option<Backtrace>,
-    path: PathBuf,
-  },
-  #[snafu(display("failed to decode track"))]
-  Track {
-    backtrace: Option<Backtrace>,
-    path: PathBuf,
-    source: symphonia::core::errors::Error,
   },
   #[snafu(display("default texture format {texture_format:?} not supported"))]
   UnsupportedTextureFormat {
