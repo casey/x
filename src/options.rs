@@ -3,7 +3,7 @@ use {
   clap::builder::styling::{AnsiColor, Effects, Styles},
 };
 
-#[derive(Clone, Parser)]
+#[derive(Clone, Default, Parser)]
 #[command(
   version,
   styles = Styles::styled()
@@ -18,12 +18,18 @@ use {
 pub(crate) struct Options {
   #[arg(long)]
   pub(crate) fit: bool,
+  #[arg(long, default_value_t = 0)]
+  pub(crate) gain: i64,
+  #[arg(long)]
+  pub(crate) program: Option<Program>,
   #[arg(long)]
   pub(crate) repeat: bool,
   #[arg(long)]
   pub(crate) resolution: Option<u32>,
   #[arg(long)]
   pub(crate) tile: bool,
+  #[arg(long)]
+  pub(crate) track: Option<PathBuf>,
   #[arg(long)]
   pub(crate) wrap: bool,
 }

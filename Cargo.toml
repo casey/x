@@ -14,17 +14,22 @@ log = "0.4.22"
 nalgebra = "0.33.2"
 png = "0.17.16"
 pollster = "0.4.0"
+rodio = { version = "0.20.1", features = ["symphonia-all"], default-features = false }
 rustfft = "6.2.0"
 skrifa = "0.28.0"
 snafu = "0.8.5"
+symphonia = { version = "*", features = [ "all-codecs", "all-formats" ] }
+tabled = { version = "0.18.0", git = "https://github.com/zhiburt/tabled.git" }
 vello = { git = "https://github.com/linebender/vello.git" }
 wgpu = "24.0.1"
 winit = "0.30.5"
 
 [lints.clippy]
 all = { level = "deny", priority = -1 }
+arbitrary-source-item-ordering = "deny"
 cast-lossless = "allow"
 cast-precision-loss = "allow"
+float-cmp = "allow"
 pedantic = { level = "deny", priority = -1 }
 similar-names = "allow"
 struct-excessive-bools = "allow"
@@ -32,3 +37,7 @@ struct_field_names = "allow"
 too-many-arguments = "allow"
 too-many-lines = "allow"
 wildcard-imports = "allow"
+
+[dev-dependencies]
+hound = "3.5.1"
+tempfile = "3.17.1"

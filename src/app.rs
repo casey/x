@@ -2,29 +2,57 @@ use super::*;
 
 pub(crate) struct App {
   analyzer: Analyzer,
+  capture: Image,
   error: Option<Error>,
   filters: Vec<Filter>,
   makro: Vec<Key>,
   options: Options,
+  #[allow(unused)]
+  output_stream: OutputStream,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
+  stream: Box<dyn Stream>,
   window: Option<Arc<Window>>,
 }
 
 impl App {
+  fn capture(&mut self) -> Result {
+    pollster::block_on(self.renderer.as_mut().unwrap().capture(&mut self.capture))?;
+    self.capture.save("capture.png".as_ref())?;
+    Ok(())
+  }
+
   pub(crate) fn error(self) -> Option<Error> {
     self.error
   }
 
   pub(crate) fn new(options: Options) -> Result<Self> {
+    let (output_stream, stream_handle) =
+      OutputStream::try_default().context(error::AudioDefaultOutputStream)?;
+
+    let stream: Box<dyn Stream> = if let Some(track) = &options.track {
+      let tap = Track::new(track)?;
+
+      stream_handle
+        .play_raw(tap.clone())
+        .context(error::AudioPlay)?;
+
+      Box::new(tap)
+    } else {
+      Box::new(Input::new()?)
+    };
+
     Ok(Self {
-      analyzer: Analyzer::new()?,
+      analyzer: Analyzer::new(),
+      capture: Image::default(),
       error: None,
-      filters: Vec::new(),
+      filters: options.program.map(Program::filters).unwrap_or_default(),
       makro: Vec::new(),
       options,
+      output_stream,
       recording: None,
       renderer: None,
+      stream,
       window: None,
     })
   }
@@ -34,14 +62,14 @@ impl App {
 
     match key {
       Key::Character(ref c) => match c.as_str() {
+        "+" => {
+          self.options.gain += 1;
+        }
+        "-" => {
+          self.options.gain -= 1;
+        }
         ">" => {
-          if let Err(err) = pollster::block_on(
-            self
-              .renderer
-              .as_mut()
-              .unwrap()
-              .capture("capture.png".as_ref()),
-          ) {
+          if let Err(err) = self.capture() {
             self.error = Some(err);
             event_loop.exit();
           }
@@ -148,7 +176,7 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
-    self.analyzer.update();
+    self.analyzer.update(self.stream.as_mut());
 
     if let Err(err) =
       self

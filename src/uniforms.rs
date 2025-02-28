@@ -11,6 +11,7 @@ pub(crate) struct Uniforms {
   pub(crate) frequency_range: f32,
   pub(crate) front_offset: Vec2f,
   pub(crate) front_read: bool,
+  pub(crate) gain: f32,
   pub(crate) index: u32,
   pub(crate) offset: Vec2f,
   pub(crate) position: Mat3f,
@@ -34,6 +35,7 @@ impl Uniforms {
     self.frequency_range.write(dst, &mut i, &mut a);
     self.front_offset.write(dst, &mut i, &mut a);
     self.front_read.write(dst, &mut i, &mut a);
+    self.gain.write(dst, &mut i, &mut a);
     self.index.write(dst, &mut i, &mut a);
     self.offset.write(dst, &mut i, &mut a);
     self.position.write(dst, &mut i, &mut a);

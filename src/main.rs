@@ -1,15 +1,18 @@
 use {
   self::{
-    analyzer::Analyzer, app::App, bindings::Bindings, error::Error, field::Field, filter::Filter,
-    format::Format, frame::Frame, into_usize::IntoUsize, options::Options, renderer::Renderer,
-    shared::Shared, tally::Tally, target::Target, tiling::Tiling, uniforms::Uniforms,
+    analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, chain::Chain,
+    error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
+    input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
+    shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
+    tiling::Tiling, track::Track, uniforms::Uniforms,
   },
-  clap::Parser,
+  clap::{Parser, ValueEnum},
   cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
+    SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfigRange,
   },
   log::info,
+  rodio::{cpal::Sample, Decoder, OutputStream, Source},
   rustfft::{num_complex::Complex, FftPlanner},
   skrifa::MetadataProvider,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
@@ -18,10 +21,10 @@ use {
     collections::VecDeque,
     fmt::{self, Display, Formatter},
     fs::File,
-    io::{self, BufWriter},
+    io::{self, BufReader, BufWriter},
     path::{Path, PathBuf},
     process,
-    sync::{mpsc, Arc, Mutex},
+    sync::{mpsc, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Instant,
   },
   vello::{
@@ -61,20 +64,34 @@ macro_rules! label {
 
 mod analyzer;
 mod app;
+mod arguments;
 mod bindings;
+mod chain;
 mod error;
 mod field;
 mod filter;
 mod format;
 mod frame;
+mod image;
+mod input;
 mod into_usize;
 mod options;
+mod program;
 mod renderer;
 mod shared;
+mod stream;
+mod subcommand;
 mod tally;
 mod target;
 mod tiling;
+mod track;
 mod uniforms;
+
+const KIB: usize = 1 << 10;
+const MIB: usize = KIB << 10;
+
+const CHANNELS: u32 = 4;
+const FONT: &str = "Helvetica Neue";
 
 type Result<T = (), E = Error> = std::result::Result<T, E>;
 
@@ -83,12 +100,6 @@ type Mat4f = nalgebra::Matrix4<f32>;
 type Vec2f = nalgebra::Vector2<f32>;
 type Vec2u = nalgebra::Vector2<u32>;
 type Vec4f = nalgebra::Vector4<f32>;
-
-const KIB: usize = 1 << 10;
-const MIB: usize = KIB << 10;
-
-const CHANNELS: u32 = 4;
-const FONT: &str = "Helvetica Neue";
 
 fn default<T: Default>() -> T {
   T::default()
@@ -121,28 +132,10 @@ fn pad(i: usize, alignment: usize) -> usize {
   (i + alignment - 1) & !(alignment - 1)
 }
 
-fn run() -> Result<(), Error> {
+fn main() {
   env_logger::init();
 
-  let options = Options::parse();
-
-  let mut app = App::new(options)?;
-
-  EventLoop::with_user_event()
-    .build()
-    .context(error::EventLoopBuild)?
-    .run_app(&mut app)
-    .context(error::RunApp)?;
-
-  if let Some(err) = app.error() {
-    return Err(err);
-  }
-
-  Ok(())
-}
-
-fn main() {
-  if let Err(err) = run() {
+  if let Err(err) = Arguments::parse().run() {
     eprintln!("error: {err}");
 
     for (i, err) in err.iter_chain().skip(1).enumerate() {

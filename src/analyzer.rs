@@ -2,88 +2,41 @@ use super::*;
 
 pub(crate) struct Analyzer {
   complex_frequencies: Vec<Complex<f32>>,
-  config: StreamConfig,
   frequencies: Vec<f32>,
   planner: FftPlanner<f32>,
-  queue: Arc<Mutex<VecDeque<f32>>>,
   samples: Vec<f32>,
   scratch: Vec<Complex<f32>>,
-  #[allow(unused)]
-  stream: cpal::Stream,
 }
 
 impl Analyzer {
-  pub(crate) fn new() -> Result<Self> {
-    let device = cpal::default_host()
-      .default_input_device()
-      .context(error::DefaultAudioInputDevice)?;
-
-    let supported_config = device
-      .supported_input_configs()
-      .context(error::SupportedStreamConfigs)?
-      .max_by_key(SupportedStreamConfigRange::max_sample_rate)
-      .context(error::SupportedStreamConfig)?
-      .with_max_sample_rate();
-
-    let buffer_size = match supported_config.buffer_size() {
-      SupportedBufferSize::Range { min, .. } => {
-        log::info!("input audio buffer size: {min}");
-        Some(*min)
-      }
-      SupportedBufferSize::Unknown => {
-        log::info!("input audio buffer size: unknown");
-        None
-      }
-    };
-
-    let mut config = supported_config.config();
-
-    if let Some(buffer_size) = buffer_size {
-      config.buffer_size = cpal::BufferSize::Fixed(buffer_size);
-    }
-
-    let queue = Arc::new(Mutex::new(VecDeque::new()));
-
-    let clone = queue.clone();
-
-    let stream = device
-      .build_input_stream(
-        &config,
-        move |data: &[f32], _: &cpal::InputCallbackInfo| {
-          clone.lock().unwrap().extend(data);
-        },
-        move |err| {
-          eprintln!("audio input error: {err}");
-        },
-        None,
-      )
-      .context(error::BuildAudioInputStream)?;
-
-    stream.play().context(error::PlayStream)?;
-
-    Ok(Self {
-      complex_frequencies: Vec::new(),
-      config,
-      frequencies: Vec::new(),
-      planner: FftPlanner::new(),
-      queue,
-      samples: Vec::new(),
-      scratch: Vec::new(),
-      stream,
-    })
-  }
-
   pub(crate) fn frequencies(&self) -> &[f32] {
     &self.frequencies
+  }
+
+  pub(crate) fn new() -> Self {
+    Self {
+      complex_frequencies: Vec::new(),
+      frequencies: Vec::new(),
+      planner: FftPlanner::new(),
+      samples: Vec::new(),
+      scratch: Vec::new(),
+    }
   }
 
   pub(crate) fn samples(&self) -> &[f32] {
     &self.samples
   }
 
-  pub(crate) fn update(&mut self) {
-    self.samples.clear();
-    self.samples.extend(self.queue.lock().unwrap().drain(..));
+  pub(crate) fn update(&mut self, stream: &mut dyn Stream) {
+    if stream.done() {
+      self.samples.clear();
+    } else {
+      let old = self.samples.len();
+      stream.drain(&mut self.samples);
+      self
+        .samples
+        .drain(..self.samples.len().saturating_sub(1024).min(old));
+    }
 
     let samples = &self.samples[..self.samples.len() & !1];
 
@@ -103,7 +56,7 @@ impl Analyzer {
 
     let n = self.complex_frequencies.len();
     let half = n / 2;
-    let spacing = self.config.sample_rate.0 as f32 / n as f32;
+    let spacing = stream.sample_rate() as f32 / n as f32;
     let threshold = (20.0 / spacing).into_usize();
     let cutoff = (15_000.0 / spacing).into_usize();
 
