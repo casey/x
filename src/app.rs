@@ -11,7 +11,7 @@ pub(crate) struct App {
   output_stream: OutputStream,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
-  stream: Box<dyn Stream>,
+  stream: Option<Box<dyn Stream>>,
   window: Option<Arc<Window>>,
 }
 
@@ -43,15 +43,15 @@ impl App {
       OutputStream::try_from_device_config(&output_device, stream_config)
         .context(error::AudioBuildOutputStream)?;
 
-    let stream: Box<dyn Stream> = if let Some(track) = &options.track {
+    let stream: Option<Box<dyn Stream>> = if let Some(track) = &options.track {
       let track = Track::new(track)?;
 
       stream_handle
         .play_raw(track.clone())
         .context(error::AudioPlay)?;
 
-      Box::new(track)
-    } else {
+      Some(Box::new(track))
+    } else if options.input {
       let input_device = host
         .default_input_device()
         .context(error::AudioDefaultInputDevice)?;
@@ -62,7 +62,9 @@ impl App {
           .context(error::AudioSupportedStreamConfigs)?,
       )?;
 
-      Box::new(Input::new(input_device, stream_config)?)
+      Some(Box::new(Input::new(input_device, stream_config)?))
+    } else {
+      None
     };
 
     Ok(Self {
@@ -199,7 +201,9 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
-    self.analyzer.update(self.stream.as_mut());
+    if let Some(stream) = self.stream.as_mut() {
+      self.analyzer.update(stream.as_mut());
+    }
 
     if let Err(err) =
       self
