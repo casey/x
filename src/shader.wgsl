@@ -39,8 +39,8 @@ const FIELD_X: u32 = 6;
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
+  vec4(-1.0, 3.0, 0.0, 1.0),
   vec4(3.0, -1.0, 0.0, 1.0),
-  vec4(-1.0, 3.0, 0.0, 1.0)
 );
 
 struct Uniforms {
@@ -59,6 +59,7 @@ struct Uniforms {
   position: mat3x3f,
   repeat: u32,
   resolution: vec2f,
+  rms: f32,
   sample_range: f32,
   tiling: u32,
   wrap: u32,
@@ -69,7 +70,7 @@ fn field_all(p: vec2f) -> bool {
 }
 
 fn field_circle(p: vec2f) -> bool {
-  return length(p) < 1;
+  return length(p) < 1 + uniforms.rms;
 }
 
 fn field_frequencies(p: vec2f) -> bool {
@@ -93,7 +94,7 @@ fn field_top(p: vec2f) -> bool {
 }
 
 fn field_x(p: vec2f) -> bool {
-  return abs(abs(p.x) - abs(p.y)) < 0.2;
+  return abs(abs(p.x) - abs(p.y)) < 0.2 + uniforms.rms;
 }
 
 fn invert(color: vec4f) -> vec4f {
