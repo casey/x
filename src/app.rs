@@ -3,17 +3,15 @@ use super::*;
 pub(crate) struct App {
   analyzer: Analyzer,
   capture: Image,
-  db: i64,
   error: Option<Error>,
-  filters: Vec<Filter>,
   makro: Vec<Key>,
   options: Options,
   #[allow(unused)]
   output_stream: OutputStream,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
+  state: State,
   stream: Option<Box<dyn Stream>>,
-  text: Option<Text>,
   window: Option<Arc<Window>>,
 }
 
@@ -69,24 +67,23 @@ impl App {
       None
     };
 
-    let (filters, text, db) = options
-      .program
-      .map(|program| (program.filters(), program.text(), program.db()))
-      .unwrap_or_default();
+    let mut state = options.program.map(Program::state).unwrap_or_default();
+
+    if let Some(db) = options.db {
+      state.db = db;
+    }
 
     Ok(Self {
-      db: options.db.unwrap_or(db),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
-      filters,
       makro: Vec::new(),
       options,
       output_stream,
       recording: None,
       renderer: None,
+      state,
       stream,
-      text,
       window: None,
     })
   }
@@ -97,10 +94,10 @@ impl App {
     match key {
       Key::Character(ref c) => match c.as_str() {
         "+" => {
-          self.db += 1;
+          self.state.db += 1;
         }
         "-" => {
-          self.db -= 1;
+          self.state.db -= 1;
         }
         ">" => {
           if let Err(err) = self.capture() {
@@ -114,19 +111,19 @@ impl App {
           }
           capture = false;
         }
-        "a" => self.filters.push(Filter {
+        "a" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::All,
           wrap: self.options.wrap,
           ..default()
         }),
-        "c" => self.filters.push(Filter {
+        "c" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::Circle,
           wrap: self.options.wrap,
           ..default()
         }),
-        "d" => self.filters.push(Filter {
+        "d" => self.state.filters.push(Filter {
           coordinates: true,
           wrap: self.options.wrap,
           ..default()
@@ -134,13 +131,13 @@ impl App {
         "f" => {
           self.options.fit = !self.options.fit;
         }
-        "l" => self.filters.push(Filter {
+        "l" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::Frequencies,
           wrap: self.options.wrap,
           ..default()
         }),
-        "n" => self.filters.push(Filter {
+        "n" => self.state.filters.push(Filter {
           field: Field::None,
           wrap: self.options.wrap,
           ..default()
@@ -156,7 +153,7 @@ impl App {
         "r" => {
           self.options.repeat = !self.options.repeat;
         }
-        "s" => self.filters.push(Filter {
+        "s" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::Samples,
           wrap: self.options.wrap,
@@ -168,13 +165,13 @@ impl App {
         "w" => {
           self.options.wrap = !self.options.wrap;
         }
-        "x" => self.filters.push(Filter {
+        "x" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::X,
           wrap: self.options.wrap,
           ..default()
         }),
-        "z" => self.filters.push(Filter {
+        "z" => self.state.filters.push(Filter {
           position: Mat3f::new_scaling(2.0),
           wrap: self.options.wrap,
           ..default()
@@ -183,16 +180,16 @@ impl App {
       },
       Key::Named(key) => match key {
         NamedKey::Backspace => {
-          self.filters.pop();
+          self.state.filters.pop();
         }
         NamedKey::ArrowLeft => {
-          self.filters.push(Filter {
+          self.state.filters.push(Filter {
             position: Mat3f::new_rotation(-0.01),
             ..default()
           });
         }
         NamedKey::ArrowRight => {
-          self.filters.push(Filter {
+          self.state.filters.push(Filter {
             position: Mat3f::new_rotation(0.01),
             ..default()
           });
@@ -214,13 +211,13 @@ impl App {
       self.analyzer.update(stream.as_mut());
     }
 
-    if let Err(err) = self.renderer.as_mut().unwrap().render(
-      &self.options,
-      &self.analyzer,
-      &self.filters,
-      self.db,
-      self.text.as_ref(),
-    ) {
+    if let Err(err) =
+      self
+        .renderer
+        .as_mut()
+        .unwrap()
+        .render(&self.options, &self.analyzer, &self.state)
+    {
       self.error = Some(err);
       event_loop.exit();
       return;

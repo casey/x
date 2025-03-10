@@ -14,36 +14,26 @@ pub(crate) enum Program {
 }
 
 impl Program {
-  pub(crate) fn db(self) -> i64 {
+  pub(crate) fn state(self) -> State {
     match self {
-      Self::Hello => -40,
-      _ => 0,
-    }
-  }
-
-  pub(crate) fn filters(self) -> Vec<Filter> {
-    match self {
-      Self::Bottom => Chain::default().invert().bottom().push(),
-      Self::Circle => Chain::default().invert().circle().push(),
-      Self::Frequencies | Self::Hello => Chain::default().invert().frequencies().push(),
-      Self::Highwaystar => Chain::default().invert_r().circle().scale(2.0).times(8),
-      Self::Middle => Chain::default().invert().top().push().bottom().push(),
-      Self::Rip => Chain::default().invert().top().push().samples().push(),
-      Self::Top => Chain::default().invert().top().push(),
-      Self::X => Chain::default().invert().x().push(),
-    }
-    .into()
-  }
-
-  pub(crate) fn text(self) -> Option<Text> {
-    match self {
-      Self::Hello => Some(Text {
-        size: 64.0,
-        string: "hello world".into(),
-        x: 0.10,
-        y: -0.10,
-      }),
-      _ => None,
+      Self::Bottom => State::default().invert().bottom().push(),
+      Self::Circle => State::default().invert().circle().push(),
+      Self::Frequencies | Self::Hello => State::default()
+        .db(-40)
+        .text(Some(Text {
+          size: 0.05,
+          string: "hello world".into(),
+          x: 0.10,
+          y: -0.10,
+        }))
+        .invert()
+        .frequencies()
+        .push(),
+      Self::Highwaystar => State::default().invert_r().circle().scale(2.0).times(8),
+      Self::Middle => State::default().invert().top().push().bottom().push(),
+      Self::Rip => State::default().invert().top().push().samples().push(),
+      Self::Top => State::default().invert().top().push(),
+      Self::X => State::default().invert().x().push(),
     }
   }
 }

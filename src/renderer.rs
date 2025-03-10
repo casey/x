@@ -454,14 +454,7 @@ impl Renderer {
     Ok(renderer)
   }
 
-  pub(crate) fn render(
-    &mut self,
-    options: &Options,
-    analyzer: &Analyzer,
-    filters: &[Filter],
-    db: i64,
-    text: Option<&Text>,
-  ) -> Result {
+  pub(crate) fn render(&mut self, options: &Options, analyzer: &Analyzer, state: &State) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
       Err(mpsc::TryRecvError::Empty) => {}
@@ -487,7 +480,7 @@ impl Renderer {
 
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let tiling_size = if options.tile {
-      (filters.len().max(1) as f64).sqrt().ceil() as u32
+      (state.filters.len().max(1) as f64).sqrt().ceil() as u32
     } else {
       1
     };
@@ -513,13 +506,13 @@ impl Renderer {
     let frequency_range = frequency_count as f32 / self.frequencies.width() as f32;
     self.write_texture(frequencies, &self.frequencies);
 
-    let filter_count = u32::try_from(filters.len()).unwrap();
+    let filter_count = u32::try_from(state.filters.len()).unwrap();
 
-    let gain = 10f32.powf((db as f32 * 1.0) / 20.0);
+    let gain = 10f32.powf((state.db as f32 * 1.0) / 20.0);
 
     let rms = analyzer.rms();
 
-    for (i, filter) in filters.iter().enumerate() {
+    for (i, filter) in state.filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
         back_read: false,
@@ -614,7 +607,7 @@ impl Renderer {
 
     let mut source = 0;
     let mut destination = 1;
-    for i in 0..filters.len() {
+    for i in 0..state.filters.len() {
       let i = u32::try_from(i).unwrap();
       self.draw(
         &self.bindings().targets[source].bind_group,
@@ -634,7 +627,7 @@ impl Renderer {
       &self.bindings().tiling_view,
     );
 
-    self.render_overlay(options, fps, db, text)?;
+    self.render_overlay(options, state, fps)?;
 
     self.draw(
       &self.bindings().overlay_bind_group,
@@ -651,7 +644,7 @@ impl Renderer {
     info!(
       "{}",
       Frame {
-        filters: filters.len(),
+        filters: state.filters.len(),
         fps,
         number: self.frame,
       }
@@ -665,9 +658,8 @@ impl Renderer {
   pub(crate) fn render_overlay(
     &mut self,
     options: &Options,
+    state: &State,
     fps: Option<f32>,
-    db: i64,
-    text: Option<&Text>,
   ) -> Result {
     use {
       kurbo::{Affine, Rect, Vec2},
@@ -678,7 +670,7 @@ impl Renderer {
 
     self.overlay_scene.reset();
 
-    let text = if let Some(text) = text.cloned() {
+    let text = if let Some(text) = state.text.clone() {
       text
     } else {
       let mut items = Vec::new();
@@ -687,14 +679,14 @@ impl Renderer {
         items.push(format!("ƒ {}", fps.floor()));
       }
 
-      items.push(if db >= 0 {
-        format!("+{db}")
+      items.push(if state.db >= 0 {
+        format!("+{}", state.db)
       } else {
-        db.to_string()
+        state.db.to_string()
       });
 
       Text {
-        size: 32.0,
+        size: 0.033,
         string: items.join(" "),
         x: 0.0,
         y: 0.0,
@@ -740,10 +732,13 @@ impl Renderer {
       FileRef::Font(font) => font,
     };
 
+    #[allow(clippy::cast_possible_truncation)]
+    let font_size = bounds.height() as f32 * text.size;
+
     let charmap = font.charmap();
     let location = font.axes().location(Vec::<(&str, f32)>::new());
-    let metrics = font.metrics(Size::new(text.size), &location);
-    let glyph_metrics = font.glyph_metrics(Size::new(text.size), &location);
+    let metrics = font.metrics(Size::new(font_size), &location);
+    let glyph_metrics = font.glyph_metrics(Size::new(font_size), &location);
     let mut x = 0.0;
 
     let glyphs = text
@@ -769,7 +764,7 @@ impl Renderer {
     self
       .overlay_scene
       .draw_glyphs(&self.font)
-      .font_size(text.size)
+      .font_size(font_size)
       .brush(&Brush::Solid(Color::WHITE))
       .transform(Affine::translate(Vec2 {
         x: text.x * bounds.width() + bounds.x0 + 10.0 - metrics.descent as f64,
