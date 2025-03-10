@@ -1,16 +1,22 @@
 use super::*;
 
-#[derive(Clone, Copy, Default, EnumIter, IntoStaticStr)]
+#[derive(Clone, Copy, EnumIter, IntoStaticStr)]
 #[repr(u32)]
 pub(crate) enum Field {
   All,
+  Bottom,
   Circle,
   Frequencies,
-  #[default]
   None,
   Samples,
   Top,
   X,
+}
+
+impl Default for Field {
+  fn default() -> Self {
+    Field::None
+  }
 }
 
 impl Field {

@@ -6,13 +6,13 @@ pub(crate) struct Chain {
   filters: Vec<Filter>,
 }
 
+#[allow(dead_code)]
 impl Chain {
   pub(crate) fn circle(mut self) -> Self {
     self.filter.field = Field::Circle;
     self
   }
 
-  #[allow(unused)]
   pub(crate) fn clear(mut self) -> Self {
     self.filter = Filter::default();
     self
@@ -47,6 +47,11 @@ impl Chain {
 
   pub(crate) fn top(mut self) -> Self {
     self.filter.field = Field::Top;
+    self
+  }
+
+  pub(crate) fn bottom(mut self) -> Self {
+    self.filter.field = Field::Bottom;
     self
   }
 

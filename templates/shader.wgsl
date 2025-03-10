@@ -69,6 +69,10 @@ fn field_all(p: vec2f) -> bool {
   return true;
 }
 
+fn field_bottom(p: vec2f) -> bool {
+  return field_top(-p);
+}
+
 fn field_circle(p: vec2f) -> bool {
   return length(p) < 0.5 * coefficient();
 }
