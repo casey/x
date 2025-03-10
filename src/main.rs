@@ -90,6 +90,7 @@ mod subcommand;
 mod tally;
 mod target;
 mod templates;
+mod text;
 mod tiling;
 mod track;
 mod uniforms;

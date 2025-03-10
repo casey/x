@@ -27,6 +27,11 @@ impl Chain {
     self
   }
 
+  pub(crate) fn invert_r(mut self) -> Self {
+    self.filter.color = Mat4f::from_diagonal(&Vec4f::new(-1.0, 1.0, 1.0, 1.0));
+    self
+  }
+
   pub(crate) fn push(mut self) -> Self {
     self.filters.push(self.filter.clone());
     self

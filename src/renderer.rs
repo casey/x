@@ -459,6 +459,7 @@ impl Renderer {
     options: &Options,
     analyzer: &Analyzer,
     filters: &[Filter],
+    text: Option<&str>,
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
@@ -632,7 +633,7 @@ impl Renderer {
       &self.bindings().tiling_view,
     );
 
-    self.render_overlay(options, fps)?;
+    self.render_overlay(options, fps, text)?;
 
     self.draw(
       &self.bindings().overlay_bind_group,
@@ -660,7 +661,12 @@ impl Renderer {
     Ok(())
   }
 
-  pub(crate) fn render_overlay(&mut self, options: &Options, fps: Option<f32>) -> Result {
+  pub(crate) fn render_overlay(
+    &mut self,
+    options: &Options,
+    fps: Option<f32>,
+    text: Option<&str>,
+  ) -> Result {
     use {
       kurbo::{Affine, Rect, Vec2},
       peniko::{Brush, Color, Fill},
@@ -670,19 +676,23 @@ impl Renderer {
 
     self.overlay_scene.reset();
 
-    let mut items = Vec::new();
-
-    if let Some(fps) = fps {
-      items.push(format!("ƒ {}", fps.floor()));
-    }
-
-    items.push(if options.gain >= 0 {
-      format!("+{}", options.gain)
+    let text = if let Some(text) = text {
+      text.into()
     } else {
-      options.gain.to_string()
-    });
+      let mut items = Vec::new();
 
-    let text = items.join(" ");
+      if let Some(fps) = fps {
+        items.push(format!("ƒ {}", fps.floor()));
+      }
+
+      items.push(if options.gain >= 0 {
+        format!("+{}", options.gain)
+      } else {
+        options.gain.to_string()
+      });
+
+      items.join(" ")
+    };
 
     let bounds = if options.fit {
       Rect {

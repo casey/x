@@ -12,6 +12,7 @@ pub(crate) struct App {
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   stream: Option<Box<dyn Stream>>,
+  text: Option<String>,
   window: Option<Arc<Window>>,
 }
 
@@ -67,17 +68,24 @@ impl App {
       None
     };
 
+    let (filters, text) = if let Some(program) = options.program {
+      (program.filters(), program.text())
+    } else {
+      (Vec::new(), None)
+    };
+
     Ok(Self {
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
-      filters: options.program.map(Program::filters).unwrap_or_default(),
+      filters,
       makro: Vec::new(),
       options,
       output_stream,
       recording: None,
       renderer: None,
       stream,
+      text,
       window: None,
     })
   }
@@ -205,13 +213,12 @@ impl App {
       self.analyzer.update(stream.as_mut());
     }
 
-    if let Err(err) =
-      self
-        .renderer
-        .as_mut()
-        .unwrap()
-        .render(&self.options, &self.analyzer, &self.filters)
-    {
+    if let Err(err) = self.renderer.as_mut().unwrap().render(
+      &self.options,
+      &self.analyzer,
+      &self.filters,
+      self.text.as_deref(),
+    ) {
       self.error = Some(err);
       event_loop.exit();
       return;
