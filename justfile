@@ -28,5 +28,5 @@ unused:
 doc:
   cargo doc --workspace --open
 
-play:
-  cargo run --release -- --track '/Users/rodarmor/Music/Music/Media.localized/Music/seagaia/Anodyne/49 Old Generic Boss _The Street_ (Extra).mp3'
+hello:
+  cargo run --release -- --track '/Users/rodarmor/Music/Music/Media.localized/Music/seagaia/Anodyne/49 Old Generic Boss _The Street_ (Extra).mp3' --program hello

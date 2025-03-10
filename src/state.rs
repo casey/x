@@ -1,12 +1,14 @@
 use super::*;
 
 #[derive(Default)]
-pub(crate) struct Chain {
-  filter: Filter,
-  filters: Vec<Filter>,
+pub(crate) struct State {
+  pub(crate) db: i64,
+  pub(crate) filter: Filter,
+  pub(crate) filters: Vec<Filter>,
+  pub(crate) text: Option<Text>,
 }
 
-impl Chain {
+impl State {
   pub(crate) fn bottom(mut self) -> Self {
     self.filter.field = Field::Bottom;
     self
@@ -17,6 +19,11 @@ impl Chain {
     self
   }
 
+  pub(crate) fn db(mut self, db: i64) -> Self {
+    self.db = db;
+    self
+  }
+
   pub(crate) fn frequencies(mut self) -> Self {
     self.filter.field = Field::Frequencies;
     self
@@ -24,6 +31,11 @@ impl Chain {
 
   pub(crate) fn invert(mut self) -> Self {
     self.filter.color = invert_color();
+    self
+  }
+
+  pub(crate) fn invert_r(mut self) -> Self {
+    self.filter.color = Mat4f::from_diagonal(&Vec4f::new(-1.0, 1.0, 1.0, 1.0));
     self
   }
 
@@ -42,6 +54,11 @@ impl Chain {
     self
   }
 
+  pub(crate) fn text(mut self, text: Option<Text>) -> Self {
+    self.text = text;
+    self
+  }
+
   pub(crate) fn times(mut self, n: usize) -> Self {
     for _ in 0..n {
       self = self.push();
@@ -57,11 +74,5 @@ impl Chain {
   pub(crate) fn x(mut self) -> Self {
     self.filter.field = Field::X;
     self
-  }
-}
-
-impl From<Chain> for Vec<Filter> {
-  fn from(chain: Chain) -> Self {
-    chain.filters
   }
 }
