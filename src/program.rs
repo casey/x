@@ -8,6 +8,7 @@ pub(crate) enum Program {
   Hello,
   Highwaystar,
   Middle,
+  RedX,
   Rip,
   Top,
   X,
@@ -30,8 +31,9 @@ impl Program {
         .invert()
         .frequencies()
         .push(),
-      Self::Highwaystar => State::default().invert_r().circle().scale(2.0).times(8),
+      Self::Highwaystar => State::default().invert().circle().scale(2.0).times(8),
       Self::Middle => State::default().invert().top().push().bottom().push(),
+      Self::RedX => State::default().invert_r().x().push(),
       Self::Rip => State::default().invert().top().push().samples().push(),
       Self::Top => State::default().invert().top().push(),
       Self::X => State::default().invert().x().push(),
