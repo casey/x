@@ -38,6 +38,7 @@ struct-excessive-bools = "allow"
 struct_field_names = "allow"
 too-many-arguments = "allow"
 too-many-lines = "allow"
+unnecessary_wraps = "allow"
 wildcard-imports = "allow"
 
 [dev-dependencies]

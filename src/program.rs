@@ -4,6 +4,7 @@ use super::*;
 pub(crate) enum Program {
   Bottom,
   Circle,
+  Frequencies,
   Highwaystar,
   Middle,
   Rip,
@@ -16,6 +17,7 @@ impl Program {
     match self {
       Self::Bottom => Chain::default().invert().bottom().push(),
       Self::Circle => Chain::default().invert().circle().push(),
+      Self::Frequencies => Chain::default().invert().frequencies().push(),
       Self::Highwaystar => Chain::default().invert().circle().scale(2.0).times(8),
       Self::Middle => Chain::default().invert().top().push().bottom().push(),
       Self::Rip => Chain::default().invert().top().push().samples().push(),

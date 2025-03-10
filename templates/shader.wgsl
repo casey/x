@@ -89,7 +89,7 @@ fn field_none(p: vec2f) -> bool {
 
 fn field_samples(p: vec2f) -> bool {
   let x = (p.x + 1) * 0.5 * uniforms.sample_range;
-  let level = textureSample(samples, non_filtering_sampler, x).x;
+  let level = textureSample(samples, non_filtering_sampler, x).x * uniforms.gain;
   return level < p.y;
 }
 

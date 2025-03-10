@@ -13,6 +13,7 @@ pub(crate) enum Field {
   X,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for Field {
   fn default() -> Self {
     Field::None
