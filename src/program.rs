@@ -18,7 +18,8 @@ impl Program {
     match self {
       Self::Bottom => State::default().invert().bottom().push(),
       Self::Circle => State::default().invert().circle().push(),
-      Self::Frequencies | Self::Hello => State::default()
+      Self::Frequencies => State::default().invert().frequencies().push(),
+      Self::Hello => State::default()
         .db(-40)
         .text(Some(Text {
           size: 0.05,
