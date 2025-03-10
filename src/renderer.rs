@@ -515,6 +515,8 @@ impl Renderer {
 
     let gain = 10f32.powf((options.gain as f32 * 1.0) / 20.0);
 
+    let rms = analyzer.rms();
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
@@ -533,7 +535,7 @@ impl Renderer {
         position: filter.position,
         repeat: false,
         resolution: tiling.resolution(),
-        rms: analyzer.rms(),
+        rms,
         sample_range,
         tiling: tiling.size,
         wrap: filter.wrap,
@@ -556,7 +558,7 @@ impl Renderer {
       position: Mat3f::identity(),
       repeat: options.repeat,
       resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
-      rms: analyzer.rms(),
+      rms,
       sample_range,
       tiling: 1,
       wrap: false,
@@ -578,7 +580,7 @@ impl Renderer {
       position: Mat3f::identity(),
       repeat: options.repeat,
       resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
-      rms: analyzer.rms(),
+      rms,
       sample_range,
       tiling: 1,
       wrap: false,
