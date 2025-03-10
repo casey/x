@@ -4,7 +4,7 @@ use {
     error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
     input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
     shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
-    templates::ShaderWgsl, tiling::Tiling, track::Track, uniforms::Uniforms,
+    templates::ShaderWgsl, text::Text, tiling::Tiling, track::Track, uniforms::Uniforms,
   },
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},

@@ -14,12 +14,18 @@ pub(crate) enum Program {
 }
 
 impl Program {
+  pub(crate) fn db(self) -> i64 {
+    match self {
+      Self::Hello => -40,
+      _ => 0,
+    }
+  }
+
   pub(crate) fn filters(self) -> Vec<Filter> {
     match self {
       Self::Bottom => Chain::default().invert().bottom().push(),
       Self::Circle => Chain::default().invert().circle().push(),
-      Self::Frequencies => Chain::default().invert().frequencies().push(),
-      Self::Hello => Chain::default().invert().frequencies().push(),
+      Self::Frequencies | Self::Hello => Chain::default().invert().frequencies().push(),
       Self::Highwaystar => Chain::default().invert_r().circle().scale(2.0).times(8),
       Self::Middle => Chain::default().invert().top().push().bottom().push(),
       Self::Rip => Chain::default().invert().top().push().samples().push(),
@@ -29,9 +35,14 @@ impl Program {
     .into()
   }
 
-  pub(crate) fn text(self) -> Option<String> {
+  pub(crate) fn text(self) -> Option<Text> {
     match self {
-      Self::Hello => Some("hello world".into()),
+      Self::Hello => Some(Text {
+        size: 64.0,
+        string: "hello world".into(),
+        x: 0.10,
+        y: -0.10,
+      }),
       _ => None,
     }
   }

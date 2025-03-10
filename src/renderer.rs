@@ -459,7 +459,8 @@ impl Renderer {
     options: &Options,
     analyzer: &Analyzer,
     filters: &[Filter],
-    text: Option<&str>,
+    db: i64,
+    text: Option<&Text>,
   ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
@@ -514,7 +515,7 @@ impl Renderer {
 
     let filter_count = u32::try_from(filters.len()).unwrap();
 
-    let gain = 10f32.powf((options.gain as f32 * 1.0) / 20.0);
+    let gain = 10f32.powf((db as f32 * 1.0) / 20.0);
 
     let rms = analyzer.rms();
 
@@ -633,7 +634,7 @@ impl Renderer {
       &self.bindings().tiling_view,
     );
 
-    self.render_overlay(options, fps, text)?;
+    self.render_overlay(options, fps, db, text)?;
 
     self.draw(
       &self.bindings().overlay_bind_group,
@@ -665,7 +666,8 @@ impl Renderer {
     &mut self,
     options: &Options,
     fps: Option<f32>,
-    text: Option<&str>,
+    db: i64,
+    text: Option<&Text>,
   ) -> Result {
     use {
       kurbo::{Affine, Rect, Vec2},
@@ -676,8 +678,8 @@ impl Renderer {
 
     self.overlay_scene.reset();
 
-    let text = if let Some(text) = text {
-      text.into()
+    let text = if let Some(text) = text.cloned() {
+      text
     } else {
       let mut items = Vec::new();
 
@@ -685,13 +687,18 @@ impl Renderer {
         items.push(format!("ƒ {}", fps.floor()));
       }
 
-      items.push(if options.gain >= 0 {
-        format!("+{}", options.gain)
+      items.push(if db >= 0 {
+        format!("+{db}")
       } else {
-        options.gain.to_string()
+        db.to_string()
       });
 
-      items.join(" ")
+      Text {
+        size: 32.0,
+        string: items.join(" "),
+        x: 0.0,
+        y: 0.0,
+      }
     };
 
     let bounds = if options.fit {
@@ -724,8 +731,6 @@ impl Renderer {
       }
     };
 
-    let font_size = 32.0;
-
     let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
 
     let font = match file {
@@ -737,11 +742,12 @@ impl Renderer {
 
     let charmap = font.charmap();
     let location = font.axes().location(Vec::<(&str, f32)>::new());
-    let metrics = font.metrics(Size::new(font_size), &location);
-    let glyph_metrics = font.glyph_metrics(Size::new(font_size), &location);
+    let metrics = font.metrics(Size::new(text.size), &location);
+    let glyph_metrics = font.glyph_metrics(Size::new(text.size), &location);
     let mut x = 0.0;
 
     let glyphs = text
+      .string
       .chars()
       .map(|character| {
         let id = charmap
@@ -763,11 +769,11 @@ impl Renderer {
     self
       .overlay_scene
       .draw_glyphs(&self.font)
-      .font_size(font_size)
+      .font_size(text.size)
       .brush(&Brush::Solid(Color::WHITE))
       .transform(Affine::translate(Vec2 {
-        x: bounds.x0 + 10.0 - metrics.descent as f64,
-        y: bounds.y1 - 10.0 + metrics.descent as f64,
+        x: text.x * bounds.width() + bounds.x0 + 10.0 - metrics.descent as f64,
+        y: text.y * bounds.height() + bounds.y1 - 10.0 + metrics.descent as f64,
       }))
       .glyph_transform(None)
       .draw(Fill::NonZero, glyphs.into_iter());

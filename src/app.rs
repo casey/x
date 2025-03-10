@@ -3,6 +3,7 @@ use super::*;
 pub(crate) struct App {
   analyzer: Analyzer,
   capture: Image,
+  db: i64,
   error: Option<Error>,
   filters: Vec<Filter>,
   makro: Vec<Key>,
@@ -12,7 +13,7 @@ pub(crate) struct App {
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
   stream: Option<Box<dyn Stream>>,
-  text: Option<String>,
+  text: Option<Text>,
   window: Option<Arc<Window>>,
 }
 
@@ -68,13 +69,13 @@ impl App {
       None
     };
 
-    let (filters, text) = if let Some(program) = options.program {
-      (program.filters(), program.text())
-    } else {
-      (Vec::new(), None)
-    };
+    let (filters, text, db) = options
+      .program
+      .map(|program| (program.filters(), program.text(), program.db()))
+      .unwrap_or_default();
 
     Ok(Self {
+      db: options.db.unwrap_or(db),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
@@ -96,10 +97,10 @@ impl App {
     match key {
       Key::Character(ref c) => match c.as_str() {
         "+" => {
-          self.options.gain += 1;
+          self.db += 1;
         }
         "-" => {
-          self.options.gain -= 1;
+          self.db -= 1;
         }
         ">" => {
           if let Err(err) = self.capture() {
@@ -217,7 +218,8 @@ impl App {
       &self.options,
       &self.analyzer,
       &self.filters,
-      self.text.as_deref(),
+      self.db,
+      self.text.as_ref(),
     ) {
       self.error = Some(err);
       event_loop.exit();

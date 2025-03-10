@@ -17,9 +17,9 @@ use {
 )]
 pub(crate) struct Options {
   #[arg(long)]
+  pub(crate) db: Option<i64>,
+  #[arg(long)]
   pub(crate) fit: bool,
-  #[arg(long, default_value_t = 0)]
-  pub(crate) gain: i64,
   #[arg(long, conflicts_with = "track")]
   pub(crate) input: bool,
   #[arg(long)]
