@@ -79,10 +79,8 @@ impl Analyzer {
           c.norm() * weight
         }),
     );
-    self.rms = if self.frequencies.is_empty() {
-      0.0
-    } else {
-      (self.frequencies.iter().map(|&f| f * f).sum::<f32>() / self.frequencies.len() as f32).sqrt()
-    }
+    self.rms = (self.frequencies.iter().map(|&f| f * f).sum::<f32>()
+      / self.frequencies.len().max(1) as f32)
+      .sqrt();
   }
 }

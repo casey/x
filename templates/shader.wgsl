@@ -29,13 +29,9 @@ var<uniform> uniforms: Uniforms;
 const ERROR = vec4(0.0, 1.0, 0.0, 1.0);
 const TRANSPARENT = vec4(0.0, 0.0, 0.0, 0.0);
 
-const FIELD_ALL: u32 = 0;
-const FIELD_CIRCLE: u32 = 1;
-const FIELD_FREQUENCIES: u32 = 2;
-const FIELD_NONE: u32 = 3;
-const FIELD_SAMPLES: u32 = 4;
-const FIELD_TOP: u32 = 5;
-const FIELD_X: u32 = 6;
+%% for field in Field::iter() {
+const {{ field.constant() }}: u32 = {{ field as u32 }};
+%% }
 
 const VERTICES = array(
   vec4(-1.0, -1.0, 0.0, 1.0),
@@ -65,12 +61,16 @@ struct Uniforms {
   wrap: u32,
 }
 
+fn coefficient() -> f32 {
+  return 1 + uniforms.rms / 10;
+}
+
 fn field_all(p: vec2f) -> bool {
   return true;
 }
 
 fn field_circle(p: vec2f) -> bool {
-  return length(p) < 1 + uniforms.rms;
+  return length(p) < 0.5 * coefficient();
 }
 
 fn field_frequencies(p: vec2f) -> bool {
@@ -90,11 +90,11 @@ fn field_samples(p: vec2f) -> bool {
 }
 
 fn field_top(p: vec2f) -> bool {
-  return p.y < 0;
+  return p.y + 1 < coefficient();
 }
 
 fn field_x(p: vec2f) -> bool {
-  return abs(abs(p.x) - abs(p.y)) < 0.2 + uniforms.rms;
+  return abs(abs(p.x) - abs(p.y)) < 0.2 * coefficient();
 }
 
 fn invert(color: vec4f) -> vec4f {
@@ -180,27 +180,11 @@ fn fragment(@builtin(position) position: vec4f) -> @location(0) vec4f {
   var on: bool;
 
   switch uniforms.field {
-    case FIELD_ALL {
-      on = field_all(transformed);
+%% for field in Field::iter() {
+    case {{ field.constant() }} {
+      on = {{ field.function() }}(transformed);
     }
-    case FIELD_CIRCLE {
-      on = field_circle(transformed);
-    }
-    case FIELD_FREQUENCIES {
-      on = field_frequencies(transformed);
-    }
-    case FIELD_NONE {
-      on = field_none(transformed);
-    }
-    case FIELD_SAMPLES {
-      on = field_samples(transformed);
-    }
-    case FIELD_TOP {
-      on = field_top(transformed);
-    }
-    case FIELD_X {
-      on = field_x(transformed);
-    }
+%% }
     default {
       return ERROR;
     }

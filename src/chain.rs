@@ -12,6 +12,7 @@ impl Chain {
     self
   }
 
+  #[allow(unused)]
   pub(crate) fn clear(mut self) -> Self {
     self.filter = Filter::default();
     self
@@ -24,6 +25,11 @@ impl Chain {
 
   pub(crate) fn push(mut self) -> Self {
     self.filters.push(self.filter.clone());
+    self
+  }
+
+  pub(crate) fn samples(mut self) -> Self {
+    self.filter.field = Field::Samples;
     self
   }
 

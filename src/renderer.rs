@@ -311,7 +311,10 @@ impl Renderer {
 
     let format = Format::try_from(surface.get_capabilities(&adapter).formats[0])?;
 
-    let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+    let shader = device.create_shader_module(ShaderModuleDescriptor {
+      label: label!(),
+      source: ShaderSource::Wgsl(ShaderWgsl.to_string().into()),
+    });
 
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
