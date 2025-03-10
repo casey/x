@@ -1,9 +1,12 @@
 use super::*;
 
+const ALPHA: f32 = 0.5;
+
 pub(crate) struct Analyzer {
   complex_frequencies: Vec<Complex<f32>>,
   frequencies: Vec<f32>,
   planner: FftPlanner<f32>,
+  rms: f32,
   samples: Vec<f32>,
   scratch: Vec<Complex<f32>>,
 }
@@ -18,9 +21,14 @@ impl Analyzer {
       complex_frequencies: Vec::new(),
       frequencies: Vec::new(),
       planner: FftPlanner::new(),
+      rms: 0.0,
       samples: Vec::new(),
       scratch: Vec::new(),
     }
+  }
+
+  pub(crate) fn rms(&self) -> f32 {
+    self.rms
   }
 
   pub(crate) fn samples(&self) -> &[f32] {
@@ -73,5 +81,10 @@ impl Analyzer {
           c.norm() * weight
         }),
     );
+    self.rms = ALPHA
+      * (self.frequencies.iter().map(|&f| f * f).sum::<f32>()
+        / self.frequencies.len().max(1) as f32)
+        .sqrt()
+      + (1.0 - ALPHA) * self.rms;
   }
 }

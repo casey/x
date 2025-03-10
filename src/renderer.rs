@@ -311,7 +311,10 @@ impl Renderer {
 
     let format = Format::try_from(surface.get_capabilities(&adapter).formats[0])?;
 
-    let shader = device.create_shader_module(include_wgsl!("shader.wgsl"));
+    let shader = device.create_shader_module(ShaderModuleDescriptor {
+      label: label!(),
+      source: ShaderSource::Wgsl(ShaderWgsl.to_string().into()),
+    });
 
     let config = surface
       .get_default_config(&adapter, size.width, size.height)
@@ -512,6 +515,8 @@ impl Renderer {
 
     let gain = 10f32.powf((options.gain as f32 * 1.0) / 20.0);
 
+    let rms = analyzer.rms();
+
     for (i, filter) in filters.iter().enumerate() {
       let i = u32::try_from(i).unwrap();
       uniforms.push(Uniforms {
@@ -530,6 +535,7 @@ impl Renderer {
         position: filter.position,
         repeat: false,
         resolution: tiling.resolution(),
+        rms,
         sample_range,
         tiling: tiling.size,
         wrap: filter.wrap,
@@ -552,6 +558,7 @@ impl Renderer {
       position: Mat3f::identity(),
       repeat: options.repeat,
       resolution: Vec2f::new(self.resolution as f32, self.resolution as f32),
+      rms,
       sample_range,
       tiling: 1,
       wrap: false,
@@ -573,6 +580,7 @@ impl Renderer {
       position: Mat3f::identity(),
       repeat: options.repeat,
       resolution: Vec2f::new(self.size.x as f32, self.size.y as f32),
+      rms,
       sample_range,
       tiling: 1,
       wrap: false,

@@ -4,8 +4,9 @@ use {
     error::Error, field::Field, filter::Filter, format::Format, frame::Frame, image::Image,
     input::Input, into_usize::IntoUsize, options::Options, program::Program, renderer::Renderer,
     shared::Shared, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
-    tiling::Tiling, track::Track, uniforms::Uniforms,
+    templates::ShaderWgsl, tiling::Tiling, track::Track, uniforms::Uniforms,
   },
+  boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
   log::info,
   rodio::{
@@ -31,12 +32,13 @@ use {
     sync::{mpsc, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Instant,
   },
+  strum::{EnumIter, IntoEnumIterator, IntoStaticStr},
   vello::{
     kurbo,
     peniko::{self, Font},
   },
   wgpu::{
-    include_wgsl, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
     BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoder,
     CommandEncoderDescriptor, DeviceDescriptor, Extent3d, Features, FragmentState,
@@ -44,11 +46,11 @@ use {
     MemoryHints, MultisampleState, Operations, Origin3d, PipelineCompilationOptions,
     PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
     RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, StoreOp,
-    Surface, SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyBufferLayout,
-    TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-    TextureViewDimension, VertexState, COPY_BYTES_PER_ROW_ALIGNMENT,
+    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
+    ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, TexelCopyBufferInfo,
+    TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+    TextureViewDescriptor, TextureViewDimension, VertexState, COPY_BYTES_PER_ROW_ALIGNMENT,
   },
   winit::{
     application::ApplicationHandler,
@@ -87,6 +89,7 @@ mod stream;
 mod subcommand;
 mod tally;
 mod target;
+mod templates;
 mod tiling;
 mod track;
 mod uniforms;
