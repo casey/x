@@ -13,6 +13,7 @@ pub(crate) struct App {
   state: State,
   stream: Option<Box<dyn Stream>>,
   window: Option<Arc<Window>>,
+  wrap: bool,
 }
 
 impl App {
@@ -85,6 +86,7 @@ impl App {
       state,
       stream,
       window: None,
+      wrap: true,
     })
   }
 
@@ -114,18 +116,18 @@ impl App {
         "a" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::All,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "c" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::Circle,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "d" => self.state.filters.push(Filter {
           coordinates: true,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "f" => {
@@ -134,12 +136,12 @@ impl App {
         "l" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::Frequencies,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "n" => self.state.filters.push(Filter {
           field: Field::None,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "q" => {
@@ -156,24 +158,24 @@ impl App {
         "s" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::Samples,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "t" => {
           self.options.tile = !self.options.tile;
         }
         "w" => {
-          self.options.wrap = !self.options.wrap;
+          self.wrap = !self.wrap;
         }
         "x" => self.state.filters.push(Filter {
           color: invert_color(),
           field: Field::X,
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         "z" => self.state.filters.push(Filter {
           position: Mat3f::new_scaling(2.0),
-          wrap: self.options.wrap,
+          wrap: self.wrap,
           ..default()
         }),
         _ => {}
