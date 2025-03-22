@@ -10,6 +10,8 @@ pub(crate) struct App {
   output_stream: OutputStream,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
+  #[allow(unused)]
+  sink: Sink,
   state: State,
   stream: Option<Box<dyn Stream>>,
   window: Option<Arc<Window>>,
@@ -44,12 +46,20 @@ impl App {
       OutputStream::try_from_device_config(&output_device, stream_config)
         .context(error::AudioBuildOutputStream)?;
 
+    let sink = rodio::Sink::try_new(&stream_handle).context(error::AudioPlay)?;
+
+    if let Some(volume) = options.volume {
+      sink.set_volume(volume);
+    }
+
     let stream: Option<Box<dyn Stream>> = if let Some(track) = &options.track {
       let track = Track::new(track)?;
 
-      stream_handle
-        .play_raw(track.clone())
-        .context(error::AudioPlay)?;
+      sink.append(track.clone());
+
+      // stream_handle
+      //   .play_raw(track.clone())
+      //   .context(error::AudioPlay)?;
 
       Some(Box::new(track))
     } else if options.input {
@@ -83,6 +93,7 @@ impl App {
       output_stream,
       recording: None,
       renderer: None,
+      sink,
       state,
       stream,
       window: None,

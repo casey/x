@@ -32,6 +32,8 @@ pub(crate) struct Options {
   pub(crate) tile: bool,
   #[arg(long)]
   pub(crate) track: Option<PathBuf>,
+  #[arg(long)]
+  pub(crate) volume: Option<f32>,
 }
 
 impl Options {

@@ -25,6 +25,10 @@ vello = { git = "https://github.com/linebender/vello.git" }
 wgpu = "24.0.1"
 winit = "0.30.5"
 
+[dev-dependencies]
+hound = "3.5.1"
+tempfile = "3.17.1"
+
 [lints.clippy]
 all = { level = "deny", priority = -1 }
 arbitrary-source-item-ordering = "deny"
@@ -40,7 +44,3 @@ too-many-arguments = "allow"
 too-many-lines = "allow"
 unnecessary_wraps = "allow"
 wildcard-imports = "allow"
-
-[dev-dependencies]
-hound = "3.5.1"
-tempfile = "3.17.1"
