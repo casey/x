@@ -46,7 +46,7 @@ impl App {
       OutputStream::try_from_device_config(&output_device, stream_config)
         .context(error::AudioBuildOutputStream)?;
 
-    let sink = rodio::Sink::try_new(&stream_handle).context(error::AudioPlay)?;
+    let sink = Sink::try_new(&stream_handle).context(error::AudioPlay)?;
 
     if let Some(volume) = options.volume {
       sink.set_volume(volume);
@@ -56,10 +56,6 @@ impl App {
       let track = Track::new(track)?;
 
       sink.append(track.clone());
-
-      // stream_handle
-      //   .play_raw(track.clone())
-      //   .context(error::AudioPlay)?;
 
       Some(Box::new(track))
     } else if options.input {
