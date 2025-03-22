@@ -16,7 +16,7 @@ use {
       Sample, SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfig,
       SupportedStreamConfigRange,
     },
-    Decoder, OutputStream, Source,
+    Decoder, OutputStream, Sink, Source,
   },
   rustfft::{num_complex::Complex, FftPlanner},
   skrifa::MetadataProvider,
