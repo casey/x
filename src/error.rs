@@ -116,6 +116,12 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     message: String,
   },
+  #[snafu(display("failed to initialize MIDI input"))]
+  MidiInputInit { source: midir::InitError },
+  #[snafu(display("failed to initialize MIDI output"))]
+  MidiOutputInit { source: midir::InitError },
+  #[snafu(display("failed to get MIDI port info"))]
+  MidiPortInfo { source: midir::PortInfoError },
   #[snafu(display("failed to decode png at {}", path.display()))]
   PngDecode {
     backtrace: Option<Backtrace>,
