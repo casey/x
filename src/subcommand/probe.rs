@@ -97,7 +97,7 @@ pub(crate) fn run() -> Result {
 
   let midi_output = midir::MidiOutput::new("MIDI Output").context(error::MidiOutputInit)?;
   print_midi_port_table(
-    true,
+    false,
     midi_output
       .ports()
       .into_iter()
