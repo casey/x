@@ -11,19 +11,19 @@ use {
 
 #[derive(Tabled)]
 #[tabled(rename_all = "Upper Title Case")]
+#[allow(clippy::arbitrary_source_item_ordering)]
+struct MidiPort {
+  number: usize,
+  name: String,
+}
+
+#[derive(Tabled)]
+#[tabled(rename_all = "Upper Title Case")]
 struct StreamConfig {
   buffer_size: String,
   channels: u16,
   sample_format: SampleFormat,
   sample_rate: String,
-}
-
-#[derive(Tabled)]
-#[tabled(rename_all = "Upper Title Case")]
-#[allow(clippy::arbitrary_source_item_ordering)]
-struct MidiPort {
-  number: usize,
-  name: String,
 }
 
 impl From<SupportedStreamConfigRange> for StreamConfig {
