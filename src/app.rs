@@ -218,22 +218,30 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
-    for note in self.hub.messages().lock().unwrap().drain(..) {
-      if note.on && note.channel == 2 {
-        let button = u8::from(note.key) - 48;
-
-        match button {
-          0 => self.state.filters.push(Filter {
-            position: Mat3f::new_scaling(2.0),
-            wrap: self.wrap,
-            ..default()
-          }),
-          1 => {
-            self.state.filters.pop();
-          }
-          _ => {}
-        }
+    for message in self.hub.messages().lock().unwrap().drain(..) {
+      match message {
+        Message {
+          device: Device::Spectra,
+          ..
+        } => {}
+        _ => {}
       }
+
+      // if message.on && message.channel == 2 {
+      //   let button = u8::from(message.key) - 48;
+
+      //   match button {
+      //     0 => self.state.filters.push(Filter {
+      //       position: Mat3f::new_scaling(2.0),
+      //       wrap: self.wrap,
+      //       ..default()
+      //     }),
+      //     1 => {
+      //       self.state.filters.pop();
+      //     }
+      //     _ => {}
+      //   }
+      // }
     }
 
     if let Some(stream) = self.stream.as_mut() {

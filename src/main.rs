@@ -1,11 +1,11 @@
 use {
   self::{
-    analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, error::Error,
-    field::Field, filter::Filter, format::Format, frame::Frame, hub::Hub, image::Image,
-    input::Input, into_usize::IntoUsize, message::Message, options::Options, program::Program,
-    renderer::Renderer, shared::Shared, state::State, stream::Stream, subcommand::Subcommand,
-    tally::Tally, target::Target, templates::ShaderWgsl, text::Text, tiling::Tiling, track::Track,
-    uniforms::Uniforms,
+    analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, device::Device,
+    error::Error, event::Event, field::Field, filter::Filter, format::Format, frame::Frame,
+    hub::Hub, image::Image, input::Input, into_usize::IntoUsize, message::Message,
+    options::Options, program::Program, renderer::Renderer, shared::Shared, state::State,
+    stream::Stream, subcommand::Subcommand, tally::Tally, target::Target, templates::ShaderWgsl,
+    text::Text, tiling::Tiling, track::Track, uniforms::Uniforms,
   },
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
@@ -73,7 +73,9 @@ mod analyzer;
 mod app;
 mod arguments;
 mod bindings;
+mod device;
 mod error;
+mod event;
 mod field;
 mod filter;
 mod format;

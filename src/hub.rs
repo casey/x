@@ -20,31 +20,16 @@ impl Hub {
     for port in input.ports() {
       let name = input.port_name(&port).context(error::MidiPortInfo)?;
       println!("{name}");
-      let midi_messages = messages.clone();
+      let messages = messages.clone();
       connections.push(
         midir::MidiInput::new("Port MIDI Input")
           .context(error::MidiInputInit)?
           .connect(
             &port,
             &name,
-            move |timestamp, event, _| {
-              let event = midly::live::LiveEvent::parse(event).unwrap();
-              let (channel, key, velocity, on) = match event {
-                midly::live::LiveEvent::Midi { channel, message } => match message {
-                  midly::MidiMessage::NoteOn { key, vel } => (channel, key, vel, true),
-                  midly::MidiMessage::NoteOff { key, vel } => (channel, key, vel, false),
-                  _ => return,
-                },
-                _ => return,
-              };
-
-              midi_messages.lock().unwrap().push_back(Message {
-                on,
-                timestamp,
-                channel,
-                key,
-                velocity,
-              });
+            move |timestamp, event, _| match Message::parse(timestamp, event) {
+              Ok(message) => messages.lock().unwrap().push_back(message),
+              Err(err) => log::warn!("MIDI event parse error: {err}"),
             },
             (),
           )
