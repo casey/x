@@ -5,6 +5,7 @@ pub(crate) struct App {
   capture: Image,
   error: Option<Error>,
   makro: Vec<Key>,
+  hub: Hub,
   options: Options,
   #[allow(unused)]
   output_stream: OutputStream,
@@ -84,6 +85,7 @@ impl App {
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
+      hub: Hub::new()?,
       makro: Vec::new(),
       options,
       output_stream,
@@ -216,6 +218,24 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+    for note in self.hub.messages().lock().unwrap().drain(..) {
+      if note.on && note.channel == 2 {
+        let button = u8::from(note.key) - 48;
+
+        match button {
+          0 => self.state.filters.push(Filter {
+            position: Mat3f::new_scaling(2.0),
+            wrap: self.wrap,
+            ..default()
+          }),
+          1 => {
+            self.state.filters.pop();
+          }
+          _ => {}
+        }
+      }
+    }
+
     if let Some(stream) = self.stream.as_mut() {
       self.analyzer.update(stream.as_mut());
     }

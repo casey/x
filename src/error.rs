@@ -118,6 +118,10 @@ pub(crate) enum Error {
   },
   #[snafu(display("failed to initialize MIDI input"))]
   MidiInputInit { source: midir::InitError },
+  #[snafu(display("failed to connect to MIDI port"))]
+  MidiInputPortConnect {
+    source: midir::ConnectError<midir::MidiInput>,
+  },
   #[snafu(display("failed to initialize MIDI output"))]
   MidiOutputInit { source: midir::InitError },
   #[snafu(display("failed to get MIDI port info"))]
