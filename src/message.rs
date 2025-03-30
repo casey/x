@@ -3,10 +3,10 @@ use super::*;
 #[derive(Debug, Snafu)]
 #[snafu(context(suffix(Error)))]
 pub(crate) enum MessageParseError {
-  EventParse {
+  Parse {
     source: midly::Error,
   },
-  UnrecognizedEvent {
+  Unrecognized {
     event: midly::live::LiveEvent<'static>,
   },
 }
@@ -20,19 +20,19 @@ pub(crate) struct Message {
 
 impl Message {
   pub(crate) fn parse(event: &[u8]) -> Result<Self, MessageParseError> {
-    let event = midly::live::LiveEvent::parse(event).context(EventParseError)?;
+    let event = midly::live::LiveEvent::parse(event).context(ParseError)?;
     let (channel, key, value, press): (u8, u8, u7, bool) = match event {
       midly::live::LiveEvent::Midi { channel, message } => match message {
         midly::MidiMessage::NoteOn { key, vel } => (channel.into(), key.into(), vel, true),
         midly::MidiMessage::NoteOff { key, vel } => (channel.into(), key.into(), vel, false),
         _ => {
-          return Err(MessageParseError::UnrecognizedEvent {
+          return Err(MessageParseError::Unrecognized {
             event: event.to_static(),
           })
         }
       },
       _ => {
-        return Err(MessageParseError::UnrecognizedEvent {
+        return Err(MessageParseError::Unrecognized {
           event: event.to_static(),
         })
       }
@@ -79,7 +79,7 @@ impl Message {
       ),
       (3, 8..=13) => (Device::Twister, key - 8 + 16, Event::Button(press)),
       _ => {
-        return Err(MessageParseError::UnrecognizedEvent {
+        return Err(MessageParseError::Unrecognized {
           event: event.to_static(),
         })
       }
