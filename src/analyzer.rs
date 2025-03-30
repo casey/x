@@ -33,7 +33,7 @@ impl Analyzer {
     &self.samples
   }
 
-  pub(crate) fn update(&mut self, stream: &mut dyn Stream, alpha: Parameter) {
+  pub(crate) fn update(&mut self, stream: &mut dyn Stream, state: &State) {
     if stream.done() {
       self.samples.clear();
     } else {
@@ -41,7 +41,7 @@ impl Analyzer {
       stream.drain(&mut self.samples);
       self
         .samples
-        .drain(..self.samples.len().saturating_sub(128).min(old));
+        .drain(..self.samples.len().saturating_sub(2000).min(old));
     }
 
     let samples = &self.samples[..self.samples.len() & !1];
@@ -79,7 +79,7 @@ impl Analyzer {
           c.norm() * weight
         }),
     );
-    let alpha = alpha.unipolar();
+    let alpha = state.alpha.unipolar();
     self.rms = alpha
       * (self.frequencies.iter().map(|&f| f * f).sum::<f32>()
         / self.frequencies.len().max(1) as f32)

@@ -2,9 +2,11 @@ use super::*;
 
 #[derive(Default)]
 pub(crate) struct State {
-  pub(crate) db: i64,
+  pub(crate) alpha: Parameter,
+  pub(crate) db: Parameter,
   pub(crate) filter: Filter,
   pub(crate) filters: Vec<Filter>,
+  pub(crate) parameter: Parameter,
   pub(crate) text: Option<Text>,
 }
 
@@ -20,7 +22,8 @@ impl State {
   }
 
   pub(crate) fn db(mut self, db: i64) -> Self {
-    self.db = db;
+    self.db = db.into();
+    dbg!(self.db);
     self
   }
 

@@ -10,7 +10,6 @@ use {
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
   log::info,
-  midly::num::u7,
   regex::{Regex, RegexBuilder},
   rodio::{
     cpal::{
@@ -30,8 +29,11 @@ use {
     fmt::{self, Display, Formatter},
     fs::File,
     io::{self, BufReader, BufWriter},
+    num,
+    ops::{Add, AddAssign, SubAssign},
     path::{Path, PathBuf},
     process,
+    str::FromStr,
     sync::{mpsc, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Instant,
   },
