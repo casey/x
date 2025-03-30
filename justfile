@@ -33,3 +33,6 @@ hello:
 
 maria:
   cargo run --release -- --song 'Total 4.*Maria'
+
+nobrain:
+  cargo run --release -- --song 'no brain$'

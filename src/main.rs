@@ -28,7 +28,7 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
-    fs::{File, FileType},
+    fs::File,
     io::{self, BufReader, BufWriter},
     path::{Path, PathBuf},
     process,

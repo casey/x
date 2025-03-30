@@ -37,26 +37,38 @@ impl App {
       .build()
       .unwrap();
 
-    let mut matches = Vec::new();
+    let mut matches = Vec::<PathBuf>::new();
 
-    for entry in WalkDir::new("/Users/rodarmor/Music/Music/Media.localized/Music") {
+    let dir = dirs::home_dir()?.join("Music/Music/Media.localized/Music");
+
+    for entry in WalkDir::new(&dir) {
       let entry = entry.unwrap();
 
       if entry.file_type().is_dir() {
         continue;
       }
 
-      let Some(path) = entry.path().to_str() else {
+      let path = entry.path();
+
+      let haystack = path.strip_prefix(&dir).unwrap().with_extension("");
+
+      let Some(haystack) = haystack.to_str() else {
         continue;
       };
 
-      if re.is_match(path) {
+      if re.is_match(haystack) {
         matches.push(path.into());
       }
     }
 
     if matches.len() > 1 {
-      log::error!("Multiple matches for song `{song}`: {matches:?}")
+      let matches = matches
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<String>>()
+        .join(",");
+
+      log::warn!("Multiple matches for song `{song}`: {matches}");
     }
 
     matches.into_iter().next()
@@ -80,8 +92,6 @@ impl App {
         .context(error::AudioBuildOutputStream)?;
 
     let sink = Sink::try_new(&stream_handle).context(error::AudioPlay)?;
-
-    let foo = "old generic boss";
 
     if let Some(volume) = options.volume {
       sink.set_volume(volume);

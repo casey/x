@@ -16,6 +16,7 @@ pub(crate) struct Message {
   pub(crate) control: u8,
   pub(crate) device: Device,
   pub(crate) event: Event,
+  #[allow(unused)]
   pub(crate) timestamp: u64,
 }
 
