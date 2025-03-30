@@ -21,7 +21,7 @@ impl Hub {
       let name = input.port_name(&port).context(error::MidiPortInfo)?;
       let messages = messages.clone();
       connections.push(
-        midir::MidiInput::new("Port MIDI Input")
+        midir::MidiInput::new(&format!("MIDI Port Input: {name}"))
           .context(error::MidiInputInit)?
           .connect(
             &port,
