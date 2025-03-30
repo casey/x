@@ -111,6 +111,8 @@ pub(crate) enum Error {
     name: String,
     source: font_kit::error::SelectionError,
   },
+  #[snafu(display("could not get home directory"))]
+  Home { backtrace: Option<Backtrace> },
   #[snafu(display("internal error: {message}"))]
   Internal {
     backtrace: Option<Backtrace>,
