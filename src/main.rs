@@ -5,11 +5,13 @@ use {
     hub::Hub, image::Image, input::Input, into_usize::IntoUsize, message::Message,
     options::Options, program::Program, renderer::Renderer, shared::Shared, state::State,
     stream::Stream, subcommand::Subcommand, tally::Tally, target::Target, templates::ShaderWgsl,
-    text::Text, tiling::Tiling, track::Track, uniforms::Uniforms,
+    text::Text, tiling::Tiling, track::Track, uniforms::Uniforms, value::Value,
   },
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
   log::info,
+  midly::num::u7,
+  regex::RegexBuilder,
   rodio::{
     cpal::{
       self,
@@ -26,7 +28,7 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     collections::VecDeque,
     fmt::{self, Display, Formatter},
-    fs::File,
+    fs::{File, FileType},
     io::{self, BufReader, BufWriter},
     path::{Path, PathBuf},
     process,
@@ -38,6 +40,7 @@ use {
     kurbo,
     peniko::{self, Font},
   },
+  walkdir::WalkDir,
   wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
@@ -99,6 +102,7 @@ mod text;
 mod tiling;
 mod track;
 mod uniforms;
+mod value;
 
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;

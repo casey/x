@@ -1,11 +1,12 @@
 use super::*;
 
 pub(crate) struct App {
+  alpha: Value,
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
-  makro: Vec<Key>,
   hub: Hub,
+  makro: Vec<Key>,
   options: Options,
   #[allow(unused)]
   output_stream: OutputStream,
@@ -30,6 +31,37 @@ impl App {
     self.error
   }
 
+  fn find_song(song: &str) -> Option<PathBuf> {
+    let re = RegexBuilder::new(song)
+      .case_insensitive(true)
+      .build()
+      .unwrap();
+
+    let mut matches = Vec::new();
+
+    for entry in WalkDir::new("/Users/rodarmor/Music/Music/Media.localized/Music") {
+      let entry = entry.unwrap();
+
+      if entry.file_type().is_dir() {
+        continue;
+      }
+
+      let Some(path) = entry.path().to_str() else {
+        continue;
+      };
+
+      if re.is_match(path) {
+        matches.push(path.into());
+      }
+    }
+
+    if matches.len() > 1 {
+      log::error!("Multiple matches for song `{song}`: {matches:?}")
+    }
+
+    matches.into_iter().next()
+  }
+
   pub(crate) fn new(options: Options) -> Result<Self> {
     let host = cpal::default_host();
 
@@ -49,6 +81,8 @@ impl App {
 
     let sink = Sink::try_new(&stream_handle).context(error::AudioPlay)?;
 
+    let foo = "old generic boss";
+
     if let Some(volume) = options.volume {
       sink.set_volume(volume);
     }
@@ -59,6 +93,16 @@ impl App {
       sink.append(track.clone());
 
       Some(Box::new(track))
+    } else if let Some(song) = &options.song {
+      if let Some(path) = Self::find_song(song) {
+        let track = Track::new(&path)?;
+
+        sink.append(track.clone());
+
+        Some(Box::new(track))
+      } else {
+        None
+      }
     } else if options.input {
       let input_device = host
         .default_input_device()
@@ -82,6 +126,7 @@ impl App {
     }
 
     Ok(Self {
+      alpha: Value(u7::from(63)),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
@@ -219,33 +264,61 @@ impl App {
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
     for message in self.hub.messages().lock().unwrap().drain(..) {
-      match message {
-        Message {
-          device: Device::Spectra,
-          ..
-        } => {}
+      match message.tuple() {
+        (Device::Spectra, 0, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Top,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 1, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Bottom,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 2, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::X,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 3, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Circle,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 4, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_scaling(2.0),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 5, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_scaling(0.5),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 6, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_translation(&Vec2f::new(-0.1, 0.0)),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 7, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_translation(&Vec2f::new(0.1, 0.0)),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 8, Event::Button(true)) => {
+          self.state.filters.pop();
+        }
+        (Device::Twister, 0, Event::Encoder(value)) => self.alpha = value,
         _ => {}
       }
-
-      // if message.on && message.channel == 2 {
-      //   let button = u8::from(message.key) - 48;
-
-      //   match button {
-      //     0 => self.state.filters.push(Filter {
-      //       position: Mat3f::new_scaling(2.0),
-      //       wrap: self.wrap,
-      //       ..default()
-      //     }),
-      //     1 => {
-      //       self.state.filters.pop();
-      //     }
-      //     _ => {}
-      //   }
-      // }
     }
 
     if let Some(stream) = self.stream.as_mut() {
-      self.analyzer.update(stream.as_mut());
+      self.analyzer.update(stream.as_mut(), self.alpha);
     }
 
     if let Err(err) =

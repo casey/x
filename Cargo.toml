@@ -16,6 +16,7 @@ midly = "0.5.3"
 nalgebra = "0.33.2"
 png = "0.17.16"
 pollster = "0.4.0"
+regex = "1.11.1"
 rodio = { version = "0.20.1", features = ["symphonia-all"], default-features = false }
 rustfft = "6.2.0"
 skrifa = "0.28.0"
@@ -24,6 +25,7 @@ strum = { version = "0.27.1", features = ["derive"] }
 symphonia = { version = "*", features = [ "all-codecs", "all-formats" ] }
 tabled = { version = "0.18.0", git = "https://github.com/zhiburt/tabled.git" }
 vello = { git = "https://github.com/linebender/vello.git" }
+walkdir = "2.5.0"
 wgpu = "24.0.1"
 winit = "0.30.5"
 

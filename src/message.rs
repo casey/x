@@ -22,10 +22,10 @@ pub(crate) struct Message {
 impl Message {
   pub(crate) fn parse(timestamp: u64, event: &[u8]) -> Result<Self, MessageParseError> {
     let event = midly::live::LiveEvent::parse(event).context(EventParseError)?;
-    let (channel, key, value, press): (u8, u8, u8, bool) = match event {
+    let (channel, key, value, press): (u8, u8, u7, bool) = match event {
       midly::live::LiveEvent::Midi { channel, message } => match message {
-        midly::MidiMessage::NoteOn { key, vel } => (channel.into(), key.into(), vel.into(), true),
-        midly::MidiMessage::NoteOff { key, vel } => (channel.into(), key.into(), vel.into(), false),
+        midly::MidiMessage::NoteOn { key, vel } => (channel.into(), key.into(), vel, true),
+        midly::MidiMessage::NoteOff { key, vel } => (channel.into(), key.into(), vel, false),
         _ => {
           return Err(MessageParseError::UnrecognizedEvent {
             event: event.to_static(),
@@ -40,8 +40,8 @@ impl Message {
     };
 
     let (device, control, event) = match (channel, key) {
-      (0, 0..=15) => (Device::Twister, key, Event::Encoder { value }),
-      (1, 0..=15) => (Device::Twister, key, Event::Button { press }),
+      (0, 0..=15) => (Device::Twister, key, Event::Encoder(Value(value))),
+      (1, 0..=15) => (Device::Twister, key, Event::Button(press)),
       (2, 36..=51) => (
         Device::Spectra,
         match key {
@@ -63,7 +63,7 @@ impl Message {
           39 => 15,
           _ => unreachable!(),
         },
-        Event::Button { press },
+        Event::Button(press),
       ),
       (3, 20..=25) => (
         Device::Spectra,
@@ -76,9 +76,9 @@ impl Message {
           23 => 21,
           _ => unreachable!(),
         },
-        Event::Button { press },
+        Event::Button(press),
       ),
-      (3, 8..=13) => (Device::Twister, key - 8 + 16, Event::Button { press }),
+      (3, 8..=13) => (Device::Twister, key - 8 + 16, Event::Button(press)),
       _ => {
         return Err(MessageParseError::UnrecognizedEvent {
           event: event.to_static(),
@@ -92,5 +92,9 @@ impl Message {
       event,
       timestamp,
     })
+  }
+
+  pub(crate) fn tuple(self) -> (Device, u8, Event) {
+    (self.device, self.control, self.event)
   }
 }

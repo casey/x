@@ -3874,6 +3874,7 @@ dependencies = [
  "nalgebra",
  "png",
  "pollster",
+ "regex",
  "rodio",
  "rustfft",
  "skrifa 0.28.1",
@@ -3883,6 +3884,7 @@ dependencies = [
  "tabled",
  "tempfile",
  "vello",
+ "walkdir",
  "wgpu",
  "winit",
 ]
