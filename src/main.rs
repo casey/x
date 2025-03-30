@@ -11,7 +11,7 @@ use {
   clap::{Parser, ValueEnum},
   log::info,
   midly::num::u7,
-  regex::RegexBuilder,
+  regex::{Regex, RegexBuilder},
   rodio::{
     cpal::{
       self,

@@ -32,7 +32,7 @@ impl App {
   }
 
   fn find_song(song: &str) -> Result<Option<PathBuf>> {
-    let re = RegexBuilder::new(song)
+    let song = RegexBuilder::new(song)
       .case_insensitive(true)
       .build()
       .context(error::SongRegex)?;
@@ -46,7 +46,7 @@ impl App {
     let music = home.join("Music/Music/Media.localized/Music");
 
     for entry in WalkDir::new(&music) {
-      let entry = entry.unwrap();
+      let entry = entry.context(error::SongWalk)?;
 
       if entry.file_type().is_dir() {
         continue;
@@ -60,22 +60,19 @@ impl App {
         continue;
       };
 
-      if re.is_match(haystack) {
+      if song.is_match(haystack) {
         matches.push(path.into());
       }
     }
 
     if matches.len() > 1 {
-      let matches = matches
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<String>>()
-        .join(",");
-
-      log::warn!("Multiple matches for song `{song}`: {matches}");
+      return Err(error::SongAmbiguous { matches }.build());
     }
 
-    Ok(matches.into_iter().next())
+    match matches.into_iter().next() {
+      Some(path) => Ok(Some(path)),
+      None => Err(error::SongMatch { song }.build()),
+    }
   }
 
   pub(crate) fn new(options: Options) -> Result<Self> {
