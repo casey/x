@@ -32,7 +32,7 @@ hello:
   cargo run --release -- --song 'old generic boss' --program hello
 
 maria:
-  cargo run --release -- --song 'Total 4.*Maria'
+  cargo run --release -- --song 'total 4/13 maria'
 
 nobrain:
   cargo run --release -- --song 'no brain$'
