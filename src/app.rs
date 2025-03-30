@@ -31,17 +31,21 @@ impl App {
     self.error
   }
 
-  fn find_song(song: &str) -> Option<PathBuf> {
+  fn find_song(song: &str) -> Result<Option<PathBuf>> {
     let re = RegexBuilder::new(song)
       .case_insensitive(true)
       .build()
-      .unwrap();
+      .context(error::SongRegex)?;
 
     let mut matches = Vec::<PathBuf>::new();
 
-    let dir = dirs::home_dir()?.join("Music/Music/Media.localized/Music");
+    let Some(home) = dirs::home_dir() else {
+      return Ok(None);
+    };
 
-    for entry in WalkDir::new(&dir) {
+    let music = home.join("Music/Music/Media.localized/Music");
+
+    for entry in WalkDir::new(&music) {
       let entry = entry.unwrap();
 
       if entry.file_type().is_dir() {
@@ -50,7 +54,7 @@ impl App {
 
       let path = entry.path();
 
-      let haystack = path.strip_prefix(&dir).unwrap().with_extension("");
+      let haystack = path.strip_prefix(&music).unwrap().with_extension("");
 
       let Some(haystack) = haystack.to_str() else {
         continue;
@@ -71,7 +75,7 @@ impl App {
       log::warn!("Multiple matches for song `{song}`: {matches}");
     }
 
-    matches.into_iter().next()
+    Ok(matches.into_iter().next())
   }
 
   pub(crate) fn new(options: Options) -> Result<Self> {
@@ -104,7 +108,7 @@ impl App {
 
       Some(Box::new(track))
     } else if let Some(song) = &options.song {
-      if let Some(path) = Self::find_song(song) {
+      if let Some(path) = Self::find_song(song)? {
         let track = Track::new(&path)?;
 
         sink.append(track.clone());

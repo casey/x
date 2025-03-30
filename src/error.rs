@@ -148,6 +148,8 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
   },
+  #[snafu(display("invalid song regex"))]
+  SongRegex { source: regex::Error },
   #[snafu(display("default texture format {texture_format:?} not supported"))]
   UnsupportedTextureFormat {
     backtrace: Option<Backtrace>,
