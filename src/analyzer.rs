@@ -79,7 +79,7 @@ impl Analyzer {
           c.norm() * weight
         }),
     );
-    let alpha = alpha.parameter(0.0, 1.0);
+    let alpha = alpha.unipolar();
     self.rms = alpha
       * (self.frequencies.iter().map(|&f| f * f).sum::<f32>()
         / self.frequencies.len().max(1) as f32)
