@@ -26,7 +26,7 @@ impl Hub {
           .connect(
             &port,
             &name,
-            move |timestamp, event, ()| match Message::parse(timestamp, event) {
+            move |_timestamp, event, ()| match Message::parse(event) {
               Ok(message) => messages.lock().unwrap().push_back(message),
               Err(err) => log::warn!("MIDI event parse error: {err}"),
             },

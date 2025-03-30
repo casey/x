@@ -16,12 +16,10 @@ pub(crate) struct Message {
   pub(crate) control: u8,
   pub(crate) device: Device,
   pub(crate) event: Event,
-  #[allow(unused)]
-  pub(crate) timestamp: u64,
 }
 
 impl Message {
-  pub(crate) fn parse(timestamp: u64, event: &[u8]) -> Result<Self, MessageParseError> {
+  pub(crate) fn parse(event: &[u8]) -> Result<Self, MessageParseError> {
     let event = midly::live::LiveEvent::parse(event).context(EventParseError)?;
     let (channel, key, value, press): (u8, u8, u7, bool) = match event {
       midly::live::LiveEvent::Midi { channel, message } => match message {
@@ -91,7 +89,6 @@ impl Message {
       control,
       device,
       event,
-      timestamp,
     })
   }
 
