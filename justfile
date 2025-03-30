@@ -29,4 +29,10 @@ doc:
   cargo doc --workspace --open
 
 hello:
-  cargo run --release -- --track '/Users/rodarmor/Music/Music/Media.localized/Music/seagaia/Anodyne/49 Old Generic Boss _The Street_ (Extra).mp3' --program hello
+  cargo run --release -- --song 'old generic boss' --program hello
+
+maria:
+  cargo run --release -- --song 'total 4/13 maria'
+
+nobrain:
+  cargo run --release -- --song 'no brain$'

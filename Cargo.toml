@@ -7,22 +7,26 @@ version = "0.0.0"
 [dependencies]
 boilerplate = "1.0.1"
 clap = { version = "4.5.21", features = ["derive"] }
+dirs = "6.0.0"
 env_logger = "0.11.0"
 flume = "0.11.1"
 font-kit = "0.14.2"
 log = "0.4.22"
 midir = "0.10.1"
+midly = "0.5.3"
 nalgebra = "0.33.2"
 png = "0.17.16"
 pollster = "0.4.0"
+regex = "1.11.1"
 rodio = { version = "0.20.1", features = ["symphonia-all"], default-features = false }
 rustfft = "6.2.0"
-skrifa = "0.28.0"
+skrifa = "0.30.0"
 snafu = "0.8.5"
 strum = { version = "0.27.1", features = ["derive"] }
 symphonia = { version = "*", features = [ "all-codecs", "all-formats" ] }
 tabled = { version = "0.18.0", git = "https://github.com/zhiburt/tabled.git" }
 vello = { git = "https://github.com/linebender/vello.git" }
+walkdir = "2.5.0"
 wgpu = "24.0.1"
 winit = "0.30.5"
 

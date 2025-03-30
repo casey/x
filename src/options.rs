@@ -1,10 +1,14 @@
 use {
   super::*,
-  clap::builder::styling::{AnsiColor, Effects, Styles},
+  clap::{
+    builder::styling::{AnsiColor, Effects, Styles},
+    ArgGroup,
+  },
 };
 
 #[derive(Clone, Default, Parser)]
 #[command(
+  group(ArgGroup::new("audio").args(["input", "song", "track"])),
   version,
   styles = Styles::styled()
     .error(AnsiColor::Red.on_default() | Effects::BOLD)
@@ -20,7 +24,7 @@ pub(crate) struct Options {
   pub(crate) db: Option<i64>,
   #[arg(long)]
   pub(crate) fit: bool,
-  #[arg(long, conflicts_with = "track")]
+  #[arg(long)]
   pub(crate) input: bool,
   #[arg(long)]
   pub(crate) program: Option<Program>,
@@ -28,6 +32,8 @@ pub(crate) struct Options {
   pub(crate) repeat: bool,
   #[arg(long)]
   pub(crate) resolution: Option<u32>,
+  #[arg(long)]
+  pub(crate) song: Option<String>,
   #[arg(long)]
   pub(crate) tile: bool,
   #[arg(long)]

@@ -111,17 +111,33 @@ pub(crate) enum Error {
     name: String,
     source: font_kit::error::SelectionError,
   },
+  #[snafu(display("could not get home directory"))]
+  Home { backtrace: Option<Backtrace> },
   #[snafu(display("internal error: {message}"))]
   Internal {
     backtrace: Option<Backtrace>,
     message: String,
   },
   #[snafu(display("failed to initialize MIDI input"))]
-  MidiInputInit { source: midir::InitError },
+  MidiInputInit {
+    backtrace: Option<Backtrace>,
+    source: midir::InitError,
+  },
+  #[snafu(display("failed to connect to MIDI port"))]
+  MidiInputPortConnect {
+    backtrace: Option<Backtrace>,
+    source: midir::ConnectError<midir::MidiInput>,
+  },
   #[snafu(display("failed to initialize MIDI output"))]
-  MidiOutputInit { source: midir::InitError },
+  MidiOutputInit {
+    backtrace: Option<Backtrace>,
+    source: midir::InitError,
+  },
   #[snafu(display("failed to get MIDI port info"))]
-  MidiPortInfo { source: midir::PortInfoError },
+  MidiPortInfo {
+    backtrace: Option<Backtrace>,
+    source: midir::PortInfoError,
+  },
   #[snafu(display("failed to decode png at {}", path.display()))]
   PngDecode {
     backtrace: Option<Backtrace>,
@@ -143,6 +159,31 @@ pub(crate) enum Error {
   RunApp {
     backtrace: Option<Backtrace>,
     source: winit::error::EventLoopError,
+  },
+  #[snafu(
+    display(
+      "more than one match for song: {}",
+      matches.iter().map(|path| path.display().to_string()).collect::<Vec<String>>().join(", ")
+    )
+  )]
+  SongAmbiguous {
+    backtrace: Option<Backtrace>,
+    matches: Vec<PathBuf>,
+  },
+  #[snafu(display("could not match song `{song}`"))]
+  SongMatch {
+    backtrace: Option<Backtrace>,
+    song: Regex,
+  },
+  #[snafu(display("invalid song regex"))]
+  SongRegex {
+    backtrace: Option<Backtrace>,
+    source: regex::Error,
+  },
+  #[snafu(display("I/O error finding song"))]
+  SongWalk {
+    backtrace: Option<Backtrace>,
+    source: walkdir::Error,
   },
   #[snafu(display("default texture format {texture_format:?} not supported"))]
   UnsupportedTextureFormat {

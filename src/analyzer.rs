@@ -1,7 +1,5 @@
 use super::*;
 
-const ALPHA: f32 = 0.5;
-
 pub(crate) struct Analyzer {
   complex_frequencies: Vec<Complex<f32>>,
   frequencies: Vec<f32>,
@@ -35,7 +33,7 @@ impl Analyzer {
     &self.samples
   }
 
-  pub(crate) fn update(&mut self, stream: &mut dyn Stream) {
+  pub(crate) fn update(&mut self, stream: &mut dyn Stream, alpha: Parameter) {
     if stream.done() {
       self.samples.clear();
     } else {
@@ -81,10 +79,11 @@ impl Analyzer {
           c.norm() * weight
         }),
     );
-    self.rms = ALPHA
+    let alpha = alpha.unipolar();
+    self.rms = alpha
       * (self.frequencies.iter().map(|&f| f * f).sum::<f32>()
         / self.frequencies.len().max(1) as f32)
         .sqrt()
-      + (1.0 - ALPHA) * self.rms;
+      + (1.0 - alpha) * self.rms;
   }
 }

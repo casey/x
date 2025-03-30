@@ -1,9 +1,11 @@
 use super::*;
 
 pub(crate) struct App {
+  alpha: Parameter,
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
+  hub: Hub,
   makro: Vec<Key>,
   options: Options,
   #[allow(unused)]
@@ -27,6 +29,48 @@ impl App {
 
   pub(crate) fn error(self) -> Option<Error> {
     self.error
+  }
+
+  fn find_song(song: &str) -> Result<PathBuf> {
+    let song = RegexBuilder::new(song)
+      .case_insensitive(true)
+      .build()
+      .context(error::SongRegex)?;
+
+    let mut matches = Vec::<PathBuf>::new();
+
+    let home = dirs::home_dir().context(error::Home)?;
+
+    let music = home.join("Music/Music/Media.localized/Music");
+
+    for entry in WalkDir::new(&music) {
+      let entry = entry.context(error::SongWalk)?;
+
+      if entry.file_type().is_dir() {
+        continue;
+      }
+
+      let path = entry.path();
+
+      let haystack = path.strip_prefix(&music).unwrap().with_extension("");
+
+      let Some(haystack) = haystack.to_str() else {
+        continue;
+      };
+
+      if song.is_match(haystack) {
+        matches.push(path.into());
+      }
+    }
+
+    if matches.len() > 1 {
+      return Err(error::SongAmbiguous { matches }.build());
+    }
+
+    match matches.into_iter().next() {
+      Some(path) => Ok(path),
+      None => Err(error::SongMatch { song }.build()),
+    }
   }
 
   pub(crate) fn new(options: Options) -> Result<Self> {
@@ -54,9 +98,11 @@ impl App {
 
     let stream: Option<Box<dyn Stream>> = if let Some(track) = &options.track {
       let track = Track::new(track)?;
-
       sink.append(track.clone());
-
+      Some(Box::new(track))
+    } else if let Some(song) = &options.song {
+      let track = Track::new(&Self::find_song(song)?)?;
+      sink.append(track.clone());
       Some(Box::new(track))
     } else if options.input {
       let input_device = host
@@ -81,9 +127,11 @@ impl App {
     }
 
     Ok(Self {
+      alpha: Parameter(u7::from(63)),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
+      hub: Hub::new()?,
       makro: Vec::new(),
       options,
       output_stream,
@@ -216,8 +264,62 @@ impl App {
   }
 
   fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+    for message in self.hub.messages().lock().unwrap().drain(..) {
+      match message.tuple() {
+        (Device::Spectra, 0, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Top,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 1, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Bottom,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 2, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::X,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 3, Event::Button(true)) => self.state.filters.push(Filter {
+          color: invert_color(),
+          field: Field::Circle,
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 4, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_scaling(2.0),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 5, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_scaling(0.5),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 6, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_translation(&Vec2f::new(-0.1, 0.0)),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 7, Event::Button(true)) => self.state.filters.push(Filter {
+          position: Mat3f::new_translation(&Vec2f::new(0.1, 0.0)),
+          wrap: self.wrap,
+          ..default()
+        }),
+        (Device::Spectra, 8, Event::Button(true)) => {
+          self.state.filters.pop();
+        }
+        (Device::Twister, 0, Event::Encoder(value)) => self.alpha = value,
+        _ => {}
+      }
+    }
+
     if let Some(stream) = self.stream.as_mut() {
-      self.analyzer.update(stream.as_mut());
+      self.analyzer.update(stream.as_mut(), self.alpha);
     }
 
     if let Err(err) =
