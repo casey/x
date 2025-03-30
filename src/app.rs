@@ -1,7 +1,7 @@
 use super::*;
 
 pub(crate) struct App {
-  alpha: Value,
+  alpha: Parameter,
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
@@ -136,7 +136,7 @@ impl App {
     }
 
     Ok(Self {
-      alpha: Value(u7::from(63)),
+      alpha: Parameter(u7::from(63)),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,

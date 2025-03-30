@@ -33,7 +33,7 @@ impl Analyzer {
     &self.samples
   }
 
-  pub(crate) fn update(&mut self, stream: &mut dyn Stream, alpha: Value) {
+  pub(crate) fn update(&mut self, stream: &mut dyn Stream, alpha: Parameter) {
     if stream.done() {
       self.samples.clear();
     } else {

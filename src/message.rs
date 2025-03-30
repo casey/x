@@ -41,7 +41,7 @@ impl Message {
     };
 
     let (device, control, event) = match (channel, key) {
-      (0, 0..=15) => (Device::Twister, key, Event::Encoder(Value(value))),
+      (0, 0..=15) => (Device::Twister, key, Event::Encoder(Parameter(value))),
       (1, 0..=15) => (Device::Twister, key, Event::Button(press)),
       (2, 36..=51) => (
         Device::Spectra,

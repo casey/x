@@ -3,9 +3,9 @@ use {
     analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, device::Device,
     error::Error, event::Event, field::Field, filter::Filter, format::Format, frame::Frame,
     hub::Hub, image::Image, input::Input, into_usize::IntoUsize, message::Message,
-    options::Options, program::Program, renderer::Renderer, shared::Shared, state::State,
-    stream::Stream, subcommand::Subcommand, tally::Tally, target::Target, templates::ShaderWgsl,
-    text::Text, tiling::Tiling, track::Track, uniforms::Uniforms, value::Value,
+    options::Options, parameter::Parameter, program::Program, renderer::Renderer, shared::Shared,
+    state::State, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
+    templates::ShaderWgsl, text::Text, tiling::Tiling, track::Track, uniforms::Uniforms,
   },
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
@@ -89,6 +89,7 @@ mod input;
 mod into_usize;
 mod message;
 mod options;
+mod parameter;
 mod program;
 mod renderer;
 mod shared;
@@ -102,7 +103,6 @@ mod text;
 mod tiling;
 mod track;
 mod uniforms;
-mod value;
 
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;
