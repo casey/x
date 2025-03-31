@@ -4,6 +4,7 @@ pub(crate) struct App {
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
+  horizontal: Parameter,
   hub: Hub,
   makro: Vec<Key>,
   options: Options,
@@ -11,12 +12,17 @@ pub(crate) struct App {
   output_stream: OutputStream,
   recording: Option<Vec<Key>>,
   renderer: Option<Renderer>,
+  scaling: f32,
   #[allow(unused)]
   sink: Sink,
+  start: Instant,
   state: State,
   stream: Option<Box<dyn Stream>>,
+  translation: Vec2f,
+  vertical: Parameter,
   window: Option<Arc<Window>>,
   wrap: bool,
+  zoom: Parameter,
 }
 
 impl App {
@@ -129,17 +135,23 @@ impl App {
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
+      horizontal: Parameter::default(),
       hub: Hub::new()?,
       makro: Vec::new(),
       options,
       output_stream,
       recording: None,
       renderer: None,
+      scaling: 1.0,
       sink,
+      start: Instant::now(),
       state,
       stream,
+      translation: Vec2f::zeros(),
+      vertical: Parameter::default(),
       window: None,
       wrap: true,
+      zoom: Parameter::default(),
     })
   }
 
@@ -311,11 +323,20 @@ impl App {
         (Device::Spectra, 8, Event::Button(true)) => {
           self.state.filters.pop();
         }
+        (Device::Twister, control, Event::Button(true)) => match control {
+          4 => self.translation.x = 0.0,
+          5 => self.translation.y = 0.0,
+          6 => self.scaling = 1.0,
+          _ => {}
+        },
         (Device::Twister, control, Event::Encoder(parameter)) => {
           self.state.parameter = parameter;
           match control {
             0 => self.state.alpha = parameter,
             1 => self.state.db = parameter,
+            4 => self.horizontal = parameter,
+            5 => self.vertical = parameter,
+            6 => self.zoom = parameter,
             _ => {}
           }
         }
@@ -326,6 +347,24 @@ impl App {
     if let Some(stream) = self.stream.as_mut() {
       self.analyzer.update(stream.as_mut(), &self.state);
     }
+
+    let now = Instant::now();
+
+    let delta = now - self.start;
+
+    self.start = now;
+
+    let elapsed = delta.as_secs_f32();
+
+    self.scaling += self.zoom.bipolar() * elapsed;
+    self.translation.x -= self.horizontal.bipolar() * 4.0 * elapsed;
+    self.translation.y -= self.vertical.bipolar() * 4.0 * elapsed;
+
+    self.state.filters.push(Filter {
+      position: Mat3f::new_translation(&self.translation).append_scaling(self.scaling),
+      wrap: self.wrap,
+      ..default()
+    });
 
     if let Err(err) =
       self
@@ -338,6 +377,8 @@ impl App {
       event_loop.exit();
       return;
     }
+
+    self.state.filters.pop();
 
     self.window().request_redraw();
   }
