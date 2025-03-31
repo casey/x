@@ -508,7 +508,7 @@ impl Renderer {
 
     let filter_count = u32::try_from(state.filters.len()).unwrap();
 
-    let gain = 10f32.powf((state.db.bipolar() as f32 * 1.0) / 20.0);
+    let gain = 10f32.powf((state.db.value() as f32 * 1.0) / 20.0);
 
     let rms = analyzer.rms();
 
@@ -679,9 +679,9 @@ impl Renderer {
         items.push(format!("ƒ {}", fps.floor()));
       }
 
-      let parameter = state.parameter.bipolar();
+      let parameter = state.parameter.value();
       items.push(if parameter >= 0 {
-        format!("+{}", parameter)
+        format!("+{parameter}")
       } else {
         parameter.to_string()
       });

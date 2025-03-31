@@ -1,7 +1,6 @@
 use super::*;
 
 pub(crate) struct App {
-  alpha: Parameter,
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
@@ -127,7 +126,6 @@ impl App {
     }
 
     Ok(Self {
-      alpha: Parameter::default(),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
@@ -316,7 +314,7 @@ impl App {
         (Device::Twister, control, Event::Encoder(parameter)) => {
           self.state.parameter = parameter;
           match control {
-            0 => self.alpha = parameter,
+            0 => self.state.alpha = parameter,
             1 => self.state.db = parameter,
             _ => {}
           }
