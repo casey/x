@@ -15,16 +15,15 @@ pub(crate) enum ParameterError {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Parameter(u8);
 
-impl From<i64> for Parameter {
-  fn from(value: i64) -> Self {
-    let value = value.saturating_sub(i64::from(Self::ZERO));
-    if value <= i64::from(Self::MIN) {
-      Self(Self::MIN)
-    } else if value >= i64::from(Self::MAX) {
-      Self(Self::MAX)
-    } else {
-      Self(u8::try_from(value - i64::from(Self::ZERO)).unwrap())
-    }
+impl From<i8> for Parameter {
+  fn from(value: i8) -> Self {
+    Self(value.saturating_add(64).max(0).max(127).try_into().unwrap())
+  }
+}
+
+impl From<u8> for Parameter {
+  fn from(value: u8) -> Self {
+    Self(value.max(0).min(127))
   }
 }
 
@@ -75,8 +74,7 @@ impl FromStr for Parameter {
 }
 
 impl Parameter {
-  const MIN: u8 = 0;
-  const ZERO: u8 = 63;
+  const ZERO: u8 = 64;
   const MAX: u8 = 127;
 
   pub(crate) fn unipolar(self) -> f32 {

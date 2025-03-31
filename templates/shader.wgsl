@@ -62,7 +62,7 @@ struct Uniforms {
 }
 
 fn coefficient() -> f32 {
-  return 1 + uniforms.rms / 10;
+  return 1 + uniforms.rms / 10 * uniforms.gain;
 }
 
 fn field_all(p: vec2f) -> bool {
@@ -74,7 +74,7 @@ fn field_bottom(p: vec2f) -> bool {
 }
 
 fn field_circle(p: vec2f) -> bool {
-  return length(p) < 0.5 * coefficient() * uniforms.gain;
+  return length(p) < 0.5 * coefficient();
 }
 
 fn field_frequencies(p: vec2f) -> bool {
@@ -98,7 +98,7 @@ fn field_top(p: vec2f) -> bool {
 }
 
 fn field_x(p: vec2f) -> bool {
-  return abs(abs(p.x) - abs(p.y)) < 0.2 * coefficient() * uniforms.gain;
+  return abs(abs(p.x) - abs(p.y)) < 0.2 * coefficient();
 }
 
 fn invert(color: vec4f) -> vec4f {

@@ -21,9 +21,8 @@ impl State {
     self
   }
 
-  pub(crate) fn db(mut self, db: i64) -> Self {
+  pub(crate) fn db(mut self, db: i8) -> Self {
     self.db = db.into();
-    dbg!(self.db);
     self
   }
 
