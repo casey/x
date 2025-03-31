@@ -42,7 +42,11 @@ impl SubAssign<i8> for Parameter {
 
 impl From<midly::num::u7> for Parameter {
   fn from(n: midly::num::u7) -> Self {
-    (i8::try_from(u8::from(n)).unwrap() + Self::MIN).into()
+    if n == 63 {
+      Self(0)
+    } else {
+      (i8::try_from(u8::from(n)).unwrap() + Self::MIN).into()
+    }
   }
 }
 
@@ -65,6 +69,14 @@ impl FromStr for Parameter {
 impl Parameter {
   const MAX: i8 = 63;
   const MIN: i8 = -64;
+
+  pub(crate) fn bipolar(self) -> f32 {
+    if self.0 < 0 {
+      f32::from(self.0) / 64.0
+    } else {
+      f32::from(self.0) / 63.0
+    }
+  }
 
   pub(crate) fn unipolar(self) -> f32 {
     f32::from(self.0 + 64) / 127.0
