@@ -41,7 +41,7 @@ impl Analyzer {
       stream.drain(&mut self.samples);
       self
         .samples
-        .drain(..self.samples.len().saturating_sub(2000).min(old));
+        .drain(..self.samples.len().saturating_sub(128).min(old));
     }
 
     let samples = &self.samples[..self.samples.len() & !1];
