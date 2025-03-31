@@ -53,14 +53,12 @@ impl FromStr for Parameter {
     let value = s.parse()?;
 
     if value < Self::MIN {
-      return Err(NegativeOverflowError { value }.build());
+      Err(NegativeOverflowError { value }.build())
+    } else if value > Self::MAX {
+      Err(PositiveOverflowError { value }.build())
+    } else {
+      Ok(Self(value))
     }
-
-    if value > Self::MAX {
-      return Err(PositiveOverflowError { value }.build());
-    }
-
-    Ok(Self(value))
   }
 }
 
