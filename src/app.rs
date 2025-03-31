@@ -350,11 +350,9 @@ impl App {
 
     let now = Instant::now();
 
-    let delta = now - self.start;
+    let elapsed = (now - self.start).as_secs_f32();
 
     self.start = now;
-
-    let elapsed = delta.as_secs_f32();
 
     self.scaling += self.zoom.bipolar() * elapsed;
     self.translation.x -= self.horizontal.bipolar() * 4.0 * elapsed;
