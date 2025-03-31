@@ -62,7 +62,7 @@ struct Uniforms {
 }
 
 fn coefficient() -> f32 {
-  return 1 + uniforms.rms / 10;
+  return 1 + uniforms.rms / 10 * uniforms.gain;
 }
 
 fn field_all(p: vec2f) -> bool {

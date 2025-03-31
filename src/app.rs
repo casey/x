@@ -1,7 +1,6 @@
 use super::*;
 
 pub(crate) struct App {
-  alpha: Parameter,
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
@@ -127,7 +126,6 @@ impl App {
     }
 
     Ok(Self {
-      alpha: Parameter(u7::from(63)),
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
@@ -313,13 +311,20 @@ impl App {
         (Device::Spectra, 8, Event::Button(true)) => {
           self.state.filters.pop();
         }
-        (Device::Twister, 0, Event::Encoder(value)) => self.alpha = value,
+        (Device::Twister, control, Event::Encoder(parameter)) => {
+          self.state.parameter = parameter;
+          match control {
+            0 => self.state.alpha = parameter,
+            1 => self.state.db = parameter,
+            _ => {}
+          }
+        }
         _ => {}
       }
     }
 
     if let Some(stream) = self.stream.as_mut() {
-      self.analyzer.update(stream.as_mut(), self.alpha);
+      self.analyzer.update(stream.as_mut(), &self.state);
     }
 
     if let Err(err) =

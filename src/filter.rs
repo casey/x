@@ -20,3 +20,9 @@ impl Default for Filter {
     }
   }
 }
+
+impl Filter {
+  pub(crate) fn icon(&self) -> char {
+    self.field.icon()
+  }
+}
