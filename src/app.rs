@@ -354,7 +354,7 @@ impl App {
 
     self.start = now;
 
-    self.scaling += self.zoom.bipolar() * elapsed;
+    self.scaling -= self.zoom.bipolar() * elapsed;
     self.translation.x -= self.horizontal.bipolar() * 4.0 * elapsed;
     self.translation.y -= self.vertical.bipolar() * 4.0 * elapsed;
 
