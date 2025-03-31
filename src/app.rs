@@ -349,9 +349,7 @@ impl App {
     }
 
     let now = Instant::now();
-
     let elapsed = (now - self.start).as_secs_f32();
-
     self.start = now;
 
     self.scaling -= self.zoom.bipolar() * elapsed;
