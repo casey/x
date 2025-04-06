@@ -357,7 +357,7 @@ impl App {
     self.translation.y -= self.vertical.bipolar() * 4.0 * elapsed;
 
     self.state.filters.push(Filter {
-      position: Mat3f::new_translation(&self.translation).append_scaling(self.scaling),
+      position: Mat3f::new_translation(&self.translation).prepend_scaling(self.scaling),
       wrap: self.wrap,
       ..default()
     });
