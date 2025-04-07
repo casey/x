@@ -508,7 +508,7 @@ impl Renderer {
 
     let filter_count = u32::try_from(state.filters.len()).unwrap();
 
-    let gain = 10f32.powf((state.db as f32 * 1.0) / 20.0);
+    let gain = 10f32.powf(state.db / 20.0);
 
     let rms = analyzer.rms();
 
