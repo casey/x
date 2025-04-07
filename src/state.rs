@@ -2,7 +2,7 @@ use super::*;
 
 #[derive(Default)]
 pub(crate) struct State {
-  pub(crate) alpha: f32,
+  pub(crate) alpha: Parameter,
   pub(crate) db: f32,
   pub(crate) filter: Filter,
   pub(crate) filters: Vec<Filter>,
