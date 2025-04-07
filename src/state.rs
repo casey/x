@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(Default)]
 pub(crate) struct State {
-  pub(crate) alpha: Parameter,
-  pub(crate) db: Parameter,
+  pub(crate) alpha: f32,
+  pub(crate) db: i8,
   pub(crate) filter: Filter,
   pub(crate) filters: Vec<Filter>,
   pub(crate) parameter: Parameter,

@@ -21,7 +21,7 @@ use {
 )]
 pub(crate) struct Options {
   #[arg(long)]
-  pub(crate) db: Option<Parameter>,
+  pub(crate) db: Option<i8>,
   #[arg(long)]
   pub(crate) fit: bool,
   #[arg(long)]

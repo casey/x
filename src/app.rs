@@ -4,7 +4,7 @@ pub(crate) struct App {
   analyzer: Analyzer,
   capture: Image,
   error: Option<Error>,
-  horizontal: Parameter,
+  horizontal: f32,
   hub: Hub,
   makro: Vec<Key>,
   options: Options,
@@ -19,10 +19,10 @@ pub(crate) struct App {
   state: State,
   stream: Option<Box<dyn Stream>>,
   translation: Vec2f,
-  vertical: Parameter,
+  vertical: f32,
   window: Option<Arc<Window>>,
   wrap: bool,
-  zoom: Parameter,
+  zoom: f32,
 }
 
 impl App {
@@ -135,7 +135,7 @@ impl App {
       analyzer: Analyzer::new(),
       capture: Image::default(),
       error: None,
-      horizontal: Parameter::default(),
+      horizontal: 0.0,
       hub: Hub::new()?,
       makro: Vec::new(),
       options,
@@ -148,10 +148,10 @@ impl App {
       state,
       stream,
       translation: Vec2f::zeros(),
-      vertical: Parameter::default(),
+      vertical: 0.0,
       window: None,
       wrap: true,
-      zoom: Parameter::default(),
+      zoom: 0.0,
     })
   }
 
@@ -332,11 +332,11 @@ impl App {
         (Device::Twister, control, Event::Encoder(parameter)) => {
           self.state.parameter = parameter;
           match control {
-            0 => self.state.alpha = parameter,
-            1 => self.state.db = parameter,
-            4 => self.horizontal = parameter,
-            5 => self.vertical = parameter,
-            6 => self.zoom = parameter,
+            0 => self.state.alpha = parameter.unipolar(),
+            1 => self.state.db = parameter.value(),
+            4 => self.horizontal = parameter.bipolar(),
+            5 => self.vertical = parameter.bipolar(),
+            6 => self.zoom = parameter.bipolar(),
             _ => {}
           }
         }
@@ -352,9 +352,9 @@ impl App {
     let elapsed = (now - self.start).as_secs_f32();
     self.start = now;
 
-    self.scaling -= self.zoom.bipolar() * elapsed;
-    self.translation.x -= self.horizontal.bipolar() * 4.0 * elapsed;
-    self.translation.y -= self.vertical.bipolar() * 4.0 * elapsed;
+    self.scaling -= self.zoom * elapsed;
+    self.translation.x -= self.horizontal * 4.0 * elapsed;
+    self.translation.y -= self.vertical * 4.0 * elapsed;
 
     self.state.filters.push(Filter {
       position: Mat3f::new_translation(&self.translation).prepend_scaling(self.scaling),
