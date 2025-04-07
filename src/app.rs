@@ -332,7 +332,7 @@ impl App {
         (Device::Twister, control, Event::Encoder(parameter)) => {
           self.state.parameter = parameter;
           match control {
-            0 => self.state.alpha = parameter.unipolar(),
+            0 => self.state.alpha = parameter,
             1 => self.state.db = parameter.value() as f32,
             4 => self.horizontal = parameter.bipolar(),
             5 => self.vertical = parameter.bipolar(),
