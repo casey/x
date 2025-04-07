@@ -161,10 +161,10 @@ impl App {
     match key {
       Key::Character(ref c) => match c.as_str() {
         "+" => {
-          self.state.db += 1;
+          self.state.db += 1.0;
         }
         "-" => {
-          self.state.db -= 1;
+          self.state.db -= 1.0;
         }
         ">" => {
           if let Err(err) = self.capture() {
@@ -333,7 +333,7 @@ impl App {
           self.state.parameter = parameter;
           match control {
             0 => self.state.alpha = parameter.unipolar(),
-            1 => self.state.db = parameter.value(),
+            1 => self.state.db = parameter.value() as f32,
             4 => self.horizontal = parameter.bipolar(),
             5 => self.vertical = parameter.bipolar(),
             6 => self.zoom = parameter.bipolar(),

@@ -3,7 +3,7 @@ use super::*;
 #[derive(Default)]
 pub(crate) struct State {
   pub(crate) alpha: f32,
-  pub(crate) db: i8,
+  pub(crate) db: f32,
   pub(crate) filter: Filter,
   pub(crate) filters: Vec<Filter>,
   pub(crate) parameter: Parameter,
@@ -22,7 +22,7 @@ impl State {
   }
 
   pub(crate) fn db(mut self, db: i8) -> Self {
-    self.db = db;
+    self.db = db as f32;
     self
   }
 
