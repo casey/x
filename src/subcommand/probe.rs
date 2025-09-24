@@ -1,8 +1,8 @@
 use {
   super::*,
   tabled::{
+    settings::{style::Style, themes::BorderCorrection, Panel},
     Table, Tabled,
-    settings::{Panel, style::Style},
   },
 };
 
@@ -54,6 +54,7 @@ pub(crate) fn run() -> Result {
           "MIDI {}",
           if input { "input" } else { "output" }
         )))
+        .with(BorderCorrection::span())
     );
   }
 
@@ -70,6 +71,7 @@ pub(crate) fn run() -> Result {
           "{name} ({})",
           if input { "input" } else { "output" }
         )))
+        .with(BorderCorrection::span())
     );
   }
 
