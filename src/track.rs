@@ -35,8 +35,8 @@ impl Source for Track {
     self.read().decoder.channels()
   }
 
-  fn current_frame_len(&self) -> Option<usize> {
-    self.read().decoder.current_frame_len()
+  fn current_span_len(&self) -> Option<usize> {
+    self.read().decoder.current_span_len()
   }
 
   fn sample_rate(&self) -> u32 {

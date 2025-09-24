@@ -91,11 +91,13 @@ impl App {
         .context(error::AudioSupportedStreamConfigs)?,
     )?;
 
-    let (output_stream, stream_handle) =
-      OutputStream::try_from_device_config(&output_device, stream_config)
-        .context(error::AudioBuildOutputStream)?;
+    let output_stream = rodio::OutputStreamBuilder::from_device(output_device)
+      .context(error::AudioBuildOutputStream)?
+      .with_supported_config(&stream_config)
+      .open_stream()
+      .context(error::AudioBuildOutputStream)?;
 
-    let sink = Sink::try_new(&stream_handle).context(error::AudioPlay)?;
+    let sink = Sink::connect_new(output_stream.mixer());
 
     if let Some(volume) = options.volume {
       sink.set_volume(volume);
