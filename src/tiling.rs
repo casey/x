@@ -9,7 +9,7 @@ pub(crate) struct Tiling {
 impl Tiling {
   pub(crate) fn back_read(self, filters: u32) -> bool {
     if self.size == 1 {
-      filters % 2 == 0
+      filters.is_multiple_of(2)
     } else {
       true
     }
@@ -17,7 +17,7 @@ impl Tiling {
 
   pub(crate) fn front_read(self, filters: u32) -> bool {
     if self.size == 1 {
-      filters % 2 == 1
+      !filters.is_multiple_of(2)
     } else {
       true
     }
