@@ -138,17 +138,22 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: midir::PortInfoError,
   },
-  #[snafu(display("failed to decode png at {}", path.display()))]
+  #[snafu(display("failed to decode PNG at {}", path.display()))]
   PngDecode {
     backtrace: Option<Backtrace>,
     path: PathBuf,
     source: png::DecodingError,
   },
-  #[snafu(display("failed to encode png at {}", path.display()))]
+  #[snafu(display("failed to encode PNG at {}", path.display()))]
   PngEncode {
     backtrace: Option<Backtrace>,
     path: PathBuf,
     source: png::EncodingError,
+  },
+  #[snafu(display("PNG cannot fit in memory: {}", path.display()))]
+  PngOutputBufferSize {
+    backtrace: Option<Backtrace>,
+    path: PathBuf,
   },
   #[snafu(display("failed to render overlay"))]
   RenderOverlay {

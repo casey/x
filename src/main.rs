@@ -12,15 +12,14 @@ use {
   log::info,
   regex::{Regex, RegexBuilder},
   rodio::{
-    cpal::{
-      self,
-      traits::{DeviceTrait, HostTrait, StreamTrait},
-      Sample, SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfig,
-      SupportedStreamConfigRange,
-    },
     Decoder, OutputStream, Sink, Source,
+    cpal::{
+      self, Sample, SampleFormat, StreamConfig, SupportedBufferSize, SupportedStreamConfig,
+      SupportedStreamConfigRange,
+      traits::{DeviceTrait, HostTrait, StreamTrait},
+    },
   },
-  rustfft::{num_complex::Complex, FftPlanner},
+  rustfft::{FftPlanner, num_complex::Complex},
   skrifa::MetadataProvider,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
@@ -34,7 +33,7 @@ use {
     path::{Path, PathBuf},
     process,
     str::FromStr,
-    sync::{mpsc, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard, mpsc},
     time::Instant,
   },
   strum::{EnumIter, IntoEnumIterator, IntoStaticStr},
@@ -46,8 +45,8 @@ use {
   wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
-    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, CommandEncoder,
-    CommandEncoderDescriptor, DeviceDescriptor, Extent3d, Features, FragmentState,
+    BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, COPY_BYTES_PER_ROW_ALIGNMENT,
+    CommandEncoder, CommandEncoderDescriptor, DeviceDescriptor, Extent3d, Features, FragmentState,
     ImageSubresourceRange, Instance, Limits, LoadOp, Maintain, MaintainResult, MapMode,
     MemoryHints, MultisampleState, Operations, Origin3d, PipelineCompilationOptions,
     PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
@@ -56,7 +55,7 @@ use {
     ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, TexelCopyBufferInfo,
     TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor,
     TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-    TextureViewDescriptor, TextureViewDimension, VertexState, COPY_BYTES_PER_ROW_ALIGNMENT,
+    TextureViewDescriptor, TextureViewDimension, VertexState,
   },
   winit::{
     application::ApplicationHandler,
@@ -166,11 +165,11 @@ fn main() {
       eprintln!("- {err}");
     }
 
-    if let Some(backtrace) = err.backtrace() {
-      if backtrace.status() == BacktraceStatus::Captured {
-        eprintln!("backtrace:");
-        eprintln!("{backtrace}");
-      }
+    if let Some(backtrace) = err.backtrace()
+      && backtrace.status() == BacktraceStatus::Captured
+    {
+      eprintln!("backtrace:");
+      eprintln!("{backtrace}");
     }
 
     process::exit(1);

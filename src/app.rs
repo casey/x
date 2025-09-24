@@ -266,10 +266,8 @@ impl App {
       _ => {}
     }
 
-    if capture {
-      if let Some(recording) = &mut self.recording {
-        recording.push(key);
-      }
+    if capture && let Some(recording) = &mut self.recording {
+      recording.push(key);
     }
   }
 
