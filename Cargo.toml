@@ -24,7 +24,7 @@ skrifa = "0.30.0"
 snafu = "0.8.5"
 strum = { version = "0.27.1", features = ["derive"] }
 symphonia = { version = "*", features = [ "all-codecs", "all-formats" ] }
-tabled = { version = "0.18.0", git = "https://github.com/zhiburt/tabled.git" }
+tabled = { version = "0.20.0" }
 vello = { git = "https://github.com/linebender/vello.git" }
 walkdir = "2.5.0"
 wgpu = "24.0.1"
