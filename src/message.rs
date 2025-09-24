@@ -28,13 +28,13 @@ impl Message {
         _ => {
           return Err(MessageParseError::Unrecognized {
             event: event.to_static(),
-          })
+          });
         }
       },
       _ => {
         return Err(MessageParseError::Unrecognized {
           event: event.to_static(),
-        })
+        });
       }
     };
 
@@ -81,7 +81,7 @@ impl Message {
       _ => {
         return Err(MessageParseError::Unrecognized {
           event: event.to_static(),
-        })
+        });
       }
     };
 

@@ -1,8 +1,8 @@
 use {
   super::*,
   tabled::{
-    settings::{style::Style, Panel},
     Table, Tabled,
+    settings::{Panel, style::Style},
   },
 };
 
