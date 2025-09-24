@@ -29,11 +29,6 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::DevicesError,
   },
-  #[snafu(display("failed to play audio"))]
-  AudioPlay {
-    backtrace: Option<Backtrace>,
-    source: rodio::PlayError,
-  },
   #[snafu(display("failed to play audio input stream"))]
   AudioPlayStream {
     backtrace: Option<Backtrace>,
