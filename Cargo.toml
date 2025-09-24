@@ -34,6 +34,9 @@ winit = "0.30.5"
 hound = "3.5.1"
 tempfile = "3.17.1"
 
+[lints.rust]
+mismatched-lifetime-syntaxes = "allow"
+
 [lints.clippy]
 all = { level = "deny", priority = -1 }
 arbitrary-source-item-ordering = "deny"
