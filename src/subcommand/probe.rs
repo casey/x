@@ -1,8 +1,8 @@
 use {
   super::*,
   tabled::{
-    settings::{style::Style, themes::BorderCorrection, Panel},
     Table, Tabled,
+    settings::{Panel, style::Style, themes::BorderCorrection},
   },
 };
 
