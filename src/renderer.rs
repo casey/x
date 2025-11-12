@@ -6,7 +6,7 @@ pub struct Renderer {
   config: SurfaceConfiguration,
   device: wgpu::Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
-  font: Font,
+  font: FontData,
   format: Format,
   frame: u64,
   frame_times: VecDeque<Instant>,
@@ -207,9 +207,15 @@ impl Renderer {
       tx.send(result).unwrap();
     });
 
-    let MaintainResult::SubmissionQueueEmpty = self.device.poll(Maintain::wait()) else {
-      return Err(Error::internal("unexpected maintain result"));
-    };
+    match self.device.poll(PollType::wait()) {
+      Err(err) => return Err(Error::internal(format!("unexpected poll error: {err}"))),
+      Ok(PollStatus::QueueEmpty) => {}
+      Ok(status) => {
+        return Err(Error::internal(format!(
+          "unexpected poll status: {status:?}"
+        )));
+      }
+    }
 
     rx.recv_async()
       .await
@@ -248,6 +254,7 @@ impl Renderer {
   ) {
     let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
       color_attachments: &[Some(RenderPassColorAttachment {
+        depth_slice: None,
         ops: Operations {
           load: LoadOp::Load,
           store: StoreOp::Store,
@@ -290,18 +297,16 @@ impl Renderer {
         compatible_surface: Some(&surface),
       })
       .await
-      .context(error::Adapter)?;
+      .context(error::RequestAdapter)?;
 
     let (device, queue) = adapter
-      .request_device(
-        &DeviceDescriptor {
-          label: label!(),
-          required_features: Features::CLEAR_TEXTURE,
-          required_limits: Limits::default(),
-          memory_hints: MemoryHints::Performance,
-        },
-        None,
-      )
+      .request_device(&DeviceDescriptor {
+        label: label!(),
+        memory_hints: MemoryHints::Performance,
+        required_features: Features::CLEAR_TEXTURE,
+        required_limits: Limits::default(),
+        trace: Trace::Off,
+      })
       .await
       .context(error::Device)?;
 

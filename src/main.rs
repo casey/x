@@ -39,7 +39,7 @@ use {
   strum::{EnumIter, IntoEnumIterator, IntoStaticStr},
   vello::{
     kurbo,
-    peniko::{self, Font},
+    peniko::{self, FontData},
   },
   walkdir::WalkDir,
   wgpu::{
@@ -47,15 +47,15 @@ use {
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, Buffer,
     BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, COPY_BYTES_PER_ROW_ALIGNMENT,
     CommandEncoder, CommandEncoderDescriptor, DeviceDescriptor, Extent3d, Features, FragmentState,
-    ImageSubresourceRange, Instance, Limits, LoadOp, Maintain, MaintainResult, MapMode,
-    MemoryHints, MultisampleState, Operations, Origin3d, PipelineCompilationOptions,
-    PipelineLayoutDescriptor, PowerPreference, PrimitiveState, Queue, RenderPass,
-    RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor,
-    RequestAdapterOptions, Sampler, SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, StoreOp, Surface, SurfaceConfiguration, TexelCopyBufferInfo,
-    TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-    TextureViewDescriptor, TextureViewDimension, VertexState,
+    ImageSubresourceRange, Instance, Limits, LoadOp, MapMode, MemoryHints, MultisampleState,
+    Operations, Origin3d, PipelineCompilationOptions, PipelineLayoutDescriptor, PollStatus,
+    PollType, PowerPreference, PrimitiveState, Queue, RenderPass, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler,
+    SamplerBindingType, SamplerDescriptor, ShaderModuleDescriptor, ShaderSource, ShaderStages,
+    StoreOp, Surface, SurfaceConfiguration, TexelCopyBufferInfo, TexelCopyBufferLayout,
+    TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+    TextureViewDimension, Trace, VertexState,
   },
   winit::{
     application::ApplicationHandler,
@@ -127,7 +127,7 @@ fn invert_color() -> Mat4f {
   Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0))
 }
 
-fn load_font(name: &str) -> Result<Font> {
+fn load_font(name: &str) -> Result<FontData> {
   use font_kit::handle::Handle;
 
   let font = font_kit::source::SystemSource::new()
@@ -142,7 +142,7 @@ fn load_font(name: &str) -> Result<Font> {
     ),
   };
 
-  Ok(Font::new(peniko::Blob::new(font_data), font_index))
+  Ok(FontData::new(peniko::Blob::new(font_data), font_index))
 }
 
 fn pad(i: usize, alignment: usize) -> usize {
