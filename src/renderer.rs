@@ -742,8 +742,6 @@ impl Renderer {
     #[allow(clippy::cast_possible_truncation)]
     let font_size = bounds.height() as f32 * text.size;
 
-    // todo:
-    // - account for and test text position
     let mut builder =
       self
         .layout_context
