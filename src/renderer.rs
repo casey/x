@@ -207,9 +207,15 @@ impl Renderer {
       tx.send(result).unwrap();
     });
 
-    let Ok(PollStatus::QueueEmpty) = self.device.poll(PollType::wait()) else {
-      return Err(Error::internal("unexpected poll result"));
-    };
+    match self.device.poll(PollType::wait()) {
+      Err(err) => return Err(Error::internal(format!("unexpected poll error: {err}"))),
+      Ok(PollStatus::QueueEmpty) => {}
+      Ok(status) => {
+        return Err(Error::internal(format!(
+          "unexpected poll status: {status:?}"
+        )))
+      }
+    }
 
     rx.recv_async()
       .await
