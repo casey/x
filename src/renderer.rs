@@ -291,7 +291,7 @@ impl Renderer {
         compatible_surface: Some(&surface),
       })
       .await
-      .context(error::Adapter)?;
+      .context(error::RequestAdapter)?;
 
     let (device, queue) = adapter
       .request_device(&DeviceDescriptor {

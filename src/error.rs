@@ -3,11 +3,6 @@ use super::*;
 #[derive(Debug, Snafu)]
 #[snafu(context(suffix(false)), visibility(pub(crate)))]
 pub(crate) enum Error {
-  #[snafu(display("failed to get adapter"))]
-  Adapter {
-    backtrace: Option<Backtrace>,
-    source: wgpu::RequestAdapterError,
-  },
   #[snafu(display("failed to build audio input stream"))]
   AudioBuildInputStream {
     backtrace: Option<Backtrace>,
@@ -157,6 +152,11 @@ pub(crate) enum Error {
   RenderOverlay {
     backtrace: Option<Backtrace>,
     source: vello::Error,
+  },
+  #[snafu(display("failed to get adapter"))]
+  RequestAdapter {
+    backtrace: Option<Backtrace>,
+    source: wgpu::RequestAdapterError,
   },
   #[snafu(display("failed to run app"))]
   RunApp {
