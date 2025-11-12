@@ -800,7 +800,9 @@ impl Renderer {
               );
           }
           PositionedLayoutItem::InlineBox(_) => {
-            todo!()
+            return Err(Error::internal(
+              "unexpected inline box while rendering overlay",
+            ));
           }
         }
       }
