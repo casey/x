@@ -672,8 +672,8 @@ impl Renderer {
     use {
       kurbo::{Affine, Rect, Vec2},
       parley::{
-        Alignment, AlignmentOptions, FontFamily, FontStack, FontWeight, PositionedLayoutItem,
-        StyleProperty,
+        Alignment, AlignmentOptions, FontFamily, FontStack, FontWeight, GenericFamily,
+        PositionedLayoutItem, StyleProperty,
       },
       peniko::{Brush, Color, Fill},
       vello::{AaConfig, RenderParams},
@@ -744,15 +744,15 @@ impl Renderer {
 
     // todo:
     // - account for and test text position
-    // - set font
     let mut builder =
       self
         .layout_context
         .ranged_builder(&mut self.font_context, &text.string, 1.0, true);
-    builder.push_default(StyleProperty::FontStack(FontStack::Single(
-      FontFamily::Named(FONT.into()),
-    )));
     builder.push_default(StyleProperty::FontSize(font_size));
+    builder.push_default(StyleProperty::FontStack(FontStack::List(Cow::Borrowed(&[
+      FontFamily::Named(FONT.into()),
+      FontFamily::Generic(GenericFamily::SansSerif),
+    ]))));
     builder.push_default(StyleProperty::FontWeight(FontWeight::LIGHT));
 
     let mut layout = builder.build(&text.string);
@@ -766,34 +766,35 @@ impl Renderer {
             let run = glyph_run.run();
             let mut x = glyph_run.offset();
             let y = glyph_run.baseline();
-            let font = run.font();
-            let synthesis = run.synthesis();
-            let glyph_xform = synthesis
-              .skew()
-              .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0));
-            let coords = run.normalized_coords();
             self
               .overlay_scene
-              .draw_glyphs(font)
+              .draw_glyphs(run.font())
               .brush(&Brush::Solid(Color::WHITE))
-              // .hint(hint)
+              .hint(true)
               .transform(Affine::translate(Vec2 {
-                x: text.x * bounds.width() + bounds.x0 + 10.0 - run.metrics().descent as f64,
-                y: text.y * bounds.height() + bounds.y1 - 200.0,
+                x: text.x * bounds.width() + bounds.x0 + 10.0,
+                y: text.y * bounds.height() + bounds.y1
+                  - 10.0
+                  - f64::from(y)
+                  - f64::from(run.metrics().descent),
               }))
-              .glyph_transform(glyph_xform)
+              .glyph_transform(
+                run
+                  .synthesis()
+                  .skew()
+                  .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
+              )
               .font_size(font_size)
-              .normalized_coords(coords)
+              .normalized_coords(run.normalized_coords())
               .draw(
                 Fill::NonZero,
                 glyph_run.glyphs().map(|glyph| {
                   let gx = x + glyph.x;
-                  let gy = y - glyph.y;
                   x += glyph.advance;
                   vello::Glyph {
-                    id: glyph.id as _,
+                    id: glyph.id.into(),
                     x: gx,
-                    y: gy,
+                    y: y - glyph.y,
                   }
                 }),
               );
