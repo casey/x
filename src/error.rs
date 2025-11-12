@@ -4,7 +4,10 @@ use super::*;
 #[snafu(context(suffix(false)), visibility(pub(crate)))]
 pub(crate) enum Error {
   #[snafu(display("failed to get adapter"))]
-  Adapter { backtrace: Option<Backtrace> },
+  Adapter {
+    backtrace: Option<Backtrace>,
+    source: wgpu::RequestAdapterError,
+  },
   #[snafu(display("failed to build audio input stream"))]
   AudioBuildInputStream {
     backtrace: Option<Backtrace>,

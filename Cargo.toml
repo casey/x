@@ -20,14 +20,14 @@ pollster = "0.4.0"
 regex = "1.11.1"
 rodio = { version = "0.21.1", features = ["playback", "symphonia-all"], default-features = false }
 rustfft = "6.2.0"
-skrifa = "0.37.0"
+skrifa = "0.39.0"
 snafu = "0.8.5"
 strum = { version = "0.27.1", features = ["derive"] }
 symphonia = { version = "*", features = [ "all-codecs", "all-formats" ] }
 tabled = "0.20.0"
-vello = "0.5.0"
+vello = "0.6.0"
 walkdir = "2.5.0"
-wgpu = "24.0.1"
+wgpu = "26.0.1"
 winit = "0.30.5"
 
 [dev-dependencies]
