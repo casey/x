@@ -6,12 +6,13 @@ pub struct Renderer {
   config: SurfaceConfiguration,
   device: wgpu::Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
-  font: FontData,
+  font_context: FontContext,
   format: Format,
   frame: u64,
   frame_times: VecDeque<Instant>,
   frequencies: Texture,
   frequency_view: TextureView,
+  layout_context: LayoutContext,
   overlay_renderer: vello::Renderer,
   overlay_scene: vello::Scene,
   queue: Queue,
@@ -434,12 +435,13 @@ impl Renderer {
       config,
       device,
       error_channel,
-      font: load_font(FONT)?,
+      font_context: FontContext::new(),
       format,
       frame: 0,
       frame_times: VecDeque::with_capacity(100),
       frequencies,
       frequency_view,
+      layout_context: LayoutContext::new(),
       overlay_renderer,
       overlay_scene: vello::Scene::new(),
       queue,
@@ -669,9 +671,12 @@ impl Renderer {
   ) -> Result {
     use {
       kurbo::{Affine, Rect, Vec2},
+      parley::{
+        Alignment, AlignmentOptions, FontFamily, FontStack, FontWeight, PositionedLayoutItem,
+        StyleProperty,
+      },
       peniko::{Brush, Color, Fill},
-      skrifa::{instance::Size, raw::FileRef},
-      vello::{AaConfig, Glyph, RenderParams},
+      vello::{AaConfig, RenderParams},
     };
 
     self.overlay_scene.reset();
@@ -734,55 +739,71 @@ impl Renderer {
       }
     };
 
-    let file = FileRef::new(self.font.data.as_ref()).context(error::FontRead)?;
-
-    let font = match file {
-      FileRef::Collection(collection) => {
-        collection.get(self.font.index).context(error::FontRead)?
-      }
-      FileRef::Font(font) => font,
-    };
-
     #[allow(clippy::cast_possible_truncation)]
     let font_size = bounds.height() as f32 * text.size;
 
-    let charmap = font.charmap();
-    let location = font.axes().location(Vec::<(&str, f32)>::new());
-    let metrics = font.metrics(Size::new(font_size), &location);
-    let glyph_metrics = font.glyph_metrics(Size::new(font_size), &location);
-    let mut x = 0.0;
+    // todo:
+    // - account for and test text position
+    // - set font
+    let mut builder =
+      self
+        .layout_context
+        .ranged_builder(&mut self.font_context, &text.string, 1.0, true);
+    builder.push_default(StyleProperty::FontStack(FontStack::Single(
+      FontFamily::Named(FONT.into()),
+    )));
+    builder.push_default(StyleProperty::FontSize(font_size));
+    builder.push_default(StyleProperty::FontWeight(FontWeight::LIGHT));
 
-    let glyphs = text
-      .string
-      .chars()
-      .map(|character| {
-        let id = charmap
-          .map(character)
-          .context(error::FontGlyph { character })?;
+    let mut layout = builder.build(&text.string);
+    layout.break_all_lines(None);
+    layout.align(None, Alignment::Start, AlignmentOptions::default());
 
-        let glyph = Glyph {
-          id: id.into(),
-          x,
-          y: 0.0,
-        };
-
-        x += glyph_metrics.advance_width(id).unwrap_or_default();
-
-        Ok(glyph)
-      })
-      .collect::<Result<Vec<Glyph>>>()?;
-
-    self
-      .overlay_scene
-      .draw_glyphs(&self.font)
-      .font_size(font_size)
-      .brush(&Brush::Solid(Color::WHITE))
-      .transform(Affine::translate(Vec2 {
-        x: text.x * bounds.width() + bounds.x0 + 10.0 - metrics.descent as f64,
-        y: text.y * bounds.height() + bounds.y1 - 10.0 + metrics.descent as f64,
-      }))
-      .glyph_transform(None)
-      .draw(Fill::NonZero, glyphs.into_iter());
+    for line in layout.lines() {
+      for item in line.items() {
+        match item {
+          PositionedLayoutItem::GlyphRun(glyph_run) => {
+            let run = glyph_run.run();
+            let mut x = glyph_run.offset();
+            let y = glyph_run.baseline();
+            let font = run.font();
+            let synthesis = run.synthesis();
+            let glyph_xform = synthesis
+              .skew()
+              .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0));
+            let coords = run.normalized_coords();
+            self
+              .overlay_scene
+              .draw_glyphs(font)
+              .brush(&Brush::Solid(Color::WHITE))
+              // .hint(hint)
+              .transform(Affine::translate(Vec2 {
+                x: text.x * bounds.width() + bounds.x0 + 10.0 - run.metrics().descent as f64,
+                y: text.y * bounds.height() + bounds.y1 - 200.0,
+              }))
+              .glyph_transform(glyph_xform)
+              .font_size(font_size)
+              .normalized_coords(coords)
+              .draw(
+                Fill::NonZero,
+                glyph_run.glyphs().map(|glyph| {
+                  let gx = x + glyph.x;
+                  let gy = y - glyph.y;
+                  x += glyph.advance;
+                  vello::Glyph {
+                    id: glyph.id as _,
+                    x: gx,
+                    y: gy,
+                  }
+                }),
+              );
+          }
+          PositionedLayoutItem::InlineBox(_) => {
+            todo!()
+          }
+        }
+      }
+    }
 
     self
       .overlay_renderer

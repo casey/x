@@ -93,17 +93,6 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     character: char,
   },
-  #[snafu(display("failed to read font"))]
-  FontRead {
-    backtrace: Option<Backtrace>,
-    source: skrifa::outline::error::ReadError,
-  },
-  #[snafu(display("failed to select font `{name}`"))]
-  FontSelection {
-    backtrace: Option<Backtrace>,
-    name: String,
-    source: font_kit::error::SelectionError,
-  },
   #[snafu(display("could not get home directory"))]
   Home { backtrace: Option<Backtrace> },
   #[snafu(display("internal error: {message}"))]

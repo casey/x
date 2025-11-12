@@ -10,6 +10,7 @@ use {
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
   log::info,
+  parley::{FontContext, LayoutContext},
   regex::{Regex, RegexBuilder},
   rodio::{
     Decoder, OutputStream, Sink, Source,
@@ -20,7 +21,6 @@ use {
     },
   },
   rustfft::{FftPlanner, num_complex::Complex},
-  skrifa::MetadataProvider,
   snafu::{ErrorCompat, IntoError, OptionExt, ResultExt, Snafu},
   std::{
     backtrace::{Backtrace, BacktraceStatus},
@@ -37,10 +37,7 @@ use {
     time::Instant,
   },
   strum::{EnumIter, IntoEnumIterator, IntoStaticStr},
-  vello::{
-    kurbo,
-    peniko::{self, FontData},
-  },
+  vello::{kurbo, peniko},
   walkdir::WalkDir,
   wgpu::{
     AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
@@ -125,24 +122,6 @@ fn default<T: Default>() -> T {
 
 fn invert_color() -> Mat4f {
   Mat4f::from_diagonal(&Vec4f::new(-1.0, -1.0, -1.0, 1.0))
-}
-
-fn load_font(name: &str) -> Result<FontData> {
-  use font_kit::handle::Handle;
-
-  let font = font_kit::source::SystemSource::new()
-    .select_by_postscript_name(name)
-    .context(error::FontSelection { name })?;
-
-  let (font_data, font_index) = match font {
-    Handle::Memory { bytes, font_index } => (bytes, font_index),
-    Handle::Path { path, font_index } => (
-      Arc::new(std::fs::read(&path).context(error::FilesystemIo { path })?),
-      font_index,
-    ),
-  };
-
-  Ok(FontData::new(peniko::Blob::new(font_data), font_index))
 }
 
 fn pad(i: usize, alignment: usize) -> usize {
