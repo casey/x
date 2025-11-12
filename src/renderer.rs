@@ -768,7 +768,15 @@ impl Renderer {
               .overlay_scene
               .draw_glyphs(run.font())
               .brush(&Brush::Solid(Color::WHITE))
+              .font_size(font_size)
+              .glyph_transform(
+                run
+                  .synthesis()
+                  .skew()
+                  .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
+              )
               .hint(true)
+              .normalized_coords(run.normalized_coords())
               .transform(Affine::translate(Vec2 {
                 x: text.x * bounds.width() + bounds.x0 + 10.0,
                 y: text.y * bounds.height() + bounds.y1
@@ -776,14 +784,6 @@ impl Renderer {
                   - f64::from(y)
                   - f64::from(run.metrics().descent),
               }))
-              .glyph_transform(
-                run
-                  .synthesis()
-                  .skew()
-                  .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
-              )
-              .font_size(font_size)
-              .normalized_coords(run.normalized_coords())
               .draw(
                 Fill::NonZero,
                 glyph_run.glyphs().map(|glyph| {
@@ -814,10 +814,10 @@ impl Renderer {
         &self.overlay_scene,
         &self.bindings.as_ref().unwrap().overlay_view,
         &RenderParams {
-          base_color: Color::TRANSPARENT,
-          width: self.resolution,
-          height: self.resolution,
           antialiasing_method: AaConfig::Msaa16,
+          base_color: Color::TRANSPARENT,
+          height: self.resolution,
+          width: self.resolution,
         },
       )
       .context(error::RenderOverlay)?;

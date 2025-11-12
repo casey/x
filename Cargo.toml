@@ -1,8 +1,13 @@
 [package]
-edition = "2024"
 name = "x"
-publish = false
 version = "0.0.0"
+authors = ["Casey Rodarmor <casey@rodarmor.com>"]
+description = "A generative engine."
+edition = "2024"
+homepage = "https://github.com/casey/x"
+include = ["/src", "/templates"]
+license = "CC0-1.0"
+repository = "https://github.com/casey/x"
 
 [dependencies]
 boilerplate = "1.0.1"
