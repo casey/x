@@ -213,7 +213,7 @@ impl Renderer {
       Ok(status) => {
         return Err(Error::internal(format!(
           "unexpected poll status: {status:?}"
-        )))
+        )));
       }
     }
 
