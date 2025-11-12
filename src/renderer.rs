@@ -790,7 +790,7 @@ impl Renderer {
                   let gx = x + glyph.x;
                   x += glyph.advance;
                   vello::Glyph {
-                    id: glyph.id.into(),
+                    id: glyph.id,
                     x: gx,
                     y: y - glyph.y,
                   }
