@@ -210,13 +210,9 @@ impl Renderer {
 
     self.queue.submit([encoder.finish()]);
 
-    // todo:
-    // - see that capture buffer pool doesn't get larger, multiple captures possible
-
     let buffer = capture.clone();
     let resolution = self.resolution;
     let format = self.format;
-    // todo: switch to map_buffer_on_submit in wgpu 27
     capture.map_async(MapMode::Read, .., move |result| {
       if let Err(err) = result {
         eprintln!("failed to map capture buffer: {err}");
