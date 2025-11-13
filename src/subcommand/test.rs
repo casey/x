@@ -40,24 +40,29 @@ impl ApplicationHandler for Test {
 
     let analyzer = Analyzer::new();
 
-    let mut renderer = pollster::block_on(Renderer::new(&options, window.into())).unwrap();
-    let mut actual = Image::default();
-    let tests = Path::new("programs");
+    pollster::block_on(async {
+      let mut renderer = Renderer::new(&options, window.into()).await.unwrap();
+      let mut actual = Image::default();
+      let tests = Path::new("programs");
 
-    for program in Program::value_variants() {
-      let name = program.to_possible_value().unwrap().get_name().to_owned();
+      for program in Program::value_variants() {
+        let name = program.to_possible_value().unwrap().get_name().to_owned();
 
-      let expected = Image::load(&tests.join(format!("{name}.png"))).unwrap();
+        let expected = Image::load(&tests.join(format!("{name}.png"))).unwrap();
 
-      pollster::block_on(renderer.render(&options, &analyzer, &program.state())).unwrap();
+        renderer
+          .render(&options, &analyzer, &program.state())
+          .await
+          .unwrap();
 
-      pollster::block_on(renderer.capture(&mut actual)).unwrap();
+        renderer.capture(&mut actual).await.unwrap();
 
-      if actual != expected {
-        self.failures += 1;
-        eprintln!("image mismatch {name}");
+        if actual != expected {
+          self.failures += 1;
+          eprintln!("image mismatch {name}");
+        }
       }
-    }
+    });
 
     event_loop.exit();
   }
