@@ -168,12 +168,23 @@ impl Renderer {
     (self.resolution * CHANNELS + MASK) & !MASK
   }
 
-  pub(crate) async fn capture(&mut self, image: &mut Image) -> Result {
+  pub(crate) fn capture(&self, callback: impl FnOnce(Image) + Send + 'static) -> Result {
     let bytes_per_row_with_padding = self.bytes_per_row_with_padding();
 
     let mut encoder = self
       .device
       .create_command_encoder(&CommandEncoderDescriptor::default());
+
+    let captures = self.bindings().captures.clone();
+
+    let capture = captures.lock().unwrap().pop().unwrap_or_else(|| {
+      self.device.create_buffer(&BufferDescriptor {
+        label: label!(),
+        mapped_at_creation: false,
+        size: (self.bytes_per_row_with_padding() * self.resolution).into(),
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+      })
+    });
 
     encoder.copy_texture_to_buffer(
       TexelCopyTextureInfo {
@@ -183,7 +194,7 @@ impl Renderer {
         aspect: TextureAspect::All,
       },
       TexelCopyBufferInfo {
-        buffer: &self.bindings().capture,
+        buffer: &capture,
         layout: TexelCopyBufferLayout {
           bytes_per_row: Some(bytes_per_row_with_padding),
           rows_per_image: None,
@@ -199,49 +210,42 @@ impl Renderer {
 
     self.queue.submit([encoder.finish()]);
 
-    let (tx, rx) = flume::bounded(1);
+    let buffer = capture.clone();
+    let resolution = self.resolution;
+    let format = self.format;
+    capture.map_async(MapMode::Read, .., move |result| {
+      if let Err(err) = result {
+        eprintln!("failed to map capture buffer: {err}");
+        return;
+      }
 
-    let capture = &self.bindings.as_mut().unwrap().capture;
+      std::thread::spawn(move || {
+        let view = buffer.get_mapped_range(..);
 
-    let slice = capture.slice(..);
+        let channels = CHANNELS.into_usize();
+        let bytes_per_row = resolution.into_usize() * channels;
 
-    slice.map_async(MapMode::Read, move |result| {
-      tx.send(result).unwrap();
+        let mut image = Image::default();
+        image.resize(resolution, resolution);
+        for (src, dst) in view
+          .chunks(bytes_per_row_with_padding.into_usize())
+          .map(|src| &src[..bytes_per_row])
+          .zip(image.data_mut().chunks_mut(bytes_per_row))
+        {
+          for (src, dst) in src.chunks(channels).zip(dst.chunks_mut(channels)) {
+            format.swizzle(src, dst);
+          }
+        }
+
+        drop(view);
+
+        buffer.unmap();
+
+        captures.lock().unwrap().push(buffer);
+
+        callback(image);
+      });
     });
-
-    match self.device.poll(PollType::wait()) {
-      Err(err) => return Err(Error::internal(format!("unexpected poll error: {err}"))),
-      Ok(PollStatus::QueueEmpty) => {}
-      Ok(status) => {
-        return Err(Error::internal(format!(
-          "unexpected poll status: {status:?}"
-        )));
-      }
-    }
-
-    rx.recv_async()
-      .await
-      .unwrap()
-      .context(error::CaptureBufferMap)?;
-
-    let channels = CHANNELS.into_usize();
-    let resolution = self.resolution.into_usize();
-    let bytes_per_row = resolution * channels;
-    image.resize(self.resolution, self.resolution);
-    let view = slice.get_mapped_range();
-    for (src, dst) in view
-      .chunks(bytes_per_row_with_padding.into_usize())
-      .map(|src| &src[..bytes_per_row])
-      .zip(image.data_mut().chunks_mut(bytes_per_row))
-    {
-      for (src, dst) in src.chunks(channels).zip(dst.chunks_mut(channels)) {
-        self.format.swizzle(src, dst);
-      }
-    }
-
-    drop(view);
-
-    capture.unmap();
 
     Ok(())
   }
@@ -894,15 +898,8 @@ impl Renderer {
       &self.sample_view,
     );
 
-    let capture = self.device.create_buffer(&BufferDescriptor {
-      label: label!(),
-      mapped_at_creation: false,
-      size: (self.bytes_per_row_with_padding() * self.resolution).into(),
-      usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
-    });
-
     self.bindings = Some(Bindings {
-      capture,
+      captures: Arc::new(Mutex::new(Vec::new())),
       overlay_bind_group,
       overlay_view,
       targets,

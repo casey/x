@@ -12,30 +12,6 @@ impl Image {
     &mut self.data
   }
 
-  pub(crate) fn load(path: &Path) -> Result<Self> {
-    let decoder = png::Decoder::new(BufReader::new(
-      File::open(path).context(error::FilesystemIo { path })?,
-    ));
-    let mut reader = decoder.read_info().context(error::PngDecode { path })?;
-    let mut buf = vec![
-      0;
-      reader
-        .output_buffer_size()
-        .context(error::PngOutputBufferSize { path })?
-    ];
-    let info = reader
-      .next_frame(&mut buf)
-      .context(error::PngDecode { path })?;
-    let data = &buf[..info.buffer_size()];
-    let info = reader.info();
-
-    Ok(Self {
-      data: data.into(),
-      height: info.height,
-      width: info.width,
-    })
-  }
-
   pub(crate) fn resize(&mut self, width: u32, height: u32) {
     self.height = height;
     self.width = width;

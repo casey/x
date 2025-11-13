@@ -3,7 +3,6 @@ use super::*;
 mod probe;
 mod run;
 mod shader;
-mod test;
 
 #[derive(Default, Parser)]
 pub(crate) enum Subcommand {
@@ -11,7 +10,6 @@ pub(crate) enum Subcommand {
   #[default]
   Run,
   Shader,
-  Test,
 }
 
 impl Subcommand {
@@ -20,10 +18,6 @@ impl Subcommand {
       Self::Probe => probe::run(),
       Self::Shader => shader::run(),
       Self::Run => run::run(options),
-      Self::Test => {
-        test::run();
-        Ok(())
-      }
     }
   }
 }

@@ -2,7 +2,6 @@ use super::*;
 
 pub(crate) struct App {
   analyzer: Analyzer,
-  capture: Image,
   error: Option<Error>,
   horizontal: f32,
   hub: Hub,
@@ -27,8 +26,11 @@ pub(crate) struct App {
 
 impl App {
   fn capture(&mut self) -> Result {
-    pollster::block_on(self.renderer.as_mut().unwrap().capture(&mut self.capture))?;
-    self.capture.save("capture.png".as_ref())?;
+    self.renderer.as_ref().unwrap().capture(|capture| {
+      if let Err(err) = capture.save("capture.png".as_ref()) {
+        eprintln!("failed to save capture: {err}");
+      }
+    })?;
     Ok(())
   }
 
@@ -135,7 +137,6 @@ impl App {
 
     Ok(Self {
       analyzer: Analyzer::new(),
-      capture: Image::default(),
       error: None,
       horizontal: 0.0,
       hub: Hub::new()?,

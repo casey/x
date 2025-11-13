@@ -39,11 +39,6 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: cpal::SupportedStreamConfigsError,
   },
-  #[snafu(display("failed to map capture buffer"))]
-  CaptureBufferMap {
-    backtrace: Option<Backtrace>,
-    source: wgpu::BufferAsyncError,
-  },
   #[snafu(display("failed to create overlay renderer"))]
   CreateOverlayRenderer {
     backtrace: Option<Backtrace>,
@@ -119,12 +114,6 @@ pub(crate) enum Error {
   MidiPortInfo {
     backtrace: Option<Backtrace>,
     source: midir::PortInfoError,
-  },
-  #[snafu(display("failed to decode PNG at {}", path.display()))]
-  PngDecode {
-    backtrace: Option<Backtrace>,
-    path: PathBuf,
-    source: png::DecodingError,
   },
   #[snafu(display("failed to encode PNG at {}", path.display()))]
   PngEncode {

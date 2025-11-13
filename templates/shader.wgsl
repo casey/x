@@ -34,9 +34,9 @@ const {{ field.constant() }}: u32 = {{ field as u32 }};
 %% }
 
 const VERTICES = array(
-  vec4(-1.0, -1.0, 0.0, 1.0),
-  vec4(-1.0, 3.0, 0.0, 1.0),
-  vec4(3.0, -1.0, 0.0, 1.0),
+  vec2(-1.0, -1.0),
+  vec2(-1.0, 3.0),
+  vec2(3.0, -1.0),
 );
 
 struct Uniforms {
@@ -111,7 +111,7 @@ fn read(uv: vec2f) -> bool {
 
 @vertex
 fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
-  return VERTICES[i];
+  return vec4(VERTICES[i], 0.0, 1.0);
 }
 
 @fragment
