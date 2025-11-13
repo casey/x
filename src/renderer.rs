@@ -762,8 +762,8 @@ impl Renderer {
         match item {
           PositionedLayoutItem::GlyphRun(glyph_run) => {
             let run = glyph_run.run();
-            let mut x = glyph_run.offset();
-            let y = glyph_run.baseline();
+            let mut offset = glyph_run.offset();
+
             self
               .overlay_scene
               .draw_glyphs(run.font())
@@ -773,7 +773,7 @@ impl Renderer {
                 run
                   .synthesis()
                   .skew()
-                  .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0)),
+                  .map(|angle| Affine::skew(angle.to_radians().tan().into(), 0.0)),
               )
               .hint(true)
               .normalized_coords(run.normalized_coords())
@@ -781,18 +781,18 @@ impl Renderer {
                 x: text.x * bounds.width() + bounds.x0 + 10.0,
                 y: text.y * bounds.height() + bounds.y1
                   - 10.0
-                  - f64::from(y)
+                  - f64::from(glyph_run.baseline())
                   - f64::from(run.metrics().descent),
               }))
               .draw(
                 Fill::NonZero,
                 glyph_run.glyphs().map(|glyph| {
-                  let gx = x + glyph.x;
-                  x += glyph.advance;
+                  let x = offset + glyph.x;
+                  offset += glyph.advance;
                   vello::Glyph {
                     id: glyph.id,
-                    x: gx,
-                    y: y - glyph.y,
+                    x,
+                    y: glyph.y,
                   }
                 }),
               );
