@@ -6,9 +6,11 @@ use {
     options::Options, parameter::Parameter, program::Program, renderer::Renderer, shared::Shared,
     state::State, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
     templates::ShaderWgsl, text::Text, tiling::Tiling, track::Track, uniforms::Uniforms,
+    video::VideoRecorder,
   },
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
+  ffmpeg_next as ffmpeg,
   log::info,
   parley::{FontContext, LayoutContext},
   regex::{Regex, RegexBuilder},
@@ -102,6 +104,7 @@ mod text;
 mod tiling;
 mod track;
 mod uniforms;
+mod video;
 
 const KIB: usize = 1 << 10;
 const MIB: usize = KIB << 10;

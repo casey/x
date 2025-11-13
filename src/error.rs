@@ -131,6 +131,21 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: vello::Error,
   },
+  #[snafu(display("failed to start video recording"))]
+  VideoStart {
+    backtrace: Option<Backtrace>,
+    source: ffmpeg::Error,
+  },
+  #[snafu(display("failed to encode video frame"))]
+  VideoEncode {
+    backtrace: Option<Backtrace>,
+    source: ffmpeg::Error,
+  },
+  #[snafu(display("failed to finish video recording"))]
+  VideoFinish {
+    backtrace: Option<Backtrace>,
+    source: ffmpeg::Error,
+  },
   #[snafu(display("failed to get adapter"))]
   RequestAdapter {
     backtrace: Option<Backtrace>,

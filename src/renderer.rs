@@ -14,6 +14,8 @@ pub struct Renderer {
   frequencies: Texture,
   frequency_view: TextureView,
   layout_context: LayoutContext,
+  recorded_frames: u32,
+  recording_sender: Option<mpsc::Sender<Image>>,
   overlay_renderer: vello::Renderer,
   overlay_scene: vello::Scene,
   queue: Queue,
@@ -30,6 +32,9 @@ pub struct Renderer {
 }
 
 impl Renderer {
+  const RECORDING_LIMIT: u32 = 600;
+  const RECORDING_FPS: u32 = 60;
+
   fn bind_group(
     &self,
     back: &TextureView,
@@ -250,6 +255,75 @@ impl Renderer {
     Ok(())
   }
 
+  fn ensure_recording_sender(&mut self) -> Result {
+    if self.recording_sender.is_some() {
+      return Ok(());
+    }
+    let path = PathBuf::from("recording.mp4");
+    let (tx, rx) = mpsc::channel();
+    let (ready_tx, ready_rx) = mpsc::channel();
+    let resolution = self.resolution;
+    let fps = Self::RECORDING_FPS;
+
+    std::thread::spawn(move || {
+      let mut recorder = match VideoRecorder::new(path, resolution, resolution, fps) {
+        Ok(recorder) => {
+          let _ = ready_tx.send(Ok(()));
+          recorder
+        }
+        Err(err) => {
+          let _ = ready_tx.send(Err(err.to_string()));
+          return;
+        }
+      };
+
+      while let Ok(image) = rx.recv() {
+        if let Err(err) = recorder.encode(&image) {
+          eprintln!("failed to encode video frame: {err}");
+          break;
+        }
+      }
+
+      if let Err(err) = recorder.finish() {
+        eprintln!("failed to finalize video: {err}");
+      }
+    });
+
+    match ready_rx.recv() {
+      Ok(Ok(())) => {
+        self.recording_sender = Some(tx);
+        Ok(())
+      }
+      Ok(Err(message)) => Err(Error::internal(message)),
+      Err(_) => Err(Error::internal("video recorder failed to start")),
+    }
+  }
+
+  fn record_frame(&mut self) -> Result {
+    if self.recorded_frames >= Self::RECORDING_LIMIT {
+      self.recording_sender = None;
+      return Ok(());
+    }
+
+    self.ensure_recording_sender()?;
+
+    if let Some(sender) = self.recording_sender.as_ref() {
+      let sender = sender.clone();
+      self.recorded_frames += 1;
+      self.capture(move |capture| {
+        if sender.send(capture).is_err() {
+          eprintln!("video recorder disconnected");
+        }
+      })?;
+
+      if self.recorded_frames >= Self::RECORDING_LIMIT {
+        self.recording_sender = None;
+      }
+    }
+
+    Ok(())
+  }
+
   fn draw(
     &self,
     bind_group: &BindGroup,
@@ -448,6 +522,8 @@ impl Renderer {
       frequencies,
       frequency_view,
       layout_context: LayoutContext::new(),
+      recorded_frames: 0,
+      recording_sender: None,
       overlay_renderer,
       overlay_scene: vello::Scene::new(),
       queue,
@@ -672,6 +748,12 @@ impl Renderer {
     );
 
     self.frame += 1;
+
+    if options.record {
+      self.record_frame()?;
+    } else if self.recording_sender.is_some() {
+      self.recording_sender = None;
+    }
 
     Ok(())
   }

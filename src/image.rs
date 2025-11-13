@@ -12,6 +12,14 @@ impl Image {
     &mut self.data
   }
 
+  pub(crate) fn data(&self) -> &[u8] {
+    &self.data
+  }
+
+  pub(crate) fn width(&self) -> u32 {
+    self.width
+  }
+
   pub(crate) fn resize(&mut self, width: u32, height: u32) {
     self.height = height;
     self.width = width;
