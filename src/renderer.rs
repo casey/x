@@ -3,6 +3,7 @@ use super::*;
 pub struct Renderer {
   bind_group_layout: BindGroupLayout,
   bindings: Option<Bindings>,
+  blitter: TextureBlitter,
   config: SurfaceConfiguration,
   device: wgpu::Device,
   error_channel: std::sync::mpsc::Receiver<wgpu::Error>,
@@ -176,7 +177,7 @@ impl Renderer {
 
     encoder.copy_texture_to_buffer(
       TexelCopyTextureInfo {
-        texture: &self.bindings().tiling_texture,
+        texture: &self.bindings().targets[0].texture,
         mip_level: 0,
         origin: Origin3d::ZERO,
         aspect: TextureAspect::All,
@@ -432,6 +433,7 @@ impl Renderer {
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
+      blitter: TextureBlitter::new(&device, format.into()),
       config,
       device,
       error_channel,
@@ -642,6 +644,13 @@ impl Renderer {
       &mut encoder,
       None,
       filter_count + 1,
+      &self.bindings().targets[0].texture_view,
+    );
+
+    self.blitter.copy(
+      &self.device,
+      &mut encoder,
+      &self.bindings().targets[0].texture_view,
       &frame.texture.create_view(&TextureViewDescriptor::default()),
     );
 
@@ -898,7 +907,6 @@ impl Renderer {
       overlay_view,
       targets,
       tiling_bind_group,
-      tiling_texture,
       tiling_view,
     });
   }
@@ -915,7 +923,9 @@ impl Renderer {
         height: self.resolution,
         width: self.resolution,
       },
-      usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+      usage: TextureUsages::COPY_SRC
+        | TextureUsages::RENDER_ATTACHMENT
+        | TextureUsages::TEXTURE_BINDING,
       view_formats: &[self.format.into()],
     });
 
