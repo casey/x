@@ -673,13 +673,6 @@ impl Renderer {
 
     self.frame += 1;
 
-    if options.record {
-      // probably don't need async
-      // let mut image = Image::default();
-      // self.capture(&mut image).await?;
-      // self.recording.push(image);
-    }
-
     Ok(())
   }
 
