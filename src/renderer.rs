@@ -17,6 +17,7 @@ pub struct Renderer {
   overlay_renderer: vello::Renderer,
   overlay_scene: vello::Scene,
   queue: Queue,
+  recording: Vec<Image>,
   render_pipeline: RenderPipeline,
   resolution: u32,
   sample_view: TextureView,
@@ -447,6 +448,7 @@ impl Renderer {
       overlay_renderer,
       overlay_scene: vello::Scene::new(),
       queue,
+      recording: Vec::new(),
       render_pipeline,
       resolution,
       sample_view,
@@ -464,7 +466,12 @@ impl Renderer {
     Ok(renderer)
   }
 
-  pub(crate) fn render(&mut self, options: &Options, analyzer: &Analyzer, state: &State) -> Result {
+  pub(crate) async fn render(
+    &mut self,
+    options: &Options,
+    analyzer: &Analyzer,
+    state: &State,
+  ) -> Result {
     match self.error_channel.try_recv() {
       Ok(error) => return Err(error::Validation.into_error(error)),
       Err(mpsc::TryRecvError::Empty) => {}
@@ -668,6 +675,12 @@ impl Renderer {
     );
 
     self.frame += 1;
+
+    if options.record {
+      let mut image = Image::default();
+      self.capture(&mut image).await?;
+      self.recording.push(image);
+    }
 
     Ok(())
   }

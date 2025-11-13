@@ -29,6 +29,8 @@ pub(crate) struct Options {
   #[arg(long)]
   pub(crate) program: Option<Program>,
   #[arg(long)]
+  pub(crate) record: bool,
+  #[arg(long)]
   pub(crate) repeat: bool,
   #[arg(long)]
   pub(crate) resolution: Option<u32>,

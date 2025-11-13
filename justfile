@@ -4,10 +4,8 @@ watch +args='lcheck':
   cargo watch --clear --exec '{{args}}'
 
 run *args:
-  #!/usr/bin/env bash
-  set -euo pipefail
   cargo build --release
-  ./target/release/x "$@" 2> >(grep -Ev 'IMKClient|IMKInputSession' >&2)
+  ./target/release/x "$@"
 
 forbid:
   ./bin/forbid

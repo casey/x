@@ -49,9 +49,7 @@ impl ApplicationHandler for Test {
 
       let expected = Image::load(&tests.join(format!("{name}.png"))).unwrap();
 
-      renderer
-        .render(&options, &analyzer, &program.state())
-        .unwrap();
+      pollster::block_on(renderer.render(&options, &analyzer, &program.state())).unwrap();
 
       pollster::block_on(renderer.capture(&mut actual)).unwrap();
 

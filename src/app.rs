@@ -273,7 +273,7 @@ impl App {
     }
   }
 
-  fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+  async fn redraw(&mut self, event_loop: &ActiveEventLoop) {
     for message in self.hub.messages().lock().unwrap().drain(..) {
       match message.tuple() {
         (Device::Spectra, 0, Event::Button(true)) => self.state.filters.push(Filter {
@@ -362,12 +362,12 @@ impl App {
       ..default()
     });
 
-    if let Err(err) =
-      self
-        .renderer
-        .as_mut()
-        .unwrap()
-        .render(&self.options, &self.analyzer, &self.state)
+    if let Err(err) = self
+      .renderer
+      .as_mut()
+      .unwrap()
+      .render(&self.options, &self.analyzer, &self.state)
+      .await
     {
       self.error = Some(err);
       event_loop.exit();
@@ -462,7 +462,7 @@ impl ApplicationHandler for App {
         self.press(event_loop, event.logical_key);
       }
       WindowEvent::RedrawRequested => {
-        self.redraw(event_loop);
+        pollster::block_on(self.redraw(event_loop));
       }
       WindowEvent::Resized(size) => {
         self.renderer.as_mut().unwrap().resize(&self.options, size);
