@@ -2,7 +2,6 @@ use super::*;
 
 pub(crate) struct App {
   analyzer: Analyzer,
-  capture: Image,
   error: Option<Error>,
   horizontal: f32,
   hub: Hub,
@@ -27,8 +26,9 @@ pub(crate) struct App {
 
 impl App {
   fn capture(&mut self) -> Result {
-    pollster::block_on(self.renderer.as_mut().unwrap().capture(&mut self.capture))?;
-    self.capture.save("capture.png".as_ref())?;
+    self.renderer.as_ref().unwrap().capture(|capture| {
+      capture.save("capture.png".as_ref()).unwrap();
+    })?;
     Ok(())
   }
 
@@ -135,7 +135,6 @@ impl App {
 
     Ok(Self {
       analyzer: Analyzer::new(),
-      capture: Image::default(),
       error: None,
       horizontal: 0.0,
       hub: Hub::new()?,
@@ -273,7 +272,7 @@ impl App {
     }
   }
 
-  async fn redraw(&mut self, event_loop: &ActiveEventLoop) {
+  fn redraw(&mut self, event_loop: &ActiveEventLoop) {
     for message in self.hub.messages().lock().unwrap().drain(..) {
       match message.tuple() {
         (Device::Spectra, 0, Event::Button(true)) => self.state.filters.push(Filter {
@@ -362,12 +361,12 @@ impl App {
       ..default()
     });
 
-    if let Err(err) = self
-      .renderer
-      .as_mut()
-      .unwrap()
-      .render(&self.options, &self.analyzer, &self.state)
-      .await
+    if let Err(err) =
+      self
+        .renderer
+        .as_mut()
+        .unwrap()
+        .render(&self.options, &self.analyzer, &self.state)
     {
       self.error = Some(err);
       event_loop.exit();
@@ -462,7 +461,7 @@ impl ApplicationHandler for App {
         self.press(event_loop, event.logical_key);
       }
       WindowEvent::RedrawRequested => {
-        pollster::block_on(self.redraw(event_loop));
+        self.redraw(event_loop);
       }
       WindowEvent::Resized(size) => {
         self.renderer.as_mut().unwrap().resize(&self.options, size);
