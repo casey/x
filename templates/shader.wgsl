@@ -111,7 +111,7 @@ fn read(uv: vec2f) -> bool {
 
 @vertex
 fn vertex(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
-  return vec4(VERTICES[i], 0.0, 1.0);
+  return vec4(VERTICES[i], 0, 1);
 }
 
 @fragment
