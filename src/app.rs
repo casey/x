@@ -27,7 +27,9 @@ pub(crate) struct App {
 impl App {
   fn capture(&mut self) -> Result {
     self.renderer.as_ref().unwrap().capture(|capture| {
-      capture.save("capture.png".as_ref()).unwrap();
+      if let Err(err) = capture.save("capture.png".as_ref()) {
+        eprintln!("failed to save capture: {err}");
+      }
     })?;
     Ok(())
   }
