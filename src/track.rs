@@ -49,23 +49,17 @@ impl Source for Track {
 }
 
 impl Stream for Track {
+  fn channels(&self) -> u16 {
+    self.read().decoder.channels()
+  }
+
   fn done(&self) -> bool {
     let inner = self.read();
     inner.done && inner.buffer.is_empty()
   }
 
   fn drain(&mut self, samples: &mut Vec<f32>) {
-    let mut inner = self.write();
-    let channels = inner.decoder.channels();
-
-    samples.extend(
-      inner
-        .buffer
-        .chunks(inner.decoder.channels().into())
-        .map(|chunk| chunk.iter().sum::<f32>() / channels as f32),
-    );
-
-    inner.buffer.clear();
+    samples.append(&mut self.write().buffer);
   }
 
   fn sample_rate(&self) -> u32 {
