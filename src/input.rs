@@ -54,6 +54,10 @@ impl Input {
 }
 
 impl Stream for Input {
+  fn channels(&self) -> u16 {
+    self.stream_config.channels
+  }
+
   fn done(&self) -> bool {
     false
   }

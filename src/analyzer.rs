@@ -37,8 +37,15 @@ impl Analyzer {
     if stream.done() {
       self.samples.clear();
     } else {
+      let mut samples = Vec::new();
+      stream.drain(&mut samples);
       let old = self.samples.len();
-      stream.drain(&mut self.samples);
+      let channels = stream.channels();
+      self.samples.extend(
+        samples
+          .chunks(channels.into())
+          .map(|chunk| chunk.iter().sum::<f32>() / channels as f32),
+      );
       self
         .samples
         .drain(..self.samples.len().saturating_sub(128).min(old));

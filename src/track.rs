@@ -49,6 +49,10 @@ impl Source for Track {
 }
 
 impl Stream for Track {
+  fn channels(&self) -> u16 {
+    self.read().decoder.channels()
+  }
+
   fn done(&self) -> bool {
     let inner = self.read();
     inner.done && inner.buffer.is_empty()
