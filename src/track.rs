@@ -59,7 +59,7 @@ impl Stream for Track {
   }
 
   fn drain(&mut self, samples: &mut Vec<f32>) {
-    samples.extend(self.write().buffer.drain(..));
+    samples.append(&mut self.write().buffer);
   }
 
   fn sample_rate(&self) -> u32 {
