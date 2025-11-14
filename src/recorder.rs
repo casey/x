@@ -1,9 +1,5 @@
 use super::*;
 
-// todo:
-// - can frames arrive out of order?
-// - save audio
-
 pub(crate) struct Recorder {
   frames: Vec<Instant>,
   tempdir: TempDir,
