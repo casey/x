@@ -3,9 +3,10 @@ use {
     analyzer::Analyzer, app::App, arguments::Arguments, bindings::Bindings, device::Device,
     error::Error, event::Event, field::Field, filter::Filter, format::Format, frame::Frame,
     hub::Hub, image::Image, input::Input, into_usize::IntoUsize, message::Message,
-    options::Options, parameter::Parameter, program::Program, renderer::Renderer, shared::Shared,
-    state::State, stream::Stream, subcommand::Subcommand, tally::Tally, target::Target,
-    templates::ShaderWgsl, text::Text, tiling::Tiling, track::Track, uniforms::Uniforms,
+    options::Options, parameter::Parameter, program::Program, recorder::Recorder,
+    renderer::Renderer, shared::Shared, state::State, stream::Stream, subcommand::Subcommand,
+    tally::Tally, target::Target, templates::ShaderWgsl, text::Text, tiling::Tiling, track::Track,
+    uniforms::Uniforms,
   },
   boilerplate::Boilerplate,
   clap::{Parser, ValueEnum},
@@ -26,18 +27,19 @@ use {
     backtrace::{Backtrace, BacktraceStatus},
     borrow::Cow,
     collections::VecDeque,
-    fmt::{self, Display, Formatter},
-    fs::File,
+    fmt::{self, Display, Formatter, Write},
+    fs::{self, File},
     io::{self, BufReader, BufWriter},
     num,
     ops::{Add, AddAssign, SubAssign},
     path::{Path, PathBuf},
-    process,
+    process::{self, Command, ExitStatus},
     str::FromStr,
     sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard, mpsc},
     time::Instant,
   },
   strum::{EnumIter, IntoEnumIterator, IntoStaticStr},
+  tempfile::TempDir,
   vello::{kurbo, peniko},
   walkdir::WalkDir,
   wgpu::{
@@ -90,6 +92,7 @@ mod message;
 mod options;
 mod parameter;
 mod program;
+mod recorder;
 mod renderer;
 mod shared;
 mod state;
