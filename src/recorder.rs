@@ -68,7 +68,7 @@ impl Recorder {
       );
     }
 
-    fs::rename(self.tempdir.path().join("recording.mp4"), RECORDING)
+    fs::rename(self.tempdir.path().join(RECORDING), RECORDING)
       .context(error::FilesystemIo { path: RECORDING })?;
 
     Ok(())
