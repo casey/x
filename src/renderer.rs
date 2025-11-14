@@ -17,6 +17,7 @@ pub struct Renderer {
   overlay_renderer: vello::Renderer,
   overlay_scene: vello::Scene,
   queue: Queue,
+  recorder: Option<Arc<Mutex<Recorder>>>,
   render_pipeline: RenderPipeline,
   resolution: u32,
   sample_view: TextureView,
@@ -434,6 +435,12 @@ impl Renderer {
     )
     .context(error::CreateOverlayRenderer)?;
 
+    let recorder = if options.record {
+      Some(Arc::new(Mutex::new(Recorder::new()?)))
+    } else {
+      None
+    };
+
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
@@ -451,6 +458,7 @@ impl Renderer {
       overlay_renderer,
       overlay_scene: vello::Scene::new(),
       queue,
+      recorder,
       render_pipeline,
       resolution,
       sample_view,
@@ -670,6 +678,15 @@ impl Renderer {
         number: self.frame,
       }
     );
+
+    if let Some(recorder) = &self.recorder {
+      let recorder = recorder.clone();
+      self.capture(move |frame| {
+        if let Err(err) = recorder.lock().unwrap().frame(frame, now) {
+          eprintln!("failed to save recorded frame: {err}");
+        }
+      })?;
+    }
 
     self.frame += 1;
 
@@ -906,6 +923,13 @@ impl Renderer {
       tiling_bind_group,
       tiling_view,
     });
+  }
+
+  pub(crate) fn save_recording(&mut self) -> Result {
+    if let Some(recorder) = self.recorder.take() {
+      recorder.lock().unwrap().save()?;
+    }
+    Ok(())
   }
 
   fn target(&self, back: &TextureView) -> Target {

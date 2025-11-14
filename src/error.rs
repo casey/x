@@ -126,6 +126,16 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     path: PathBuf,
   },
+  #[snafu(display("failed to invoke recording command"))]
+  RecordingInvoke {
+    backtrace: Option<Backtrace>,
+    source: io::Error,
+  },
+  #[snafu(display("failed to invoke recording command"))]
+  RecordingStatus {
+    backtrace: Option<Backtrace>,
+    status: ExitStatus,
+  },
   #[snafu(display("failed to render overlay"))]
   RenderOverlay {
     backtrace: Option<Backtrace>,
@@ -165,6 +175,11 @@ pub(crate) enum Error {
   SongWalk {
     backtrace: Option<Backtrace>,
     source: walkdir::Error,
+  },
+  #[snafu(display("I/O error creating tempdir"))]
+  TempdirIo {
+    backtrace: Option<Backtrace>,
+    source: io::Error,
   },
   #[snafu(display("default texture format {texture_format:?} not supported"))]
   UnsupportedTextureFormat {

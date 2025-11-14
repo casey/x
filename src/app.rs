@@ -407,6 +407,12 @@ impl App {
 }
 
 impl ApplicationHandler for App {
+  fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+    if let Err(err) = self.renderer.as_mut().unwrap().save_recording() {
+      eprintln!("failed to save recording: {err}");
+    }
+  }
+
   fn resumed(&mut self, event_loop: &ActiveEventLoop) {
     if self.window.is_none() {
       assert!(self.renderer.is_none());
