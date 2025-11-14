@@ -176,6 +176,11 @@ pub(crate) enum Error {
     backtrace: Option<Backtrace>,
     source: walkdir::Error,
   },
+  #[snafu(display("I/O error creating tempdir"))]
+  TempdirIo {
+    backtrace: Option<Backtrace>,
+    source: io::Error,
+  },
   #[snafu(display("default texture format {texture_format:?} not supported"))]
   UnsupportedTextureFormat {
     backtrace: Option<Backtrace>,

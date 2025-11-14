@@ -17,11 +17,11 @@ impl Recorder {
     Ok(())
   }
 
-  pub(crate) fn new() -> Self {
-    Self {
+  pub(crate) fn new() -> Result<Self> {
+    Ok(Self {
       frames: Vec::new(),
-      tempdir: TempDir::new().unwrap(),
-    }
+      tempdir: TempDir::new().context(error::TempdirIo)?,
+    })
   }
 
   pub(crate) fn save(&self) -> Result {

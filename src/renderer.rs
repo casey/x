@@ -435,6 +435,12 @@ impl Renderer {
     )
     .context(error::CreateOverlayRenderer)?;
 
+    let recorder = if options.record {
+      Some(Arc::new(Mutex::new(Recorder::new()?)))
+    } else {
+      None
+    };
+
     let mut renderer = Renderer {
       bind_group_layout,
       bindings: None,
@@ -452,9 +458,7 @@ impl Renderer {
       overlay_renderer,
       overlay_scene: vello::Scene::new(),
       queue,
-      recorder: options
-        .record
-        .then(|| Arc::new(Mutex::new(Recorder::new()))),
+      recorder,
       render_pipeline,
       resolution,
       sample_view,
