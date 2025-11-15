@@ -28,14 +28,24 @@ impl Image {
 
     let mut alpha = false;
     let mut color = false;
+    let mut continuous = false;
     for chunk in self.data.chunks(4) {
       let chunk: [u8; 4] = chunk.try_into().unwrap();
       let [r, g, b, a] = chunk;
+
       if a != u8::MAX {
         alpha = true;
       }
+
       if r != g || r != b {
         color = true;
+      }
+
+      if chunk
+        .iter()
+        .any(|&channel| channel > 0 && channel < u8::MAX)
+      {
+        continuous = true;
       }
     }
 
@@ -46,31 +56,35 @@ impl Image {
       (true, true) => ColorType::Rgba,
     };
 
-    let data = match color_type {
-      ColorType::Grayscale => Cow::Owned(
-        self
-          .data
-          .chunks(4)
-          .map(|chunk| chunk[0])
-          .collect::<Vec<u8>>(),
-      ),
-      ColorType::GrayscaleAlpha => Cow::Owned(
-        self
-          .data
-          .chunks(4)
-          .flat_map(|chunk| [chunk[0], chunk[3]])
-          .collect::<Vec<u8>>(),
-      ),
-      ColorType::Rgb => Cow::Owned(
-        self
-          .data
-          .chunks(4)
-          .flat_map(|chunk| &chunk[0..3])
-          .copied()
-          .collect::<Vec<u8>>(),
-      ),
-      ColorType::Rgba => Cow::Borrowed(&self.data),
-      ColorType::Indexed => unreachable!(),
+    let data = if !continuous {
+      todo!()
+    } else {
+      match color_type {
+        ColorType::Grayscale => Cow::Owned(
+          self
+            .data
+            .chunks(4)
+            .map(|chunk| chunk[0])
+            .collect::<Vec<u8>>(),
+        ),
+        ColorType::GrayscaleAlpha => Cow::Owned(
+          self
+            .data
+            .chunks(4)
+            .flat_map(|chunk| [chunk[0], chunk[3]])
+            .collect::<Vec<u8>>(),
+        ),
+        ColorType::Rgb => Cow::Owned(
+          self
+            .data
+            .chunks(4)
+            .flat_map(|chunk| &chunk[0..3])
+            .copied()
+            .collect::<Vec<u8>>(),
+        ),
+        ColorType::Rgba => Cow::Borrowed(&self.data),
+        ColorType::Indexed => unreachable!(),
+      }
     };
 
     let mut encoder = Encoder::new(writer, self.width, self.height);
@@ -120,9 +134,9 @@ mod tests {
 
     case(
       tempdir.path(),
-      &[0, 0, 0, 255, 255, 255, 255, 255],
+      &[0, 0, 0, 255, 127, 127, 127, 255],
       ColorType::Grayscale,
-      &[0, 255],
+      &[0, 127],
     );
 
     case(
