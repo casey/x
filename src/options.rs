@@ -32,7 +32,10 @@ pub(crate) struct Options {
   pub(crate) record: bool,
   #[arg(long)]
   pub(crate) repeat: bool,
-  #[arg(long)]
+  #[arg(
+    long,
+    value_parser = clap::value_parser!(u32).range(1..),
+  )]
   pub(crate) resolution: Option<u32>,
   #[arg(long)]
   pub(crate) song: Option<String>,

@@ -11,6 +11,11 @@ pub(crate) struct State {
 }
 
 impl State {
+  pub(crate) fn all(mut self) -> Self {
+    self.filter.field = Field::All;
+    self
+  }
+
   pub(crate) fn bottom(mut self) -> Self {
     self.filter.field = Field::Bottom;
     self
