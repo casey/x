@@ -649,20 +649,28 @@ impl Renderer {
       &self.bindings().tiling_view,
     );
 
-    self.render_overlay(options, state, fps)?;
+    let overlay = options.status || state.text.is_some();
 
-    self.draw(
-      &self.bindings().overlay_bind_group,
-      &mut encoder,
-      None,
-      filter_count + 1,
-      &self.bindings().targets[0].texture_view,
-    );
+    if overlay {
+      self.render_overlay(options, state, fps)?;
+
+      self.draw(
+        &self.bindings().overlay_bind_group,
+        &mut encoder,
+        None,
+        filter_count + 1,
+        &self.bindings().targets[0].texture_view,
+      );
+    }
 
     self.blitter.copy(
       &self.device,
       &mut encoder,
-      &self.bindings().targets[0].texture_view,
+      if overlay {
+        &self.bindings().targets[0].texture_view
+      } else {
+        &self.bindings().tiling_view
+      },
       &frame.texture.create_view(&TextureViewDescriptor::default()),
     );
 

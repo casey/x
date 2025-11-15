@@ -41,11 +41,10 @@ impl Image {
         color = true;
       }
 
-      if chunk
-        .iter()
-        .any(|&channel| channel > 0 && channel < u8::MAX)
-      {
-        continuous = true;
+      for channel in chunk {
+        if channel > 0 && channel < u8::MAX {
+          continuous = true;
+        }
       }
     }
 
@@ -63,23 +62,26 @@ impl Image {
     let data = if !continuous && !alpha {
       assert!(!color);
       assert_eq!(color_type, ColorType::Grayscale);
+
       encoder.set_depth(BitDepth::One);
 
-      let width = usize::try_from(self.width).unwrap();
-      let height = usize::try_from(self.height).unwrap();
-      let stride = (width + 7) / 8;
-      let mut packed = vec![0_u8; stride * height];
+      let width = self.width.into_usize();
+      let height = self.height.into_usize();
+      let stride = width.div_ceil(8);
+      let mut packed = vec![0; stride * height];
 
-      for (index, chunk) in self.data.chunks_exact(4).enumerate() {
+      for (index, chunk) in self.data.chunks(4).enumerate() {
         let value = chunk[0];
-        debug_assert!(value == 0 || value == u8::MAX);
+
+        assert_eq!(chunk.len(), 4);
+        assert!(value == 0 || value == u8::MAX);
 
         if value == u8::MAX {
           let x = index % width;
           let y = index / width;
-          let byte_index = y * stride + x / 8;
-          let bit_index = 7 - (x % 8);
-          packed[byte_index] |= 1 << bit_index;
+          let byte = y * stride + x / 8;
+          let bit = 7 - (x % 8);
+          packed[byte] |= 1 << bit;
         }
       }
 
