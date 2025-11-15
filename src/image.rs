@@ -1,6 +1,6 @@
 use {
   super::*,
-  png::{ColorType, Compression, Encoder},
+  png::{BitDepth, ColorType, Compression, Encoder},
 };
 
 #[derive(Default, Debug, PartialEq)]
@@ -28,14 +28,23 @@ impl Image {
 
     let mut alpha = false;
     let mut color = false;
+    let mut continuous = false;
     for chunk in self.data.chunks(4) {
       let chunk: [u8; 4] = chunk.try_into().unwrap();
       let [r, g, b, a] = chunk;
+
       if a != u8::MAX {
         alpha = true;
       }
+
       if r != g || r != b {
         color = true;
+      }
+
+      for channel in chunk {
+        if channel > 0 && channel < u8::MAX {
+          continuous = true;
+        }
       }
     }
 
@@ -46,36 +55,65 @@ impl Image {
       (true, true) => ColorType::Rgba,
     };
 
-    let data = match color_type {
-      ColorType::Grayscale => Cow::Owned(
-        self
-          .data
-          .chunks(4)
-          .map(|chunk| chunk[0])
-          .collect::<Vec<u8>>(),
-      ),
-      ColorType::GrayscaleAlpha => Cow::Owned(
-        self
-          .data
-          .chunks(4)
-          .flat_map(|chunk| [chunk[0], chunk[3]])
-          .collect::<Vec<u8>>(),
-      ),
-      ColorType::Rgb => Cow::Owned(
-        self
-          .data
-          .chunks(4)
-          .flat_map(|chunk| &chunk[0..3])
-          .copied()
-          .collect::<Vec<u8>>(),
-      ),
-      ColorType::Rgba => Cow::Borrowed(&self.data),
-      ColorType::Indexed => unreachable!(),
-    };
-
     let mut encoder = Encoder::new(writer, self.width, self.height);
     encoder.set_color(color_type);
     encoder.set_compression(Compression::High);
+
+    let data = if !continuous && !alpha {
+      assert!(!color);
+      assert_eq!(color_type, ColorType::Grayscale);
+
+      encoder.set_depth(BitDepth::One);
+
+      let width = self.width.into_usize();
+      let height = self.height.into_usize();
+      let stride = width.div_ceil(8);
+      let mut data = vec![0; stride * height];
+
+      for (index, chunk) in self.data.chunks(4).enumerate() {
+        let value = chunk[0];
+
+        assert_eq!(chunk.len(), 4);
+        assert!(value == 0 || value == u8::MAX);
+
+        if value == u8::MAX {
+          let x = index % width;
+          let y = index / width;
+          let byte = y * stride + x / 8;
+          let bit = 7 - (x % 8);
+          data[byte] |= 1 << bit;
+        }
+      }
+
+      Cow::Owned(data)
+    } else {
+      match color_type {
+        ColorType::Grayscale => Cow::Owned(
+          self
+            .data
+            .chunks(4)
+            .map(|chunk| chunk[0])
+            .collect::<Vec<u8>>(),
+        ),
+        ColorType::GrayscaleAlpha => Cow::Owned(
+          self
+            .data
+            .chunks(4)
+            .flat_map(|chunk| [chunk[0], chunk[3]])
+            .collect::<Vec<u8>>(),
+        ),
+        ColorType::Rgb => Cow::Owned(
+          self
+            .data
+            .chunks(4)
+            .flat_map(|chunk| &chunk[0..3])
+            .copied()
+            .collect::<Vec<u8>>(),
+        ),
+        ColorType::Rgba => Cow::Borrowed(&self.data),
+        ColorType::Indexed => unreachable!(),
+      }
+    };
 
     let mut writer = encoder.write_header().context(error::PngEncode { path })?;
 
@@ -96,7 +134,7 @@ mod tests {
   #[test]
   fn color_type_reduction() {
     #[track_caller]
-    fn case(dir: &Path, data: &[u8], color_type: ColorType, expected: &[u8]) {
+    fn case(dir: &Path, data: &[u8], color_type: ColorType, bit_depth: BitDepth, expected: &[u8]) {
       let image = Image {
         data: data.into(),
         width: 2,
@@ -112,6 +150,7 @@ mod tests {
       let mut buffer = vec![0; reader.output_buffer_size().unwrap()];
       let info = reader.next_frame(&mut buffer).unwrap();
       assert_eq!(info.color_type, color_type);
+      assert_eq!(info.bit_depth, bit_depth);
       let bytes = &buffer[..info.buffer_size()];
       assert_eq!(bytes, expected);
     }
@@ -122,13 +161,23 @@ mod tests {
       tempdir.path(),
       &[0, 0, 0, 255, 255, 255, 255, 255],
       ColorType::Grayscale,
-      &[0, 255],
+      BitDepth::One,
+      &[0b0100_0000],
+    );
+
+    case(
+      tempdir.path(),
+      &[0, 0, 0, 255, 127, 127, 127, 255],
+      ColorType::Grayscale,
+      BitDepth::Eight,
+      &[0, 127],
     );
 
     case(
       tempdir.path(),
       &[0, 0, 0, 255, 255, 255, 255, 127],
       ColorType::GrayscaleAlpha,
+      BitDepth::Eight,
       &[0, 255, 255, 127],
     );
 
@@ -136,6 +185,7 @@ mod tests {
       tempdir.path(),
       &[0, 0, 0, 255, 0, 127, 255, 255],
       ColorType::Rgb,
+      BitDepth::Eight,
       &[0, 0, 0, 0, 127, 255],
     );
 
@@ -143,6 +193,7 @@ mod tests {
       tempdir.path(),
       &[0, 0, 0, 255, 0, 127, 255, 127],
       ColorType::Rgba,
+      BitDepth::Eight,
       &[0, 0, 0, 255, 0, 127, 255, 127],
     );
   }

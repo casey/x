@@ -37,6 +37,8 @@ pub(crate) struct Options {
   #[arg(long)]
   pub(crate) song: Option<String>,
   #[arg(long)]
+  pub(crate) status: bool,
+  #[arg(long)]
   pub(crate) tile: bool,
   #[arg(long)]
   pub(crate) track: Option<PathBuf>,
