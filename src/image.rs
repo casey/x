@@ -68,7 +68,7 @@ impl Image {
       let width = self.width.into_usize();
       let height = self.height.into_usize();
       let stride = width.div_ceil(8);
-      let mut packed = vec![0; stride * height];
+      let mut data = vec![0; stride * height];
 
       for (index, chunk) in self.data.chunks(4).enumerate() {
         let value = chunk[0];
@@ -81,11 +81,11 @@ impl Image {
           let y = index / width;
           let byte = y * stride + x / 8;
           let bit = 7 - (x % 8);
-          packed[byte] |= 1 << bit;
+          data[byte] |= 1 << bit;
         }
       }
 
-      Cow::Owned(packed)
+      Cow::Owned(data)
     } else {
       match color_type {
         ColorType::Grayscale => Cow::Owned(
