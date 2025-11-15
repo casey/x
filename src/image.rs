@@ -1,6 +1,6 @@
 use {
   super::*,
-  png::{ColorType, Compression, Encoder},
+  png::{BitDepth, ColorType, Compression, Encoder},
 };
 
 #[derive(Default, Debug, PartialEq)]
@@ -56,8 +56,34 @@ impl Image {
       (true, true) => ColorType::Rgba,
     };
 
-    let data = if !continuous {
-      todo!()
+    let mut encoder = Encoder::new(writer, self.width, self.height);
+    encoder.set_color(color_type);
+    encoder.set_compression(Compression::High);
+
+    let data = if !continuous && !alpha {
+      assert!(!color);
+      assert_eq!(color_type, ColorType::Grayscale);
+      encoder.set_depth(BitDepth::One);
+
+      let width = usize::try_from(self.width).unwrap();
+      let height = usize::try_from(self.height).unwrap();
+      let stride = (width + 7) / 8;
+      let mut packed = vec![0_u8; stride * height];
+
+      for (index, chunk) in self.data.chunks_exact(4).enumerate() {
+        let value = chunk[0];
+        debug_assert!(value == 0 || value == u8::MAX);
+
+        if value == u8::MAX {
+          let x = index % width;
+          let y = index / width;
+          let byte_index = y * stride + x / 8;
+          let bit_index = 7 - (x % 8);
+          packed[byte_index] |= 1 << bit_index;
+        }
+      }
+
+      Cow::Owned(packed)
     } else {
       match color_type {
         ColorType::Grayscale => Cow::Owned(
@@ -87,10 +113,6 @@ impl Image {
       }
     };
 
-    let mut encoder = Encoder::new(writer, self.width, self.height);
-    encoder.set_color(color_type);
-    encoder.set_compression(Compression::High);
-
     let mut writer = encoder.write_header().context(error::PngEncode { path })?;
 
     writer
@@ -110,7 +132,7 @@ mod tests {
   #[test]
   fn color_type_reduction() {
     #[track_caller]
-    fn case(dir: &Path, data: &[u8], color_type: ColorType, expected: &[u8]) {
+    fn case(dir: &Path, data: &[u8], color_type: ColorType, bit_depth: BitDepth, expected: &[u8]) {
       let image = Image {
         data: data.into(),
         width: 2,
@@ -126,6 +148,7 @@ mod tests {
       let mut buffer = vec![0; reader.output_buffer_size().unwrap()];
       let info = reader.next_frame(&mut buffer).unwrap();
       assert_eq!(info.color_type, color_type);
+      assert_eq!(info.bit_depth, bit_depth);
       let bytes = &buffer[..info.buffer_size()];
       assert_eq!(bytes, expected);
     }
@@ -134,8 +157,17 @@ mod tests {
 
     case(
       tempdir.path(),
+      &[0, 0, 0, 255, 255, 255, 255, 255],
+      ColorType::Grayscale,
+      BitDepth::One,
+      &[0b0100_0000],
+    );
+
+    case(
+      tempdir.path(),
       &[0, 0, 0, 255, 127, 127, 127, 255],
       ColorType::Grayscale,
+      BitDepth::Eight,
       &[0, 127],
     );
 
@@ -143,6 +175,7 @@ mod tests {
       tempdir.path(),
       &[0, 0, 0, 255, 255, 255, 255, 127],
       ColorType::GrayscaleAlpha,
+      BitDepth::Eight,
       &[0, 255, 255, 127],
     );
 
@@ -150,6 +183,7 @@ mod tests {
       tempdir.path(),
       &[0, 0, 0, 255, 0, 127, 255, 255],
       ColorType::Rgb,
+      BitDepth::Eight,
       &[0, 0, 0, 0, 127, 255],
     );
 
@@ -157,6 +191,7 @@ mod tests {
       tempdir.path(),
       &[0, 0, 0, 255, 0, 127, 255, 127],
       ColorType::Rgba,
+      BitDepth::Eight,
       &[0, 0, 0, 255, 0, 127, 255, 127],
     );
   }
